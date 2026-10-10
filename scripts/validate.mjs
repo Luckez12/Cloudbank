@@ -85,6 +85,10 @@ for (const scraper of manifest.scrapers) {
   if (fs.lstatSync(providerPath).isSymbolicLink()) fail(`Provider cannot be a symlink: ${scraper.filename}`);
   const source = fs.readFileSync(providerPath, 'utf8');
 
+  if (!source.includes('CLOUDBANK_STREAM_DISPLAY_V1') || !source.includes('module.exports = cloudbankDisplayInstall(module.exports,')) {
+    fail(`${scraper.filename} is missing the common stream display formatter`);
+  }
+
   if (!source.includes('VUEO_TITLE_PROFILE_V1')) {
     fail(`${scraper.filename} is missing the repo-wide TMDB title profile marker`);
   }
