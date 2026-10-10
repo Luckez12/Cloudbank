@@ -9,5 +9,9 @@
   },
   "engines": {
     "node": ">=20"
+  },
+  "devDependencies": {
+    "cheerio-without-node-native": "1.0.0-rc.2",
+    "crypto-js": "4.2.0"
   }
 }

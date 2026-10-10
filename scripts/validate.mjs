@@ -1,6 +1,9 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import vm from 'node:vm';
+import { createRequire } from 'node:module';
+const nodeRequire = createRequire(import.meta.url);
+const runtimeModules = new Set(['cheerio-without-node-native', 'crypto-js']);
 
 const root = process.cwd();
 const fail = message => {
@@ -167,7 +170,10 @@ for (const scraper of manifest.scrapers) {
   const sandbox = {
     module: moduleObject,
     exports: moduleObject.exports,
-    require: () => ({}),
+    require: name => {
+      if (!runtimeModules.has(name)) throw new Error(`Unsupported embedded runtime module: ${name}`);
+      return nodeRequire(name);
+    },
     console,
     Promise,
     URL,

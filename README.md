@@ -20,7 +20,7 @@ module.exports = { getStreams: getStreams };
 Streams use `name`, `title`, `url`, `quality`, optional playback `headers`, and optional `subtitles`.
 
 Providers are distributed individually. Their CommonJS code runs in the consuming app, despite the repository's Node tooling using ES modules.
-Cheerio, crypto support and `webviewResolve()` are app runtime capabilities; `npm ci` does not install them here. CineMode needs native `webviewResolve()`.
+Cheerio, crypto support and `webviewResolve()` are app runtime capabilities; `npm ci` installs test copies for validation but does not inject them into the consuming app. CineMode needs native `webviewResolve()`.
 
 ## Add a provider
 
@@ -41,3 +41,7 @@ A root-level `providers/` folder remains intact. Unsafe paths, links and ambiguo
 The workflow uses only ZIP files added/modified by a push. For manual execution, select `zip_file` when more than one ZIP is present. It validates and tests the applied repository before committing. It does not dispatch an unrelated app build.
 
 For the initial repair, update the workflow and its helper together before relying on the repaired ZIP automation; an uploaded patch is first handled by the workflow currently on GitHub.
+
+## Provider collection
+
+Cloudbank includes 70 providers: its original eight plus 62 additional providers from All-in-One-Nuvio. The four overlapping providers retain Cloudbank implementations. See [import attribution and runtime limits](docs/UPSTREAM.md) and the pinned source hashes in [upstream-import.json](docs/upstream-import.json). Imported providers remain enabled as in their source manifest; module loading and adapter tests are offline checks, not playback certification.

@@ -2,13 +2,18 @@ import fs from 'node:fs';
 import vm from 'node:vm';
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { createRequire } from 'node:module';
+const nodeRequire = createRequire(import.meta.url);
 
 const files = fs.readdirSync('providers').filter(name => name.endsWith('.js'));
 for (const file of files) {
   test(`${file}: shared metadata bridge and local fallback`, async () => {
-    const sandbox = { module: { exports: {} }, require: () => ({}),
+    const sandbox = { module: { exports: {} }, require: name => {
+      if (!['crypto-js', 'cheerio-without-node-native'].includes(name)) throw new Error(`Unsupported runtime module: ${name}`);
+      return nodeRequire(name);
+    },
       console: { log() {}, error() {} }, Promise, URL, URLSearchParams,
-      setTimeout, clearTimeout, Buffer, atob, btoa };
+      setTimeout, clearTimeout, Buffer, atob, btoa, fetch: () => { throw new Error("Network disabled in offline tests"); } };
     sandbox.global = sandbox;
     sandbox.globalThis = sandbox;
     vm.createContext(sandbox);
