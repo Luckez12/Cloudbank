@@ -27,54 +27,63 @@ function vueoContextFromRaw(raw) {
 }
 
 function vueoSharedTmdb(url, fallback) {
-  function normalize(context) {
-    var ctx = vueoContextFromRaw(context);
-    if (!ctx || ctx.error) return null;
-    var tmdb = ctx.tmdb && typeof ctx.tmdb === "object" ? ctx.tmdb : null;
-    if (!tmdb) {
+  function trace(stage, details) {
+    try {
+      if (typeof globalThis !== "undefined" && typeof globalThis.vueoTrace === "function") {
+        globalThis.vueoTrace(stage, details);
+      }
+    } catch (_) {}
+  }
+  function normalize(raw) {
+    if (typeof raw === "string") {
+      try { raw = JSON.parse(raw); } catch (_) { return null; }
+    }
+    if (!raw || typeof raw !== "object" || raw.error) return null;
+    var tmdb = raw.tmdb;
+    if (!tmdb || typeof tmdb !== "object") {
+      if (!raw.title || (raw.mediaType !== "movie" && raw.mediaType !== "tv")) return null;
+      var alternatives = Array.isArray(raw.aliases) ? raw.aliases.map(function(alias) {
+        return { title: String(alias), iso_3166_1: "" };
+      }) : [];
       tmdb = {
-        id: ctx.tmdbId,
-        title: ctx.mediaType === "movie" ? ctx.title : undefined,
-        name: ctx.mediaType === "tv" ? ctx.title : undefined,
-        original_title: ctx.mediaType === "movie" ? (ctx.originalTitle || ctx.title) : undefined,
-        original_name: ctx.mediaType === "tv" ? (ctx.originalTitle || ctx.title) : undefined,
-        release_date: ctx.mediaType === "movie" && ctx.year ? String(ctx.year) + "-01-01" : "",
-        first_air_date: ctx.mediaType === "tv" && ctx.year ? String(ctx.year) + "-01-01" : "",
-        external_ids: { imdb_id: ctx.imdbId || "" }
+        id: raw.tmdbId,
+        title: raw.mediaType === "movie" ? raw.title : undefined,
+        name: raw.mediaType === "tv" ? raw.title : undefined,
+        original_title: raw.mediaType === "movie" ? (raw.originalTitle || raw.title) : undefined,
+        original_name: raw.mediaType === "tv" ? (raw.originalTitle || raw.title) : undefined,
+        release_date: raw.mediaType === "movie" && raw.year ? String(raw.year) + "-01-01" : "",
+        first_air_date: raw.mediaType === "tv" && raw.year ? String(raw.year) + "-01-01" : "",
+        external_ids: { imdb_id: raw.imdbId || "" },
+        alternative_titles: { titles: alternatives, results: alternatives }
       };
     }
-    vueoTrace("METADATA", {
-      shared: true,
-      title: ctx.title || tmdb.title || tmdb.name || "",
-      year: ctx.year || "",
-      imdbId: ctx.imdbId || "",
-      aliases: ctx.aliases && ctx.aliases.length ? ctx.aliases.length : 0
-    });
+    if (!tmdb.title && !tmdb.name) return null;
+    trace("METADATA", { shared: true, title: raw.title || tmdb.title || tmdb.name || "",
+      year: raw.year || "", imdbId: raw.imdbId || "",
+      aliases: Array.isArray(raw.aliases) ? raw.aliases.length : 0 });
     return tmdb;
   }
-
+  function local() {
+    trace("METADATA_FALLBACK", { shared: false });
+    return Promise.resolve().then(fallback);
+  }
   try {
     if (typeof globalThis !== "undefined") {
       var direct = normalize(globalThis.VUEO_DISCOVERY_CONTEXT);
       if (direct) return Promise.resolve(direct);
       if (typeof globalThis.vueoDiscoveryContext === "function") {
-        return Promise.resolve(globalThis.vueoDiscoveryContext(url))
-          .then(function(raw) {
-            var shared = normalize(raw);
-            if (shared) return shared;
-            throw new Error("shared context unavailable");
-          })
-          .catch(function() {
-            vueoTrace("METADATA_FALLBACK", { shared: false });
-            return fallback();
-          });
+        return Promise.resolve().then(function() {
+          return globalThis.vueoDiscoveryContext(url);
+        }).then(function(raw) {
+          var shared = normalize(raw);
+          return shared || local();
+        }, local);
       }
     }
   } catch (_) {}
-
-  vueoTrace("METADATA_FALLBACK", { shared: false });
-  return fallback();
+  return local();
 }
+
 
 
 // Constants

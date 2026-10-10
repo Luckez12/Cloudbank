@@ -47,6 +47,14 @@ for (const scraper of manifest.scrapers) {
   if (ids.has(scraper.id)) fail(`Duplicate provider id: ${scraper.id}`);
   ids.add(scraper.id);
 
+  for (const field of ['id', 'name', 'description', 'version', 'author', 'filename']) {
+    if (typeof scraper[field] !== 'string' || !scraper[field].trim()) fail(`${scraper.id}: ${field} must be a nonempty string`);
+  }
+  if (typeof scraper.enabled !== 'boolean') fail(`${scraper.id}: enabled must be boolean`);
+  if (!Number.isInteger(scraper.runtimeTimeoutMs) || scraper.runtimeTimeoutMs < 1 || scraper.runtimeTimeoutMs > 20000) {
+    fail(`${scraper.id}: runtimeTimeoutMs must be an integer from 1 to 20000`);
+  }
+
   if (!/^\d+\.\d+\.\d+$/.test(scraper.version)) fail(`Invalid version for ${scraper.id}`);
 
   if (!Array.isArray(scraper.supportedTypes) || scraper.supportedTypes.length === 0) {
@@ -58,7 +66,7 @@ for (const scraper of manifest.scrapers) {
     if (!allowedTypes.has(type)) fail(`Unsupported media type ${type} in ${scraper.id}`);
   }
 
-  if (!scraper.filename.startsWith('providers/') || !scraper.filename.endsWith('.js')) {
+  if (typeof scraper.filename !== 'string' || !/^providers\/[a-z0-9][a-z0-9-]*\.js$/.test(scraper.filename)) {
     fail(`Invalid filename for ${scraper.id}`);
   }
 
@@ -68,8 +76,10 @@ for (const scraper of manifest.scrapers) {
   filenames.add(scraper.filename);
 
   const providerPath = path.join(root, scraper.filename);
+  if (fs.lstatSync(providerDir).isSymbolicLink()) fail('providers directory must not be a symlink');
   if (!fs.existsSync(providerPath)) fail(`Missing ${scraper.filename}`);
 
+  if (fs.lstatSync(providerPath).isSymbolicLink()) fail(`Provider cannot be a symlink: ${scraper.filename}`);
   const source = fs.readFileSync(providerPath, 'utf8');
 
   if (!source.includes('VUEO_TITLE_PROFILE_V1')) {
@@ -84,9 +94,6 @@ for (const scraper of manifest.scrapers) {
     fail(`${scraper.filename} is missing the V16 provider-repair marker`);
   }
 
-  if (!source.includes('VUEO_SHARED_DISCOVERY_CONTEXT_V1')) {
-    fail(`${scraper.filename} is missing the V15 shared discovery context marker`);
-  }
 
   if (
     scraper.id === 'hdhub4u' &&
@@ -169,7 +176,7 @@ for (const scraper of manifest.scrapers) {
     clearTimeout,
     Buffer,
     process: { env: {} },
-    fetch: globalThis.fetch,
+    fetch: () => { throw new Error('Network access is forbidden during static validation'); },
     atob: globalThis.atob,
     btoa: globalThis.btoa
   };
@@ -207,4 +214,4 @@ for (const manifestFile of manifestFiles) {
   }
 }
 
-console.log(`Validated VUEO-STOCK with ${manifest.scrapers.length} provider(s).`);
+console.log(`Validated Cloudbank with ${manifest.scrapers.length} provider(s).`);

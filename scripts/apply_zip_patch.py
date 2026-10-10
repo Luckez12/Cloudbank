@@ -1,0 +1,119 @@
+"""Select and safely apply one repository-relative ZIP patch."""
+import argparse
+import json
+import os
+from pathlib import Path, PurePosixPath
+import shutil
+import stat
+import subprocess
+import tempfile
+import zipfile
+
+
+def select_zip(root, explicit='', event=None):
+    if explicit:
+        candidates = [explicit]
+    elif event and os.environ.get('GITHUB_EVENT_NAME') == 'push':
+        before = event.get('before', '')
+        args = ['git', 'diff', '--name-only', '--diff-filter=AM', '-z', before, 'HEAD']
+        if not before or set(before) == {'0'}:
+            args = ['git', 'ls-tree', '-r', '--name-only', '-z', 'HEAD']
+        names = subprocess.check_output(args, cwd=root).decode().split('\0')
+        candidates = [name for name in names if name.lower().endswith('.zip') and (root / name).is_file()]
+    else:
+        candidates = [str(p.relative_to(root)) for p in root.rglob('*')
+                      if p.suffix.lower() == '.zip' and '.git' not in p.relative_to(root).parts]
+    if not candidates:
+        return None
+    if len(candidates) != 1:
+        raise ValueError('More than one ZIP found; select one using the zip_file workflow input.')
+    relative = PurePosixPath(candidates[0])
+    if relative.is_absolute() or '..' in relative.parts or '.git' in relative.parts:
+        raise ValueError('ZIP path must be relative to the repository.')
+    candidate = root / relative
+    if not candidate.is_file() or candidate.is_symlink() or not candidate.resolve().is_relative_to(root.resolve()):
+        raise ValueError('ZIP file is missing or outside the repository.')
+    return candidate
+
+
+def apply_zip(archive_path, root):
+    with tempfile.TemporaryDirectory() as temp, zipfile.ZipFile(archive_path) as archive:
+        entries = archive.infolist()
+        if not entries:
+            raise ValueError('ZIP is empty.')
+        paths = []
+        for entry in entries:
+            raw = entry.filename
+            p = PurePosixPath(raw)
+            mode = entry.external_attr >> 16
+            if '\\' in raw or p.is_absolute() or '..' in p.parts or '.git' in p.parts or not p.parts:
+                raise ValueError('Unsafe ZIP path: ' + raw)
+            if stat.S_ISLNK(mode) or (stat.S_IFMT(mode) not in (0, stat.S_IFREG, stat.S_IFDIR)):
+                raise ValueError('ZIP links and special files are not supported: ' + raw)
+            paths.append(p)
+        if len({str(p) for p in paths}) != len(paths):
+            raise ValueError('ZIP contains duplicate paths.')
+        archive.extractall(temp)
+        source = Path(temp)
+        top = list(source.iterdir())
+        if len(top) == 1 and top[0].is_dir():
+            wrapper = top[0]
+            # A root-level providers-only patch must remain under providers/.
+            if wrapper.name not in ('providers', 'scripts', 'tests', '.github') and (
+                (wrapper / 'manifest.json').is_file() or (wrapper / 'package.json').is_file()
+                or (wrapper / 'providers').is_dir() or (wrapper / '.github').is_dir()
+            ):
+                source = wrapper
+        files = [p for p in source.rglob('*') if p.is_file()]
+        if not files:
+            raise ValueError('ZIP contains no files.')
+        # Check every target before writing any file.
+        for p in files:
+            destination = root / p.relative_to(source)
+            if '.git' in destination.relative_to(root).parts:
+                raise ValueError('ZIP cannot modify .git.')
+            if destination == archive_path:
+                raise ValueError('ZIP cannot overwrite itself.')
+            if not destination.resolve().is_relative_to(root.resolve()):
+                raise ValueError('Destination escapes repository: ' + str(destination))
+            for parent in [destination, *destination.parents]:
+                if parent == root:
+                    break
+                if parent.is_symlink():
+                    raise ValueError('Destination contains a symlink: ' + str(parent))
+                if parent != destination and parent.exists() and not parent.is_dir():
+                    raise ValueError('Destination parent is not a directory: ' + str(parent))
+            if destination.exists() and not destination.is_file():
+                raise ValueError('Destination is not a file: ' + str(destination))
+        for p in files:
+            destination = root / p.relative_to(source)
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(p, destination)
+        return len(files)
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--zip-file', default='')
+    args = parser.parse_args()
+    root = Path.cwd()
+    event_path = os.environ.get('GITHUB_EVENT_PATH')
+    event = json.loads(Path(event_path).read_text()) if event_path else None
+    patch = select_zip(root, args.zip_file, event)
+    output = os.environ.get('GITHUB_OUTPUT')
+    if patch is None:
+        print('No new ZIP patch found.')
+        if output:
+            with open(output, 'a') as f:
+                f.write('found=false\n')
+        return
+    count = apply_zip(patch, root)
+    patch.unlink()
+    print(f'Applied {count} files.')
+    if output:
+        with open(output, 'a') as f:
+            f.write('found=true\n')
+
+
+if __name__ == '__main__':
+    main()
