@@ -44,4 +44,8 @@ For the initial repair, update the workflow and its helper together before relyi
 
 ## Provider collection
 
-Cloudbank includes 74 providers: its original eight, 62 additional providers from All-in-One-Nuvio, and four independent V2 variants. The original Cloudbank implementations remain intact; 4KHDHub V2, HDHub4u V2, MovieBox V2 and KissKH V2 use upstream implementations with separate IDs. Future overlapping imports receive V3, V4 and so on. See [import attribution and runtime limits](docs/UPSTREAM.md) and the pinned source hashes in [upstream-import.json](docs/upstream-import.json). Imported providers remain enabled as in their source manifest; module loading and adapter tests are offline checks, not playback certification.
+The first collection contains 74 providers: its original eight, 62 additional providers from All-in-One-Nuvio, and four independent V2 variants. The original Cloudbank implementations remain intact; 4KHDHub V2, HDHub4u V2, MovieBox V2 and KissKH V2 use upstream implementations with separate IDs. Future overlapping imports receive V3, V4 and so on. See [import attribution and runtime limits](docs/UPSTREAM.md) and the pinned source hashes in [upstream-import.json](docs/upstream-import.json). Imported providers remain enabled as in their source manifest; module loading and adapter tests are offline checks, not playback certification.
+
+## Yoruix collection
+
+The combined collection now has 103 providers. Yoruix main adds eight new providers and 21 independent variants without replacing any of the previous 74. Variant numbers continue V2, V3 etc. VidEasy V2 remains disabled as configured upstream. See [Yoruix attribution and compatibility notes](docs/YORUIX.md).

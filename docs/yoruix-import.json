@@ -1,0 +1,340 @@
+{
+  "repository": "https://github.com/yoruix/nuvio-providers",
+  "branch": "main",
+  "commit": "ed38d1aee0024f56479369c9423fefb278e0b62a",
+  "upstreamProviders": 29,
+  "newProviderIds": 8,
+  "independentVariants": 21,
+  "combinedProviders": 103,
+  "providers": [
+    {
+      "id": "4khdhub-v3",
+      "sourceId": "4khdhub",
+      "sourceFilename": "providers/4khdhub.js",
+      "sourceSha256": "65e7dabe9629f1185c046e156941f6cf05312e9c52996c70c24a6b6ddc075a9c",
+      "action": "imported",
+      "filename": "providers/4khdhub-v3.js",
+      "runtimeModules": [
+        "cheerio-without-node-native"
+      ],
+      "enabled": true
+    },
+    {
+      "id": "animepahe-v2",
+      "sourceId": "animepahe",
+      "sourceFilename": "providers/animepahe.js",
+      "sourceSha256": "3b567b1e8e83d64777b617ee9323f411dab1474c700864058c4444e4f52cf842",
+      "action": "imported",
+      "filename": "providers/animepahe-v2.js",
+      "runtimeModules": [
+        "cheerio-without-node-native"
+      ],
+      "enabled": true
+    },
+    {
+      "id": "uhdmovies-v2",
+      "sourceId": "uhdmovies",
+      "sourceFilename": "providers/uhdmovies.js",
+      "sourceSha256": "910588acb9a44abb569391dc61643aead09fef349f00887740bb9fa5889bd36e",
+      "action": "imported",
+      "filename": "providers/uhdmovies-v2.js",
+      "runtimeModules": [
+        "cheerio-without-node-native"
+      ],
+      "enabled": true
+    },
+    {
+      "id": "moviesmod-v2",
+      "sourceId": "moviesmod",
+      "sourceFilename": "providers/moviesmod.js",
+      "sourceSha256": "98aeea26aa4511affc468b897dc050ca1d481684fcf712693fb8b1928f7135f8",
+      "action": "imported",
+      "filename": "providers/moviesmod-v2.js",
+      "runtimeModules": [
+        "cheerio-without-node-native"
+      ],
+      "enabled": true
+    },
+    {
+      "id": "dahmermovies-v2",
+      "sourceId": "dahmermovies",
+      "sourceFilename": "providers/dahmermovies.js",
+      "sourceSha256": "469a6a06dc8af06013adc7ad966e0082429ad776d4f0dba4e57ec815e3e88bb5",
+      "action": "imported",
+      "filename": "providers/dahmermovies-v2.js",
+      "runtimeModules": [],
+      "enabled": true
+    },
+    {
+      "id": "netmirror-v2",
+      "sourceId": "netmirror",
+      "sourceFilename": "providers/netmirror.js",
+      "sourceSha256": "30c207564c1b85bc0fd01bfc9a4741727593c535b9b13c2702b2c0453326b8f8",
+      "action": "imported",
+      "filename": "providers/netmirror-v2.js",
+      "runtimeModules": [],
+      "enabled": true
+    },
+    {
+      "id": "streamflix",
+      "sourceId": "streamflix",
+      "sourceFilename": "providers/streamflix.js",
+      "sourceSha256": "a9e7deb56fd5b3c93458e01fe7d32a764ee1defe3e88759dcb68f448006ded31",
+      "action": "imported",
+      "filename": "providers/streamflix.js",
+      "runtimeModules": [
+        "cheerio-without-node-native"
+      ],
+      "enabled": true
+    },
+    {
+      "id": "moviebox-v3",
+      "sourceId": "moviebox",
+      "sourceFilename": "providers/moviebox.js",
+      "sourceSha256": "5b3d2c649dc4b5c223e70dd0e0d74fb544f15f99019864d44502dded2c6928d4",
+      "action": "imported",
+      "filename": "providers/moviebox-v3.js",
+      "runtimeModules": [
+        "crypto-js"
+      ],
+      "enabled": true
+    },
+    {
+      "id": "vixsrc-v2",
+      "sourceId": "vixsrc",
+      "sourceFilename": "providers/vixsrc.js",
+      "sourceSha256": "c91c43aedb5b489c07a030766fd22550cf8773fce6845f21f4a20c7398efeb94",
+      "action": "imported",
+      "filename": "providers/vixsrc-v2.js",
+      "runtimeModules": [],
+      "enabled": true
+    },
+    {
+      "id": "dvdplay",
+      "sourceId": "dvdplay",
+      "sourceFilename": "providers/dvdplay.js",
+      "sourceSha256": "d67399b8f3d221dea530132cbaafc95777469e1f12fed665b7c2d90f5823e195",
+      "action": "imported",
+      "filename": "providers/dvdplay.js",
+      "runtimeModules": [
+        "cheerio-without-node-native"
+      ],
+      "enabled": true
+    },
+    {
+      "id": "yflix",
+      "sourceId": "yflix",
+      "sourceFilename": "providers/yflix.js",
+      "sourceSha256": "ca1223b5ee78c12b0cbca6f208e977a14ab78d699893f6225aac04f8b60f8a94",
+      "action": "imported",
+      "filename": "providers/yflix.js",
+      "runtimeModules": [],
+      "enabled": true
+    },
+    {
+      "id": "videasy-v2",
+      "sourceId": "videasy",
+      "sourceFilename": "providers/videasy.js",
+      "sourceSha256": "3e554771641bd6208cd763c6ee6aa12a06ad858a52d7430cd43571fa9cde068d",
+      "action": "imported",
+      "filename": "providers/videasy-v2.js",
+      "runtimeModules": [],
+      "enabled": false
+    },
+    {
+      "id": "mallumv",
+      "sourceId": "mallumv",
+      "sourceFilename": "providers/mallumv.js",
+      "sourceSha256": "bd2eb51b581fbc1ff781565964f2b0c6246dec4f80f8033e251b00910ecf6677",
+      "action": "imported",
+      "filename": "providers/mallumv.js",
+      "runtimeModules": [
+        "cheerio-without-node-native"
+      ],
+      "enabled": true
+    },
+    {
+      "id": "vidlink-v2",
+      "sourceId": "vidlink",
+      "sourceFilename": "providers/vidlink.js",
+      "sourceSha256": "00389aa68899e4924186a24741e3b0a00cebb12486bf3e91fda6ff47311ae8ea",
+      "action": "imported",
+      "filename": "providers/vidlink-v2.js",
+      "runtimeModules": [],
+      "enabled": true
+    },
+    {
+      "id": "vidnest",
+      "sourceId": "vidnest",
+      "sourceFilename": "providers/vidnest.js",
+      "sourceSha256": "25135c174b05435d6dc8fe5216eb78b836150646ed15a7da65e8e85d70bd1c98",
+      "action": "imported",
+      "filename": "providers/vidnest.js",
+      "runtimeModules": [],
+      "enabled": true
+    },
+    {
+      "id": "vidnest-anime",
+      "sourceId": "vidnest-anime",
+      "sourceFilename": "providers/vidnest-anime.js",
+      "sourceSha256": "7613343c5da60daeafe3be8882b3a7636c0ff4db3e62f22831a715f0d01e7b27",
+      "action": "imported",
+      "filename": "providers/vidnest-anime.js",
+      "runtimeModules": [],
+      "enabled": true
+    },
+    {
+      "id": "cinevibe",
+      "sourceId": "cinevibe",
+      "sourceFilename": "providers/cinevibe.js",
+      "sourceSha256": "e1549e3093c7b378c12ea2227c07090f6a50376e139979446e2a96f27e3e119a",
+      "action": "imported",
+      "filename": "providers/cinevibe.js",
+      "runtimeModules": [],
+      "enabled": true
+    },
+    {
+      "id": "cinemacity-v2",
+      "sourceId": "cinemacity",
+      "sourceFilename": "providers/cinemacity.js",
+      "sourceSha256": "e3a5ca37785b04610a23a44a509dabf134c9154a35dd91d3070f3766029b5792",
+      "action": "imported",
+      "filename": "providers/cinemacity-v2.js",
+      "runtimeModules": [
+        "cheerio-without-node-native"
+      ],
+      "enabled": true
+    },
+    {
+      "id": "castle-v2",
+      "sourceId": "castle",
+      "sourceFilename": "providers/castle.js",
+      "sourceSha256": "43c70c0cad61e4f16fe3d114a87045d6aeb71047dda1d104f31d055a129ce135",
+      "action": "imported",
+      "filename": "providers/castle-v2.js",
+      "runtimeModules": [
+        "crypto-js"
+      ],
+      "enabled": true
+    },
+    {
+      "id": "showbox-v2",
+      "sourceId": "showbox",
+      "sourceFilename": "providers/showbox.js",
+      "sourceSha256": "95a080c30f77d7dd9f7bd151d0d4f976164328cd1ce61cecad330199e91c2683",
+      "action": "imported",
+      "filename": "providers/showbox-v2.js",
+      "runtimeModules": [
+        "cheerio-without-node-native",
+        "crypto-js"
+      ],
+      "enabled": true
+    },
+    {
+      "id": "hdhub4u-v3",
+      "sourceId": "hdhub4u",
+      "sourceFilename": "providers/hdhub4u.js",
+      "sourceSha256": "9c1149723e462761700eb5f67d19271225bbf29d2c4670d60314b77361a98c21",
+      "action": "imported",
+      "filename": "providers/hdhub4u-v3.js",
+      "runtimeModules": [
+        "cheerio-without-node-native",
+        "crypto-js"
+      ],
+      "enabled": true
+    },
+    {
+      "id": "allmovieland-v2",
+      "sourceId": "allmovieland",
+      "sourceFilename": "providers/allmovieland.js",
+      "sourceSha256": "d1b156dffd03425f57e3ac042ddadf05edc56d834be0134a013abf8e54b9bf9b",
+      "action": "imported",
+      "filename": "providers/allmovieland-v2.js",
+      "runtimeModules": [
+        "cheerio-without-node-native"
+      ],
+      "enabled": true
+    },
+    {
+      "id": "dooflix-v2",
+      "sourceId": "dooflix",
+      "sourceFilename": "providers/dooflix.js",
+      "sourceSha256": "0e8ad342ffe970ea100695f521f10bdf880d869aa9228713a0848a20dc9bd412",
+      "action": "imported",
+      "filename": "providers/dooflix-v2.js",
+      "runtimeModules": [],
+      "enabled": true
+    },
+    {
+      "id": "movieblast-v2",
+      "sourceId": "movieblast",
+      "sourceFilename": "providers/movieblast.js",
+      "sourceSha256": "8fc6c9c3b021df2df2430dbd2559aece034cea02c5f0f9d4d514eebbb394584c",
+      "action": "imported",
+      "filename": "providers/movieblast-v2.js",
+      "runtimeModules": [
+        "crypto-js"
+      ],
+      "enabled": true
+    },
+    {
+      "id": "mycima",
+      "sourceId": "mycima",
+      "sourceFilename": "providers/mycima.js",
+      "sourceSha256": "d2b77225d84c2929f5a4f1c90f1de3b43f45628c70543df2451f21d7c87cc6bd",
+      "action": "imported",
+      "filename": "providers/mycima.js",
+      "runtimeModules": [
+        "cheerio-without-node-native",
+        "crypto-js"
+      ],
+      "enabled": true
+    },
+    {
+      "id": "moviesdrive-v2",
+      "sourceId": "moviesdrive",
+      "sourceFilename": "providers/moviesdrive.js",
+      "sourceSha256": "73098d13964fbeca2b19a3c80782a27b08129898b8da5a82f9b8088f37168d68",
+      "action": "imported",
+      "filename": "providers/moviesdrive-v2.js",
+      "runtimeModules": [
+        "cheerio-without-node-native"
+      ],
+      "enabled": true
+    },
+    {
+      "id": "hianime-v2",
+      "sourceId": "hianime",
+      "sourceFilename": "providers/hianime.js",
+      "sourceSha256": "d6b79c8d8e8e19d4362d33cdd8a9107e425ce1eeefb55b56f8ec8b961126e09f",
+      "action": "imported",
+      "filename": "providers/hianime-v2.js",
+      "runtimeModules": [
+        "cheerio-without-node-native"
+      ],
+      "enabled": true
+    },
+    {
+      "id": "kurage-v2",
+      "sourceId": "kurage",
+      "sourceFilename": "providers/kurage.js",
+      "sourceSha256": "87bbb1d8359caec9c7b98f22c9a88a9045c8bb1b5c0780a0e04842ab62bbabdb",
+      "action": "imported",
+      "filename": "providers/kurage-v2.js",
+      "runtimeModules": [],
+      "enabled": true
+    },
+    {
+      "id": "anizone-v2",
+      "sourceId": "anizone",
+      "sourceFilename": "providers/anizone.js",
+      "sourceSha256": "0dbdc78b24804babc29f0674da00a46e7b7915ebb5278d58790439d4ba03690b",
+      "action": "imported",
+      "filename": "providers/anizone-v2.js",
+      "runtimeModules": [
+        "cheerio-without-node-native"
+      ],
+      "enabled": true
+    }
+  ]
+}

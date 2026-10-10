@@ -1,6 +1,6 @@
 {
   "name": "Cloudbank",
-  "version": "1.18.1",
+  "version": "1.19.0",
   "scrapers": [
     {
       "id": "kisskh",
@@ -160,6 +160,41 @@
       "notes": "Independent V2 import from All-in-One-Nuvio. Original Cloudbank provider remains intact. Uses the same Cloudbank compatibility adapter as other imports. Playback is not yet verified."
     },
     {
+      "id": "hdhub4u-v3",
+      "name": "HDHub4u V3",
+      "description": "Direct links from HDHub4u with high-speed download support",
+      "version": "1.0.0",
+      "author": "Nuvio Team",
+      "supportedTypes": [
+        "movie",
+        "tv"
+      ],
+      "filename": "providers/hdhub4u-v3.js",
+      "enabled": true,
+      "formats": [
+        "mkv",
+        "mp4"
+      ],
+      "logo": "https://www.google.com/s2/favicons?domain=new6.hdhub4u.fo&sz=128",
+      "contentLanguage": [
+        "en",
+        "hin"
+      ],
+      "runtimeTimeoutMs": 20000,
+      "sourceRepository": "https://github.com/yoruix/nuvio-providers",
+      "sourceCommit": "ed38d1aee0024f56479369c9423fefb278e0b62a",
+      "upstreamVersion": "1.1.0",
+      "upstreamSupportedTypes": [
+        "movie",
+        "tv"
+      ],
+      "runtimeModules": [
+        "cheerio-without-node-native",
+        "crypto-js"
+      ],
+      "notes": "Independent Yoruix import at ed38d1aee0024f56479369c9423fefb278e0b62a. Existing provider versions remain intact. Uses the Cloudbank adapter; upstream enabled/settings/platform flags preserved. Playback is not verified."
+    },
+    {
       "id": "moviebox",
       "name": "MovieBox",
       "description": "Movie and TV streams from the current MovieBox H5 web API mirror pool",
@@ -224,6 +259,42 @@
       "notes": "Independent V2 import from All-in-One-Nuvio. Original Cloudbank provider remains intact. Uses the same Cloudbank compatibility adapter as other imports. Playback is not yet verified."
     },
     {
+      "id": "moviebox-v3",
+      "name": "MovieBox V3",
+      "description": "MovieBox streaming with multiple language support (DASH + MP4)",
+      "version": "1.0.0",
+      "author": "Nuvio Team",
+      "supportedTypes": [
+        "movie",
+        "tv"
+      ],
+      "filename": "providers/moviebox-v3.js",
+      "enabled": true,
+      "formats": [
+        "mp4",
+        "mpd"
+      ],
+      "logo": "https://moviebox.ph/favicon.ico",
+      "contentLanguage": [
+        "en",
+        "hin",
+        "tam",
+        "tel"
+      ],
+      "runtimeTimeoutMs": 20000,
+      "sourceRepository": "https://github.com/yoruix/nuvio-providers",
+      "sourceCommit": "ed38d1aee0024f56479369c9423fefb278e0b62a",
+      "upstreamVersion": "1.1.0",
+      "upstreamSupportedTypes": [
+        "movie",
+        "tv"
+      ],
+      "runtimeModules": [
+        "crypto-js"
+      ],
+      "notes": "Independent Yoruix import at ed38d1aee0024f56479369c9423fefb278e0b62a. Existing provider versions remain intact. Uses the Cloudbank adapter; upstream enabled/settings/platform flags preserved. Playback is not verified."
+    },
+    {
       "id": "4khdhub",
       "name": "4KHDHub",
       "description": "Movie and TV stream provider",
@@ -281,6 +352,38 @@
         "cheerio-without-node-native"
       ],
       "notes": "Independent V2 import from All-in-One-Nuvio. Original Cloudbank provider remains intact. Uses the same Cloudbank compatibility adapter as other imports. Playback is not yet verified."
+    },
+    {
+      "id": "4khdhub-v3",
+      "name": "4KHDHub V3",
+      "description": "4KHDHub direct links",
+      "version": "1.0.0",
+      "author": "Nuvio Team",
+      "supportedTypes": [
+        "movie",
+        "tv"
+      ],
+      "filename": "providers/4khdhub-v3.js",
+      "enabled": true,
+      "formats": [
+        "mkv"
+      ],
+      "logo": "https://www.google.com/s2/favicons?domain=4khdhub.click&sz=128",
+      "contentLanguage": [
+        "en"
+      ],
+      "runtimeTimeoutMs": 20000,
+      "sourceRepository": "https://github.com/yoruix/nuvio-providers",
+      "sourceCommit": "ed38d1aee0024f56479369c9423fefb278e0b62a",
+      "upstreamVersion": "1.0.2",
+      "upstreamSupportedTypes": [
+        "movie",
+        "tv"
+      ],
+      "runtimeModules": [
+        "cheerio-without-node-native"
+      ],
+      "notes": "Independent Yoruix import at ed38d1aee0024f56479369c9423fefb278e0b62a. Existing provider versions remain intact. Uses the Cloudbank adapter; upstream enabled/settings/platform flags preserved. Playback is not verified."
     },
     {
       "id": "pencurimovie",
@@ -539,6 +642,38 @@
       ]
     },
     {
+      "id": "anizone-v2",
+      "name": "AniZone V2",
+      "description": "AniZone high-quality anime streaming with multi-audio and soft subtitles",
+      "version": "1.0.0",
+      "author": "Nuvio Team",
+      "supportedTypes": [
+        "movie",
+        "tv"
+      ],
+      "filename": "providers/anizone-v2.js",
+      "enabled": true,
+      "formats": [
+        "m3u8"
+      ],
+      "logo": "https://anizone.to/favicon.ico",
+      "contentLanguage": [
+        "en"
+      ],
+      "runtimeTimeoutMs": 20000,
+      "sourceRepository": "https://github.com/yoruix/nuvio-providers",
+      "sourceCommit": "ed38d1aee0024f56479369c9423fefb278e0b62a",
+      "upstreamVersion": "1.0.0",
+      "upstreamSupportedTypes": [
+        "movie",
+        "tv"
+      ],
+      "runtimeModules": [
+        "cheerio-without-node-native"
+      ],
+      "notes": "Independent Yoruix import at ed38d1aee0024f56479369c9423fefb278e0b62a. Existing provider versions remain intact. Uses the Cloudbank adapter; upstream enabled/settings/platform flags preserved. Playback is not verified."
+    },
+    {
       "id": "anikototv",
       "name": "AnikotoTV",
       "description": "Anime provider for AnikotoTV.to via Mapper API + Native Extractor",
@@ -641,6 +776,39 @@
       "runtimeModules": [
         "cheerio-without-node-native"
       ]
+    },
+    {
+      "id": "animepahe-v2",
+      "name": "AnimePahe V2",
+      "description": "AnimePahe (Sub/Dub)",
+      "version": "1.0.0",
+      "author": "Nuvio Team",
+      "supportedTypes": [
+        "movie",
+        "tv"
+      ],
+      "filename": "providers/animepahe-v2.js",
+      "enabled": true,
+      "hasSettings": true,
+      "formats": [
+        "m3u8"
+      ],
+      "logo": "https://www.google.com/s2/favicons?domain=animepahe.ru&sz=128",
+      "contentLanguage": [
+        "en"
+      ],
+      "runtimeTimeoutMs": 20000,
+      "sourceRepository": "https://github.com/yoruix/nuvio-providers",
+      "sourceCommit": "ed38d1aee0024f56479369c9423fefb278e0b62a",
+      "upstreamVersion": "1.0.1",
+      "upstreamSupportedTypes": [
+        "movie",
+        "tv"
+      ],
+      "runtimeModules": [
+        "cheerio-without-node-native"
+      ],
+      "notes": "Independent Yoruix import at ed38d1aee0024f56479369c9423fefb278e0b62a. Existing provider versions remain intact. Uses the Cloudbank adapter; upstream enabled/settings/platform flags preserved. Playback is not verified."
     },
     {
       "id": "animesalt",
@@ -850,6 +1018,41 @@
       ]
     },
     {
+      "id": "allmovieland-v2",
+      "name": "AllMovieLand V2",
+      "description": "AllMovieLand streaming provider with multi-language support",
+      "version": "1.0.0",
+      "author": "Nuvio Team",
+      "supportedTypes": [
+        "movie",
+        "tv"
+      ],
+      "filename": "providers/allmovieland-v2.js",
+      "enabled": true,
+      "formats": [
+        "m3u8"
+      ],
+      "logo": "https://www.google.com/s2/favicons?domain=allmovieland.one&sz=128",
+      "contentLanguage": [
+        "en",
+        "hi",
+        "ta",
+        "te"
+      ],
+      "runtimeTimeoutMs": 20000,
+      "sourceRepository": "https://github.com/yoruix/nuvio-providers",
+      "sourceCommit": "ed38d1aee0024f56479369c9423fefb278e0b62a",
+      "upstreamVersion": "1.0.0",
+      "upstreamSupportedTypes": [
+        "movie",
+        "tv"
+      ],
+      "runtimeModules": [
+        "cheerio-without-node-native"
+      ],
+      "notes": "Independent Yoruix import at ed38d1aee0024f56479369c9423fefb278e0b62a. Existing provider versions remain intact. Uses the Cloudbank adapter; upstream enabled/settings/platform flags preserved. Playback is not verified."
+    },
+    {
       "id": "animezey",
       "name": "AnimeZeY",
       "description": "Movies via AnimeZeY, indexed by TMDB",
@@ -948,6 +1151,44 @@
       "sourceRepository": "https://github.com/D3adlyRocket/All-in-One-Nuvio",
       "sourceCommit": "3f09a6ff4360498895e622877af7a32212f75038",
       "runtimeModules": []
+    },
+    {
+      "id": "castle-v2",
+      "name": "Castle V2",
+      "description": "Multi Lang provider",
+      "version": "1.0.0",
+      "author": "Nuvio Team",
+      "supportedTypes": [
+        "movie",
+        "tv"
+      ],
+      "filename": "providers/castle-v2.js",
+      "enabled": true,
+      "formats": [
+        "mp4",
+        "m3u8"
+      ],
+      "logo": "https://static.hbayy.com/simple-blog-13/prod/_nuxt/big-logo.DESZ4mBj.png",
+      "contentLanguage": [
+        "en",
+        "hi",
+        "ta",
+        "te",
+        "ml",
+        "kn"
+      ],
+      "runtimeTimeoutMs": 20000,
+      "sourceRepository": "https://github.com/yoruix/nuvio-providers",
+      "sourceCommit": "ed38d1aee0024f56479369c9423fefb278e0b62a",
+      "upstreamVersion": "1.0.0",
+      "upstreamSupportedTypes": [
+        "movie",
+        "tv"
+      ],
+      "runtimeModules": [
+        "crypto-js"
+      ],
+      "notes": "Independent Yoruix import at ed38d1aee0024f56479369c9423fefb278e0b62a. Existing provider versions remain intact. Uses the Cloudbank adapter; upstream enabled/settings/platform flags preserved. Playback is not verified."
     },
     {
       "id": "cineby",
@@ -1082,6 +1323,44 @@
       "runtimeModules": []
     },
     {
+      "id": "cinemacity-v2",
+      "name": "CinemaCity V2",
+      "description": "CinemaCity (Multi-Language)",
+      "version": "1.0.0",
+      "author": "Nuvio Team",
+      "supportedTypes": [
+        "movie",
+        "tv"
+      ],
+      "filename": "providers/cinemacity-v2.js",
+      "enabled": true,
+      "formats": [
+        "mp4"
+      ],
+      "logo": "https://www.google.com/s2/favicons?domain=cinema-city.pl&sz=128",
+      "contentLanguage": [
+        "en",
+        "hi",
+        "ta",
+        "te",
+        "id",
+        "pl",
+        "ar"
+      ],
+      "runtimeTimeoutMs": 20000,
+      "sourceRepository": "https://github.com/yoruix/nuvio-providers",
+      "sourceCommit": "ed38d1aee0024f56479369c9423fefb278e0b62a",
+      "upstreamVersion": "1.0.0",
+      "upstreamSupportedTypes": [
+        "movie",
+        "tv"
+      ],
+      "runtimeModules": [
+        "cheerio-without-node-native"
+      ],
+      "notes": "Independent Yoruix import at ed38d1aee0024f56479369c9423fefb278e0b62a. Existing provider versions remain intact. Uses the Cloudbank adapter; upstream enabled/settings/platform flags preserved. Playback is not verified."
+    },
+    {
       "id": "ctgmovies",
       "name": "CTGMovies",
       "description": "English | Hindi Movies",
@@ -1149,6 +1428,37 @@
       "runtimeModules": []
     },
     {
+      "id": "dahmermovies-v2",
+      "name": "DahmerMovies V2",
+      "description": "Dahmer Movies streaming service. Can be slow at times to fetch and stream. Only use if needed.",
+      "version": "1.0.0",
+      "author": "Nuvio Team",
+      "supportedTypes": [
+        "movie",
+        "tv"
+      ],
+      "filename": "providers/dahmermovies-v2.js",
+      "enabled": true,
+      "hasSettings": true,
+      "formats": [
+        "mkv"
+      ],
+      "logo": "https://image.similarpng.com/file/similarpng/very-thumbnail/2021/05/Letter-D-logo-design-template-with-geometric-shape-style-on-transparent-background-PNG.png",
+      "contentLanguage": [
+        "en"
+      ],
+      "runtimeTimeoutMs": 20000,
+      "sourceRepository": "https://github.com/yoruix/nuvio-providers",
+      "sourceCommit": "ed38d1aee0024f56479369c9423fefb278e0b62a",
+      "upstreamVersion": "1.0.2",
+      "upstreamSupportedTypes": [
+        "movie",
+        "tv"
+      ],
+      "runtimeModules": [],
+      "notes": "Independent Yoruix import at ed38d1aee0024f56479369c9423fefb278e0b62a. Existing provider versions remain intact. Uses the Cloudbank adapter; upstream enabled/settings/platform flags preserved. Playback is not verified."
+    },
+    {
       "id": "dahmermovies-tv",
       "name": "Dahmermovies-TV",
       "description": "Only works on Android TV",
@@ -1213,6 +1523,37 @@
       "sourceRepository": "https://github.com/D3adlyRocket/All-in-One-Nuvio",
       "sourceCommit": "3f09a6ff4360498895e622877af7a32212f75038",
       "runtimeModules": []
+    },
+    {
+      "id": "dooflix-v2",
+      "name": "DooFlix V2",
+      "description": "Fast streaming provider with direct TMDB integration",
+      "version": "1.0.0",
+      "author": "Nuvio Team",
+      "supportedTypes": [
+        "movie",
+        "tv"
+      ],
+      "filename": "providers/dooflix-v2.js",
+      "enabled": true,
+      "formats": [
+        "m3u8"
+      ],
+      "logo": "https://www.google.com/s2/favicons?domain=dooflix.org&sz=128",
+      "contentLanguage": [
+        "en",
+        "hi"
+      ],
+      "runtimeTimeoutMs": 20000,
+      "sourceRepository": "https://github.com/yoruix/nuvio-providers",
+      "sourceCommit": "ed38d1aee0024f56479369c9423fefb278e0b62a",
+      "upstreamVersion": "1.0.0",
+      "upstreamSupportedTypes": [
+        "movie",
+        "tv"
+      ],
+      "runtimeModules": [],
+      "notes": "Independent Yoruix import at ed38d1aee0024f56479369c9423fefb278e0b62a. Existing provider versions remain intact. Uses the Cloudbank adapter; upstream enabled/settings/platform flags preserved. Playback is not verified."
     },
     {
       "id": "einthusan",
@@ -1423,6 +1764,39 @@
       ]
     },
     {
+      "id": "hianime-v2",
+      "name": "HiAnime V2",
+      "description": "HiAnime multi-server anime streaming with real-time mapping and subtitles",
+      "version": "1.0.0",
+      "author": "Nuvio Team",
+      "supportedTypes": [
+        "movie",
+        "tv"
+      ],
+      "filename": "providers/hianime-v2.js",
+      "enabled": true,
+      "hasSettings": true,
+      "formats": [
+        "m3u8"
+      ],
+      "logo": "https://www.google.com/s2/favicons?domain=hianime.to&sz=128",
+      "contentLanguage": [
+        "en"
+      ],
+      "runtimeTimeoutMs": 20000,
+      "sourceRepository": "https://github.com/yoruix/nuvio-providers",
+      "sourceCommit": "ed38d1aee0024f56479369c9423fefb278e0b62a",
+      "upstreamVersion": "1.0.0",
+      "upstreamSupportedTypes": [
+        "movie",
+        "tv"
+      ],
+      "runtimeModules": [
+        "cheerio-without-node-native"
+      ],
+      "notes": "Independent Yoruix import at ed38d1aee0024f56479369c9423fefb278e0b62a. Existing provider versions remain intact. Uses the Cloudbank adapter; upstream enabled/settings/platform flags preserved. Playback is not verified."
+    },
+    {
       "id": "hindmoviez",
       "name": "HindMoviez",
       "description": "HindMoviez - Hindi & English Movies and Series (480p / 720p / 1080p / 4K)",
@@ -1493,6 +1867,36 @@
       "runtimeModules": []
     },
     {
+      "id": "kurage-v2",
+      "name": "Kurage V2",
+      "description": "Kurage.live anime streaming with tRPC API and multi-server proxy support",
+      "version": "1.0.0",
+      "author": "Nuvio Team",
+      "supportedTypes": [
+        "movie",
+        "tv"
+      ],
+      "filename": "providers/kurage-v2.js",
+      "enabled": true,
+      "formats": [
+        "mp4"
+      ],
+      "logo": "https://kurage.live/favicon.ico",
+      "contentLanguage": [
+        "en"
+      ],
+      "runtimeTimeoutMs": 20000,
+      "sourceRepository": "https://github.com/yoruix/nuvio-providers",
+      "sourceCommit": "ed38d1aee0024f56479369c9423fefb278e0b62a",
+      "upstreamVersion": "1.0.0",
+      "upstreamSupportedTypes": [
+        "movie",
+        "tv"
+      ],
+      "runtimeModules": [],
+      "notes": "Independent Yoruix import at ed38d1aee0024f56479369c9423fefb278e0b62a. Existing provider versions remain intact. Uses the Cloudbank adapter; upstream enabled/settings/platform flags preserved. Playback is not verified."
+    },
+    {
       "id": "movieblast",
       "name": "MovieBlast",
       "description": "MovieBlast - Hindi, Tamil, Telugu & English Movies/Series with multi-quality streams",
@@ -1531,6 +1935,41 @@
       ]
     },
     {
+      "id": "movieblast-v2",
+      "name": "MovieBlast V2",
+      "description": "Direct links via MovieBlast API with multi-language support",
+      "version": "1.0.0",
+      "author": "Nuvio Team",
+      "supportedTypes": [
+        "movie",
+        "tv"
+      ],
+      "filename": "providers/movieblast-v2.js",
+      "enabled": true,
+      "formats": [
+        "mp4",
+        "mkv"
+      ],
+      "logo": "https://raw.githubusercontent.com/phisher98/TVVVV/refs/heads/main/Icons/movieblast.png",
+      "contentLanguage": [
+        "te",
+        "hi",
+        "en"
+      ],
+      "runtimeTimeoutMs": 20000,
+      "sourceRepository": "https://github.com/yoruix/nuvio-providers",
+      "sourceCommit": "ed38d1aee0024f56479369c9423fefb278e0b62a",
+      "upstreamVersion": "1.0.0",
+      "upstreamSupportedTypes": [
+        "movie",
+        "tv"
+      ],
+      "runtimeModules": [
+        "crypto-js"
+      ],
+      "notes": "Independent Yoruix import at ed38d1aee0024f56479369c9423fefb278e0b62a. Existing provider versions remain intact. Uses the Cloudbank adapter; upstream enabled/settings/platform flags preserved. Playback is not verified."
+    },
+    {
       "id": "moviesdrive",
       "name": "MoviesDrive",
       "description": "MoviesDrive streaming with HubCloud and Google Drive extraction",
@@ -1563,6 +2002,40 @@
       "runtimeModules": [
         "cheerio-without-node-native"
       ]
+    },
+    {
+      "id": "moviesdrive-v2",
+      "name": "MoviesDrive V2",
+      "description": "MoviesDrive streaming with HubCloud and Google Drive extraction",
+      "version": "1.0.0",
+      "author": "Nuvio Team",
+      "supportedTypes": [
+        "movie",
+        "tv"
+      ],
+      "filename": "providers/moviesdrive-v2.js",
+      "enabled": true,
+      "formats": [
+        "mkv",
+        "mp4"
+      ],
+      "logo": "https://www.google.com/s2/favicons?domain=moviesdrives.my&sz=128",
+      "contentLanguage": [
+        "en",
+        "hin"
+      ],
+      "runtimeTimeoutMs": 20000,
+      "sourceRepository": "https://github.com/yoruix/nuvio-providers",
+      "sourceCommit": "ed38d1aee0024f56479369c9423fefb278e0b62a",
+      "upstreamVersion": "1.0.0",
+      "upstreamSupportedTypes": [
+        "movie",
+        "tv"
+      ],
+      "runtimeModules": [
+        "cheerio-without-node-native"
+      ],
+      "notes": "Independent Yoruix import at ed38d1aee0024f56479369c9423fefb278e0b62a. Existing provider versions remain intact. Uses the Cloudbank adapter; upstream enabled/settings/platform flags preserved. Playback is not verified."
     },
     {
       "id": "moviesmod",
@@ -1598,6 +2071,38 @@
       "runtimeModules": [
         "cheerio-without-node-native"
       ]
+    },
+    {
+      "id": "moviesmod-v2",
+      "name": "MoviesMod V2",
+      "description": "Movie and TV show streams from MoviesMod with multiple quality options",
+      "version": "1.0.0",
+      "author": "Nuvio Team",
+      "supportedTypes": [
+        "movie",
+        "tv"
+      ],
+      "filename": "providers/moviesmod-v2.js",
+      "enabled": true,
+      "formats": [
+        "mkv"
+      ],
+      "logo": "https://www.google.com/s2/favicons?domain=moviesmod.farm&sz=128",
+      "contentLanguage": [
+        "en"
+      ],
+      "runtimeTimeoutMs": 20000,
+      "sourceRepository": "https://github.com/yoruix/nuvio-providers",
+      "sourceCommit": "ed38d1aee0024f56479369c9423fefb278e0b62a",
+      "upstreamVersion": "1.0.1",
+      "upstreamSupportedTypes": [
+        "movie",
+        "tv"
+      ],
+      "runtimeModules": [
+        "cheerio-without-node-native"
+      ],
+      "notes": "Independent Yoruix import at ed38d1aee0024f56479369c9423fefb278e0b62a. Existing provider versions remain intact. Uses the Cloudbank adapter; upstream enabled/settings/platform flags preserved. Playback is not verified."
     },
     {
       "id": "movieshunt",
@@ -1755,6 +2260,38 @@
       "sourceRepository": "https://github.com/D3adlyRocket/All-in-One-Nuvio",
       "sourceCommit": "3f09a6ff4360498895e622877af7a32212f75038",
       "runtimeModules": []
+    },
+    {
+      "id": "netmirror-v2",
+      "name": "NetMirror V2",
+      "description": "Streaming links from netmirror. Automatically disabled on iOS due to compatibility issues.",
+      "version": "1.0.0",
+      "author": "Nuvio Team",
+      "supportedTypes": [
+        "movie",
+        "tv"
+      ],
+      "filename": "providers/netmirror-v2.js",
+      "enabled": true,
+      "hasSettings": true,
+      "logo": "https://net22.cc/favicon.ico",
+      "contentLanguage": [
+        "en"
+      ],
+      "disabledPlatforms": [
+        "ios"
+      ],
+      "supportsExternalPlayer": false,
+      "runtimeTimeoutMs": 20000,
+      "sourceRepository": "https://github.com/yoruix/nuvio-providers",
+      "sourceCommit": "ed38d1aee0024f56479369c9423fefb278e0b62a",
+      "upstreamVersion": "1.0.3",
+      "upstreamSupportedTypes": [
+        "movie",
+        "tv"
+      ],
+      "runtimeModules": [],
+      "notes": "Independent Yoruix import at ed38d1aee0024f56479369c9423fefb278e0b62a. Existing provider versions remain intact. Uses the Cloudbank adapter; upstream enabled/settings/platform flags preserved. Playback is not verified."
     },
     {
       "id": "persianstremio",
@@ -1929,6 +2466,41 @@
       ]
     },
     {
+      "id": "showbox-v2",
+      "name": "ShowBox V2",
+      "description": "ShowBox streaming with multiple quality options and versions",
+      "version": "1.0.0",
+      "author": "Nuvio Team",
+      "supportedTypes": [
+        "movie",
+        "tv"
+      ],
+      "filename": "providers/showbox-v2.js",
+      "enabled": true,
+      "hasSettings": true,
+      "formats": [
+        "mp4",
+        "mkv"
+      ],
+      "logo": "https://raw.githubusercontent.com/tapframe/nuvio-providers/main/Assets/Logo-2.png",
+      "contentLanguage": [
+        "en"
+      ],
+      "runtimeTimeoutMs": 20000,
+      "sourceRepository": "https://github.com/yoruix/nuvio-providers",
+      "sourceCommit": "ed38d1aee0024f56479369c9423fefb278e0b62a",
+      "upstreamVersion": "1.0.0",
+      "upstreamSupportedTypes": [
+        "movie",
+        "tv"
+      ],
+      "runtimeModules": [
+        "cheerio-without-node-native",
+        "crypto-js"
+      ],
+      "notes": "Independent Yoruix import at ed38d1aee0024f56479369c9423fefb278e0b62a. Existing provider versions remain intact. Uses the Cloudbank adapter; upstream enabled/settings/platform flags preserved. Playback is not verified."
+    },
+    {
       "id": "topcartoons",
       "name": "TopCartoons",
       "description": "Popular cartoons streaming",
@@ -2060,6 +2632,38 @@
       ]
     },
     {
+      "id": "uhdmovies-v2",
+      "name": "UHDMovies V2",
+      "description": "UHD Movies streaming with multiple resolution",
+      "version": "1.0.0",
+      "author": "Nuvio Team",
+      "supportedTypes": [
+        "movie",
+        "tv"
+      ],
+      "filename": "providers/uhdmovies-v2.js",
+      "enabled": true,
+      "formats": [
+        "mkv"
+      ],
+      "logo": "https://www.google.com/s2/favicons?domain=uhdmovies.pink&sz=128",
+      "contentLanguage": [
+        "en"
+      ],
+      "runtimeTimeoutMs": 20000,
+      "sourceRepository": "https://github.com/yoruix/nuvio-providers",
+      "sourceCommit": "ed38d1aee0024f56479369c9423fefb278e0b62a",
+      "upstreamVersion": "1.2.0",
+      "upstreamSupportedTypes": [
+        "movie",
+        "tv"
+      ],
+      "runtimeModules": [
+        "cheerio-without-node-native"
+      ],
+      "notes": "Independent Yoruix import at ed38d1aee0024f56479369c9423fefb278e0b62a. Existing provider versions remain intact. Uses the Cloudbank adapter; upstream enabled/settings/platform flags preserved. Playback is not verified."
+    },
+    {
       "id": "vegamovies",
       "name": "VegaMovies",
       "description": "VegaMovies streaming with high-quality direct links",
@@ -2127,6 +2731,37 @@
       "runtimeModules": []
     },
     {
+      "id": "vidlink-v2",
+      "name": "Vidlink V2",
+      "description": "Vidlink streaming with encrypted TMDB ID support for movies and TV shows",
+      "version": "1.0.0",
+      "author": "Nuvio Team",
+      "supportedTypes": [
+        "movie",
+        "tv"
+      ],
+      "filename": "providers/vidlink-v2.js",
+      "enabled": true,
+      "formats": [
+        "m3u8",
+        "mp4"
+      ],
+      "logo": "https://vidlink.pro/favicon.ico",
+      "contentLanguage": [
+        "en"
+      ],
+      "runtimeTimeoutMs": 20000,
+      "sourceRepository": "https://github.com/yoruix/nuvio-providers",
+      "sourceCommit": "ed38d1aee0024f56479369c9423fefb278e0b62a",
+      "upstreamVersion": "1.0.0",
+      "upstreamSupportedTypes": [
+        "movie",
+        "tv"
+      ],
+      "runtimeModules": [],
+      "notes": "Independent Yoruix import at ed38d1aee0024f56479369c9423fefb278e0b62a. Existing provider versions remain intact. Uses the Cloudbank adapter; upstream enabled/settings/platform flags preserved. Playback is not verified."
+    },
+    {
       "id": "videasy",
       "name": "VidEasy",
       "description": "Videasy streaming with encrypted TMDB ID support for movies and TV shows",
@@ -2157,6 +2792,45 @@
       "sourceRepository": "https://github.com/D3adlyRocket/All-in-One-Nuvio",
       "sourceCommit": "3f09a6ff4360498895e622877af7a32212f75038",
       "runtimeModules": []
+    },
+    {
+      "id": "videasy-v2",
+      "name": "VIDEASY V2",
+      "description": "VideoEasy streaming with multiple server support and languages",
+      "version": "1.0.0",
+      "author": "Nuvio Team",
+      "supportedTypes": [
+        "movie",
+        "tv"
+      ],
+      "filename": "providers/videasy-v2.js",
+      "enabled": false,
+      "limited": true,
+      "formats": [
+        "m3u8",
+        "mp4",
+        "mkv"
+      ],
+      "logo": "https://www.videasy.net/logo.png",
+      "contentLanguage": [
+        "en",
+        "de",
+        "it",
+        "fr",
+        "hi",
+        "es",
+        "pt"
+      ],
+      "runtimeTimeoutMs": 20000,
+      "sourceRepository": "https://github.com/yoruix/nuvio-providers",
+      "sourceCommit": "ed38d1aee0024f56479369c9423fefb278e0b62a",
+      "upstreamVersion": "1.0.0",
+      "upstreamSupportedTypes": [
+        "movie",
+        "tv"
+      ],
+      "runtimeModules": [],
+      "notes": "Independent Yoruix import at ed38d1aee0024f56479369c9423fefb278e0b62a. Existing provider versions remain intact. Uses the Cloudbank adapter; upstream enabled/settings/platform flags preserved. Playback is not verified."
     },
     {
       "id": "vidsrc",
@@ -2222,6 +2896,33 @@
       "sourceRepository": "https://github.com/D3adlyRocket/All-in-One-Nuvio",
       "sourceCommit": "3f09a6ff4360498895e622877af7a32212f75038",
       "runtimeModules": []
+    },
+    {
+      "id": "vixsrc-v2",
+      "name": "Vixsrc V2",
+      "description": "Vixsrc M3U8 streaming with auto quality selection",
+      "version": "1.0.0",
+      "author": "Nuvio Team",
+      "supportedTypes": [
+        "movie",
+        "tv"
+      ],
+      "filename": "providers/vixsrc-v2.js",
+      "enabled": true,
+      "logo": "https://vixsrc.to/favicon.ico",
+      "contentLanguage": [
+        "en"
+      ],
+      "runtimeTimeoutMs": 20000,
+      "sourceRepository": "https://github.com/yoruix/nuvio-providers",
+      "sourceCommit": "ed38d1aee0024f56479369c9423fefb278e0b62a",
+      "upstreamVersion": "1.0.0",
+      "upstreamSupportedTypes": [
+        "movie",
+        "tv"
+      ],
+      "runtimeModules": [],
+      "notes": "Independent Yoruix import at ed38d1aee0024f56479369c9423fefb278e0b62a. Existing provider versions remain intact. Uses the Cloudbank adapter; upstream enabled/settings/platform flags preserved. Playback is not verified."
     },
     {
       "id": "vidfast",
@@ -2457,6 +3158,267 @@
       "runtimeModules": [
         "crypto-js"
       ]
+    },
+    {
+      "id": "streamflix",
+      "name": "StreamFlix",
+      "description": "Direct links via StreamFlix API",
+      "version": "1.0.0",
+      "author": "Nuvio Team",
+      "supportedTypes": [
+        "movie",
+        "tv"
+      ],
+      "filename": "providers/streamflix.js",
+      "enabled": true,
+      "formats": [
+        "mkv"
+      ],
+      "logo": "https://streamflix.app/assets/images/logo-text-148x72.png",
+      "contentLanguage": [
+        "en",
+        "hin"
+      ],
+      "runtimeTimeoutMs": 20000,
+      "sourceRepository": "https://github.com/yoruix/nuvio-providers",
+      "sourceCommit": "ed38d1aee0024f56479369c9423fefb278e0b62a",
+      "upstreamVersion": "1.0.0",
+      "upstreamSupportedTypes": [
+        "movie",
+        "tv"
+      ],
+      "runtimeModules": [
+        "cheerio-without-node-native"
+      ],
+      "notes": "Independent Yoruix import at ed38d1aee0024f56479369c9423fefb278e0b62a. Existing provider versions remain intact. Uses the Cloudbank adapter; upstream enabled/settings/platform flags preserved. Playback is not verified. Native WebSocket is preferred for TV; without it, upstream HTTP fallback remains. Node ws is not required by the adapter."
+    },
+    {
+      "id": "dvdplay",
+      "name": "DVDPlay",
+      "description": "DVDPlay direct download links with HubCloud extraction",
+      "version": "1.0.0",
+      "author": "Nuvio Team",
+      "supportedTypes": [
+        "movie",
+        "tv"
+      ],
+      "filename": "providers/dvdplay.js",
+      "enabled": true,
+      "formats": [
+        "mkv"
+      ],
+      "logo": "https://www.google.com/s2/favicons?domain=dvdplay.com&sz=128",
+      "contentLanguage": [
+        "mal",
+        "tam",
+        "hin"
+      ],
+      "runtimeTimeoutMs": 20000,
+      "sourceRepository": "https://github.com/yoruix/nuvio-providers",
+      "sourceCommit": "ed38d1aee0024f56479369c9423fefb278e0b62a",
+      "upstreamVersion": "1.0.2",
+      "upstreamSupportedTypes": [
+        "movie",
+        "tv"
+      ],
+      "runtimeModules": [
+        "cheerio-without-node-native"
+      ],
+      "notes": "Independent Yoruix import at ed38d1aee0024f56479369c9423fefb278e0b62a. Existing provider versions remain intact. Uses the Cloudbank adapter; upstream enabled/settings/platform flags preserved. Playback is not verified."
+    },
+    {
+      "id": "yflix",
+      "name": "YFlix",
+      "description": "YFlix streaming",
+      "version": "1.0.0",
+      "author": "Nuvio Team",
+      "supportedTypes": [
+        "movie",
+        "tv"
+      ],
+      "filename": "providers/yflix.js",
+      "enabled": true,
+      "limited": true,
+      "formats": [
+        "m3u8",
+        "mp4"
+      ],
+      "logo": "https://yflix.to/assets/uploads/2f505f3de3c99889c1a72557f3e3714fc0c457b0.png",
+      "contentLanguage": [
+        "en"
+      ],
+      "runtimeTimeoutMs": 20000,
+      "sourceRepository": "https://github.com/yoruix/nuvio-providers",
+      "sourceCommit": "ed38d1aee0024f56479369c9423fefb278e0b62a",
+      "upstreamVersion": "1.1.2",
+      "upstreamSupportedTypes": [
+        "movie",
+        "tv"
+      ],
+      "runtimeModules": [],
+      "notes": "Independent Yoruix import at ed38d1aee0024f56479369c9423fefb278e0b62a. Existing provider versions remain intact. Uses the Cloudbank adapter; upstream enabled/settings/platform flags preserved. Playback is not verified."
+    },
+    {
+      "id": "mallumv",
+      "name": "MalluMV",
+      "description": "MalluMV direct links with support for Tamil, Telugu, Hindi, Malayalam, and Kannada movies",
+      "version": "1.0.0",
+      "author": "Nuvio Team",
+      "supportedTypes": [
+        "movie"
+      ],
+      "filename": "providers/mallumv.js",
+      "enabled": true,
+      "formats": [
+        "mkv",
+        "mp4"
+      ],
+      "logo": "https://mallumv.life/favicon.ico",
+      "contentLanguage": [
+        "ta",
+        "te",
+        "hi",
+        "ml",
+        "kn"
+      ],
+      "runtimeTimeoutMs": 20000,
+      "sourceRepository": "https://github.com/yoruix/nuvio-providers",
+      "sourceCommit": "ed38d1aee0024f56479369c9423fefb278e0b62a",
+      "upstreamVersion": "1.0.1",
+      "upstreamSupportedTypes": [
+        "movie"
+      ],
+      "runtimeModules": [
+        "cheerio-without-node-native"
+      ],
+      "notes": "Independent Yoruix import at ed38d1aee0024f56479369c9423fefb278e0b62a. Existing provider versions remain intact. Uses the Cloudbank adapter; upstream enabled/settings/platform flags preserved. Playback is not verified."
+    },
+    {
+      "id": "vidnest",
+      "name": "Vidnest",
+      "description": "Vidnest streaming with encrypted AES-GCM sources",
+      "version": "1.0.0",
+      "author": "Nuvio Team",
+      "supportedTypes": [
+        "movie",
+        "tv"
+      ],
+      "filename": "providers/vidnest.js",
+      "enabled": true,
+      "formats": [
+        "mp4",
+        "m3u8"
+      ],
+      "logo": "https://vidnest.fun/favicon.ico",
+      "contentLanguage": [
+        "en"
+      ],
+      "runtimeTimeoutMs": 20000,
+      "sourceRepository": "https://github.com/yoruix/nuvio-providers",
+      "sourceCommit": "ed38d1aee0024f56479369c9423fefb278e0b62a",
+      "upstreamVersion": "1.0.0",
+      "upstreamSupportedTypes": [
+        "movie",
+        "tv"
+      ],
+      "runtimeModules": [],
+      "notes": "Independent Yoruix import at ed38d1aee0024f56479369c9423fefb278e0b62a. Existing provider versions remain intact. Uses the Cloudbank adapter; upstream enabled/settings/platform flags preserved. Playback is not verified."
+    },
+    {
+      "id": "vidnest-anime",
+      "name": "VidnestAnime",
+      "description": "Vidnest anime streaming with TMDB→AniList mapping and 5 servers (hindi, satoru, miko, pahe, anya)",
+      "version": "1.0.0",
+      "author": "Nuvio Team",
+      "supportedTypes": [
+        "movie",
+        "tv"
+      ],
+      "filename": "providers/vidnest-anime.js",
+      "enabled": true,
+      "formats": [
+        "m3u8"
+      ],
+      "logo": "https://vidnest.fun/favicon.ico",
+      "contentLanguage": [
+        "en",
+        "hi",
+        "ja"
+      ],
+      "limited": true,
+      "notes": "Automatically maps TMDB IDs to AniList. Supports sub/dub. Independent Yoruix import at ed38d1aee0024f56479369c9423fefb278e0b62a. Existing provider versions remain intact. Uses the Cloudbank adapter; upstream enabled/settings/platform flags preserved. Playback is not verified.",
+      "runtimeTimeoutMs": 20000,
+      "sourceRepository": "https://github.com/yoruix/nuvio-providers",
+      "sourceCommit": "ed38d1aee0024f56479369c9423fefb278e0b62a",
+      "upstreamVersion": "1.0.0",
+      "upstreamSupportedTypes": [
+        "movie",
+        "tv"
+      ],
+      "runtimeModules": []
+    },
+    {
+      "id": "cinevibe",
+      "name": "Cinevibe",
+      "description": "Cinevibe (Movies)",
+      "version": "1.0.0",
+      "author": "Nuvio Team",
+      "supportedTypes": [
+        "movie"
+      ],
+      "filename": "providers/cinevibe.js",
+      "enabled": true,
+      "formats": [
+        "mp4",
+        "m3u8"
+      ],
+      "logo": "https://www.google.com/s2/favicons?domain=cinevibe.online&sz=128",
+      "contentLanguage": [
+        "en"
+      ],
+      "runtimeTimeoutMs": 20000,
+      "sourceRepository": "https://github.com/yoruix/nuvio-providers",
+      "sourceCommit": "ed38d1aee0024f56479369c9423fefb278e0b62a",
+      "upstreamVersion": "1.0.0",
+      "upstreamSupportedTypes": [
+        "movie"
+      ],
+      "runtimeModules": [],
+      "notes": "Independent Yoruix import at ed38d1aee0024f56479369c9423fefb278e0b62a. Existing provider versions remain intact. Uses the Cloudbank adapter; upstream enabled/settings/platform flags preserved. Playback is not verified."
+    },
+    {
+      "id": "mycima",
+      "name": "MyCima",
+      "description": "Arabic streaming provider with movies, series and anime",
+      "version": "1.0.0",
+      "author": "Nuvio Team",
+      "supportedTypes": [
+        "movie",
+        "tv"
+      ],
+      "filename": "providers/mycima.js",
+      "enabled": true,
+      "formats": [
+        "mp4",
+        "m3u8"
+      ],
+      "logo": "https://www.google.com/s2/favicons?domain=wecima.show&sz=128",
+      "contentLanguage": [
+        "ar"
+      ],
+      "runtimeTimeoutMs": 20000,
+      "sourceRepository": "https://github.com/yoruix/nuvio-providers",
+      "sourceCommit": "ed38d1aee0024f56479369c9423fefb278e0b62a",
+      "upstreamVersion": "1.0.0",
+      "upstreamSupportedTypes": [
+        "movie",
+        "tv"
+      ],
+      "runtimeModules": [
+        "cheerio-without-node-native",
+        "crypto-js"
+      ],
+      "notes": "Independent Yoruix import at ed38d1aee0024f56479369c9423fefb278e0b62a. Existing provider versions remain intact. Uses the Cloudbank adapter; upstream enabled/settings/platform flags preserved. Playback is not verified."
     }
   ]
 }

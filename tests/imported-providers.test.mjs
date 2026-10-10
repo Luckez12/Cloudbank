@@ -5,7 +5,9 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createRequire } from 'node:module';
 const nodeRequire = createRequire(import.meta.url);
-const report = JSON.parse(fs.readFileSync('docs/upstream-import.json'));
+const firstReport = JSON.parse(fs.readFileSync('docs/upstream-import.json'));
+const secondReport = JSON.parse(fs.readFileSync('docs/yoruix-import.json'));
+const report = { providers: [...firstReport.providers, ...secondReport.providers] };
 const manifest = JSON.parse(fs.readFileSync('manifest.json'));
 function load(filename, overrides = {}) {
   const sandbox = { module: { exports: {} }, console: { log() {}, warn() {}, error() {} },
@@ -21,9 +23,9 @@ function load(filename, overrides = {}) {
   vm.runInContext(fs.readFileSync(filename, 'utf8'), sandbox, { timeout: 2000 });
   return sandbox;
 }
-test('all upstream IDs and four independent V2 variants are represented once; 74 combined providers', () => {
-  assert.equal(manifest.scrapers.length, 74);
-  assert.equal(new Set(manifest.scrapers.map(p => p.id)).size, 74);
+test('all source IDs and independent variants are represented once; 103 combined providers', () => {
+  assert.equal(manifest.scrapers.length, 103);
+  assert.equal(new Set(manifest.scrapers.map(p => p.id)).size, 103);
   for (const p of report.providers) assert.equal(manifest.scrapers.filter(s => s.id === p.id).length, 1);
 });
 for (const entry of report.providers.filter(p => p.action === 'imported')) {
@@ -99,4 +101,37 @@ test('metadata adapter uses shared details, clones response and forwards episode
   const before = calls.length;
   assert.equal((await (await fetch('https://api.themoviedb.org/3/movie/123?api_key=test')).json()).title, 'Title');
   assert.equal(calls.length, before + 1);
+});
+
+test('Yoruix flags and variant numbering remain independent', () => {
+  const get = id => manifest.scrapers.find(p => p.id === id);
+  assert.equal(get('videasy-v2').enabled, false);
+  assert.equal(get('videasy').enabled, true);
+  assert.deepEqual(get('netmirror-v2').disabledPlatforms, ['ios']);
+  assert.equal(get('netmirror-v2').supportsExternalPlayer, false);
+  for (const base of ['4khdhub','hdhub4u','moviebox']) {
+    for (const id of [base, `${base}-v2`, `${base}-v3`]) assert.ok(get(id));
+    assert.equal(get(`${base}-v3`).sourceRepository, secondReport.repository);
+  }
+  for (const record of secondReport.providers) assert.equal(get(record.id).enabled, record.enabled);
+});
+
+test('StreamFlix real resolver preserves movie output and TV fallback without Node ws', async () => {
+  const box = load('providers/streamflix.js', { fetch: async url => {
+    let data;
+    if (url.endsWith('/data.json')) data = { data: [{ moviename: 'Example Series', moviekey: 'example', movielink: 'film.mkv', movieduration: '2 Seasons' }] };
+    else if (url.includes('config-streamflixapp.json')) data = { premium: ['https://cdn.invalid/'], movies: ['https://standard.invalid/'] };
+    else throw new Error(`Unexpected request: ${url}`);
+    return { ok: true, status: 200, json: async () => data };
+  }});
+  box.VUEO_DISCOVERY_CONTEXT = { tmdb: { id: 123, name: 'Example Series', first_air_date: '2024-01-01' } };
+  const tv = await box.module.exports.getStreams('123', 'tv', 2, 3);
+  assert.equal(tv.length, 1);
+  assert.equal(tv[0].url, 'https://cdn.invalid/tv/example/s2/episode3.mkv');
+  assert.equal(tv[0].headers.Referer, 'https://api.streamflix.app');
+  box.VUEO_DISCOVERY_CONTEXT = { tmdb: { id: 123, title: 'Example Series', release_date: '2024-01-01' } };
+  const movie = await box.module.exports.getStreams('123', 'movie');
+  assert.equal(movie.length, 2);
+  assert.equal(movie[0].url, 'https://cdn.invalid/film.mkv');
+  assert.equal(movie[1].url, 'https://standard.invalid/film.mkv');
 });
