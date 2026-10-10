@@ -1,17 +1,10 @@
 name: Validate Cloudbank
 
 on:
-  push:
+  workflow_run:
+    workflows: ["Apply Cloudbank ZIP Patch"]
+    types: [completed]
     branches: [main]
-    paths:
-      - "manifest.json"
-      - "providers/**"
-      - "scripts/**"
-      - "tests/**"
-      - "package.json"
-      - "package-lock.json"
-      - ".github/workflows/validate-cloudbank.yml"
-  pull_request:
   workflow_dispatch:
 
 permissions:
@@ -23,6 +16,7 @@ concurrency:
 
 jobs:
   validate:
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
     name: Validate Nuvio provider repository
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -30,6 +24,8 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
+        with:
+          ref: main
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
