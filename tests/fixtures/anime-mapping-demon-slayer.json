@@ -1,0 +1,47 @@
+{
+  "captured": "2026-10-10",
+  "arm": {
+    "myanimelist": 38000,
+    "anilist": 101922,
+    "imdb": "tt9335498",
+    "themoviedb": 85937,
+    "themoviedb-season": 1,
+    "media": "TV"
+  },
+  "ani": {
+    "mappings": {
+      "animeplanet_id": "demon-slayer-kimetsu-no-yaiba",
+      "kitsu_id": 41370,
+      "mal_id": 38000,
+      "type": "TV",
+      "anilist_id": 101922,
+      "anisearch_id": 13658,
+      "anidb_id": 14107,
+      "notifymoe_id": null,
+      "livechart_id": 3311,
+      "thetvdb_id": 348545,
+      "imdb_id": "tt9335498",
+      "themoviedb_id": "85937"
+    },
+    "titles": {
+      "en": "Demon Slayer"
+    },
+    "episodes": {
+      "1": {
+        "episode": "1",
+        "airDate": "2019-04-06",
+        "airDateUtc": "2019-04-06T14:15:00Z",
+        "airdate": "2019-04-06"
+      }
+    }
+  },
+  "tmdb": {
+    "episodes": [
+      {
+        "episode_number": 1,
+        "season_number": 1,
+        "air_date": "2019-04-06"
+      }
+    ]
+  }
+}
