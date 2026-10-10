@@ -3,7 +3,7 @@
 Source: https://github.com/D3adlyRocket/All-in-One-Nuvio
 Pinned commit: 3f09a6ff4360498895e622877af7a32212f75038
 
-62 additional providers were imported. Existing Cloudbank 4KHDHub, HDHub4u, MovieBox and KissKH remain intact; the combined manifest has 70 providers.
+66 provider implementations were imported: 62 new providers and four independent V2 variants. Existing Cloudbank 4KHDHub, HDHub4u, MovieBox and KissKH remain intact. Their upstream versions appear beside them as V2 with unique IDs and filenames; the combined manifest has 74 providers. Future overlapping versions use V3, V4 and so on.
 The source README states GPL-3.0. Its checkout contains no standalone LICENSE file. Retain upstream code comments and bundled third-party notices; see upstream-import.json for original hashes and per-provider attribution in manifest.json.
 Upstream credits: Yoruix, Paregi12, Phisher98, Wooodyhood, Piratezoro9 (Kabir), KennethJYS, Real-Morpheus, Xyr0nX/Antonio, Yatin-Code, RaymondNoodles.
 

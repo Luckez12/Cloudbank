@@ -1,6 +1,6 @@
 {
   "name": "Cloudbank",
-  "version": "1.18.0",
+  "version": "1.18.1",
   "scrapers": [
     {
       "id": "kisskh",
@@ -31,6 +31,41 @@
       "supportsExternalPlayer": true,
       "notes": "V15 Shared Discovery Context: TMDB detail metadata is coalesced by VUEO core once per scan when the V15 runtime bridge is available; local TMDB fallback remains for older runtimes. V15 centralized trace hooks emit metadata/candidate/verification stages without changing source extraction. V15 Shared Discovery Context + centralized trace hooks. TMDB metadata is coalesced by VUEO core when available, with provider-local fallback retained. Candidate/verification stages emit lightweight diagnostics. Runtime budget alignment: provider now receives the full 20s app runtime instead of the 10s descriptor default, so the existing bounded title/detail/video/subtitle pipeline is not killed before it can return valid links.",
       "runtimeTimeoutMs": 20000
+    },
+    {
+      "id": "kisskh-v2",
+      "name": "Kisskh V2",
+      "description": "Streams Korean dramas and movies from onlykdrama.top",
+      "version": "1.0.0",
+      "author": "Michat88",
+      "supportedTypes": [
+        "movie",
+        "tv"
+      ],
+      "filename": "providers/kisskh-v2.js",
+      "enabled": true,
+      "hasSettings": true,
+      "formats": [
+        "mp4",
+        "m3u8"
+      ],
+      "logo": "https://i.postimg.cc/2yLnTzPP/kisskh.jpg",
+      "contentLanguage": [
+        "ko",
+        "ch",
+        "ja",
+        "th"
+      ],
+      "runtimeTimeoutMs": 20000,
+      "sourceRepository": "https://github.com/D3adlyRocket/All-in-One-Nuvio",
+      "sourceCommit": "3f09a6ff4360498895e622877af7a32212f75038",
+      "upstreamSupportedTypes": [
+        "movie",
+        "tv"
+      ],
+      "upstreamVersion": "1.0.0",
+      "runtimeModules": [],
+      "notes": "Independent V2 import from All-in-One-Nuvio. Original Cloudbank provider remains intact. Uses the same Cloudbank compatibility adapter as other imports. Playback is not yet verified."
     },
     {
       "id": "onetouchtv",
@@ -90,6 +125,41 @@
       "notes": "V17.1 latest-merge repair: restores the repo-wide TMDB title profile and required fast/discovery-rebuild contracts that were lost when the targeted V17 files were overlaid onto an older provider baseline. V16 Provider Repair: coalesced domain lookup, WordPress REST primary-title discovery, primary-first search, then bounded alias fallback. Low-confidence unrelated cards never enter extraction. V15 Shared Discovery Context: TMDB detail metadata is coalesced by VUEO core once per scan when the V15 runtime bridge is available; local TMDB fallback remains for older runtimes. V15 centralized trace hooks emit metadata/candidate/verification stages without changing source extraction. V15 Shared Discovery Context + centralized trace hooks. TMDB metadata is coalesced by VUEO core when available, with provider-local fallback retained. Candidate/verification stages emit lightweight diagnostics. Discovery Rebuild V1: raw TMDB title is searched before season/year variants; current and legacy result-card layouts are parsed; noisy release strings are normalized before scoring so valid title matches are not lost. Existing QuickJS recursion/parser hotfixes remain."
     },
     {
+      "id": "hdhub4u-v2",
+      "name": "HDHub4u V2",
+      "description": "Direct links from HDHub4u with high-speed download support",
+      "version": "1.0.0",
+      "author": "Nuvio Team",
+      "supportedTypes": [
+        "movie",
+        "tv"
+      ],
+      "filename": "providers/hdhub4u-v2.js",
+      "enabled": true,
+      "formats": [
+        "mkv",
+        "mp4"
+      ],
+      "logo": "https://www.google.com/s2/favicons?domain=new6.hdhub4u.fo&sz=128",
+      "contentLanguage": [
+        "en",
+        "hin"
+      ],
+      "runtimeTimeoutMs": 20000,
+      "sourceRepository": "https://github.com/D3adlyRocket/All-in-One-Nuvio",
+      "sourceCommit": "3f09a6ff4360498895e622877af7a32212f75038",
+      "upstreamSupportedTypes": [
+        "movie",
+        "tv"
+      ],
+      "upstreamVersion": "1.1.1",
+      "runtimeModules": [
+        "cheerio-without-node-native",
+        "crypto-js"
+      ],
+      "notes": "Independent V2 import from All-in-One-Nuvio. Original Cloudbank provider remains intact. Uses the same Cloudbank compatibility adapter as other imports. Playback is not yet verified."
+    },
+    {
       "id": "moviebox",
       "name": "MovieBox",
       "description": "Movie and TV streams from the current MovieBox H5 web API mirror pool",
@@ -118,6 +188,42 @@
       "notes": "V16 Provider Repair: execution-scoped mirror health stops repeated NXDOMAIN/404 retries, recursive H5 payload parsing supports more response envelopes/ID field names, and alias fallback fan-out is reduced when mirrors are unhealthy. V15 Shared Discovery Context: TMDB detail metadata is coalesced by VUEO core once per scan when the V15 runtime bridge is available; local TMDB fallback remains for older runtimes. V15 centralized trace hooks emit metadata/candidate/verification stages without changing source extraction. V15 Shared Discovery Context + centralized trace hooks. TMDB metadata is coalesced by VUEO core when available, with provider-local fallback retained. Candidate/verification stages emit lightweight diagnostics. Discovery Rebuild V1: MovieBox title scoring now strips season/year/quality noise before alias matching, TV year mismatch is a soft preference instead of a hard penalty, and more TMDB aliases are covered without increasing the mirror fan-out."
     },
     {
+      "id": "moviebox-v2",
+      "name": "MovieBox V2",
+      "description": "MovieBox streaming with multiple language support (DASH + MP4)",
+      "version": "1.0.0",
+      "author": "Nuvio Team",
+      "supportedTypes": [
+        "movie",
+        "tv"
+      ],
+      "filename": "providers/moviebox-v2.js",
+      "enabled": true,
+      "formats": [
+        "mp4",
+        "mpd"
+      ],
+      "logo": "https://moviebox.ph/favicon.ico",
+      "contentLanguage": [
+        "en",
+        "hin",
+        "tam",
+        "tel"
+      ],
+      "runtimeTimeoutMs": 20000,
+      "sourceRepository": "https://github.com/D3adlyRocket/All-in-One-Nuvio",
+      "sourceCommit": "3f09a6ff4360498895e622877af7a32212f75038",
+      "upstreamSupportedTypes": [
+        "movie",
+        "tv"
+      ],
+      "upstreamVersion": "1.2.3",
+      "runtimeModules": [
+        "crypto-js"
+      ],
+      "notes": "Independent V2 import from All-in-One-Nuvio. Original Cloudbank provider remains intact. Uses the same Cloudbank compatibility adapter as other imports. Playback is not yet verified."
+    },
+    {
       "id": "4khdhub",
       "name": "4KHDHub",
       "description": "Movie and TV stream provider",
@@ -143,6 +249,38 @@
       "supportsExternalPlayer": true,
       "runtimeTimeoutMs": 20000,
       "notes": "V17.1 latest-merge repair: restores the repo-wide TMDB title profile and required fast/discovery-rebuild contracts that were lost when the targeted V17 files were overlaid onto an older provider baseline. V16 Provider Repair: coalesced domain lookup, WordPress REST primary-title discovery, primary-first bounded fallback, and explicit wrong-season rejection before expensive host extraction. V15 Shared Discovery Context: TMDB detail metadata is coalesced by VUEO core once per scan when the V15 runtime bridge is available; local TMDB fallback remains for older runtimes. V15 centralized trace hooks emit metadata/candidate/verification stages without changing source extraction. V15 Shared Discovery Context + centralized trace hooks. TMDB metadata is coalesced by VUEO core when available, with provider-local fallback retained. Candidate/verification stages emit lightweight diagnostics. Discovery Rebuild V1: raw aliases are searched before year/season variants, current movie-card and legacy layouts are both parsed, and noisy release metadata is removed before title scoring. Existing memory-scope guard remains."
+    },
+    {
+      "id": "4khdhub-v2",
+      "name": "4KHDHub V2",
+      "description": "4KHDHub direct links",
+      "version": "1.0.0",
+      "author": "Nuvio Team",
+      "supportedTypes": [
+        "movie",
+        "tv"
+      ],
+      "filename": "providers/4khdhub-v2.js",
+      "enabled": true,
+      "formats": [
+        "mkv"
+      ],
+      "logo": "https://www.google.com/s2/favicons?domain=4khdhub.click&sz=128",
+      "contentLanguage": [
+        "en"
+      ],
+      "runtimeTimeoutMs": 20000,
+      "sourceRepository": "https://github.com/D3adlyRocket/All-in-One-Nuvio",
+      "sourceCommit": "3f09a6ff4360498895e622877af7a32212f75038",
+      "upstreamSupportedTypes": [
+        "movie",
+        "tv"
+      ],
+      "upstreamVersion": "1.0.3",
+      "runtimeModules": [
+        "cheerio-without-node-native"
+      ],
+      "notes": "Independent V2 import from All-in-One-Nuvio. Original Cloudbank provider remains intact. Uses the same Cloudbank compatibility adapter as other imports. Playback is not yet verified."
     },
     {
       "id": "pencurimovie",

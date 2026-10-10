@@ -2,7 +2,7 @@
   "repository": "https://github.com/D3adlyRocket/All-in-One-Nuvio",
   "commit": "3f09a6ff4360498895e622877af7a32212f75038",
   "upstreamProviders": 66,
-  "importedProviders": 62,
+  "importedProviders": 66,
   "preservedProviders": [
     "4khdhub",
     "cinemode",
@@ -28,7 +28,8 @@
       "id": "4khdhub",
       "sourceFilename": "providers/4khdhub.js",
       "sourceSha256": "b15a2919b7d776febed7c9ad254f96a6216c977be351b8133835ca4f9a1ec215",
-      "action": "kept-cloudbank-version"
+      "action": "imported-as-independent-v2",
+      "variantId": "4khdhub-v2"
     },
     {
       "id": "1shows",
@@ -284,7 +285,8 @@
       "id": "hdhub4u",
       "sourceFilename": "providers/hdhub4u.js",
       "sourceSha256": "790a4dd3367eed5e47675cda920f3e2d0fed41a22e9303f6fb8269d54b89b780",
-      "action": "kept-cloudbank-version"
+      "action": "imported-as-independent-v2",
+      "variantId": "hdhub4u-v2"
     },
     {
       "id": "hianime",
@@ -316,7 +318,8 @@
       "id": "moviebox",
       "sourceFilename": "providers/moviebox.js",
       "sourceSha256": "874dc691ce22292ffcbc7ef797000c5c2d7b26a1cc9d674503c4830ca17572d4",
-      "action": "kept-cloudbank-version"
+      "action": "imported-as-independent-v2",
+      "variantId": "moviebox-v2"
     },
     {
       "id": "movieblast",
@@ -553,7 +556,8 @@
       "id": "kisskh",
       "sourceFilename": "providers/kisskh.js",
       "sourceSha256": "81b0afffb337390782cace12c5d657c6aa42765d05f5da986022284a99bafb98",
-      "action": "kept-cloudbank-version"
+      "action": "imported-as-independent-v2",
+      "variantId": "kisskh-v2"
     },
     {
       "id": "reanime",
@@ -574,6 +578,50 @@
       "runtimeModules": [
         "crypto-js"
       ]
+    },
+    {
+      "id": "4khdhub-v2",
+      "sourceId": "4khdhub",
+      "sourceFilename": "providers/4khdhub.js",
+      "sourceSha256": "b15a2919b7d776febed7c9ad254f96a6216c977be351b8133835ca4f9a1ec215",
+      "action": "imported",
+      "filename": "providers/4khdhub-v2.js",
+      "runtimeModules": [
+        "cheerio-without-node-native"
+      ]
+    },
+    {
+      "id": "hdhub4u-v2",
+      "sourceId": "hdhub4u",
+      "sourceFilename": "providers/hdhub4u.js",
+      "sourceSha256": "790a4dd3367eed5e47675cda920f3e2d0fed41a22e9303f6fb8269d54b89b780",
+      "action": "imported",
+      "filename": "providers/hdhub4u-v2.js",
+      "runtimeModules": [
+        "cheerio-without-node-native",
+        "crypto-js"
+      ]
+    },
+    {
+      "id": "moviebox-v2",
+      "sourceId": "moviebox",
+      "sourceFilename": "providers/moviebox.js",
+      "sourceSha256": "874dc691ce22292ffcbc7ef797000c5c2d7b26a1cc9d674503c4830ca17572d4",
+      "action": "imported",
+      "filename": "providers/moviebox-v2.js",
+      "runtimeModules": [
+        "crypto-js"
+      ]
+    },
+    {
+      "id": "kisskh-v2",
+      "sourceId": "kisskh",
+      "sourceFilename": "providers/kisskh.js",
+      "sourceSha256": "81b0afffb337390782cace12c5d657c6aa42765d05f5da986022284a99bafb98",
+      "action": "imported",
+      "filename": "providers/kisskh-v2.js",
+      "runtimeModules": []
     }
-  ]
+  ],
+  "combinedProviders": 74
 }

@@ -21,9 +21,9 @@ function load(filename, overrides = {}) {
   vm.runInContext(fs.readFileSync(filename, 'utf8'), sandbox, { timeout: 2000 });
   return sandbox;
 }
-test('all 66 upstream IDs are represented once; 70 combined providers', () => {
-  assert.equal(manifest.scrapers.length, 70);
-  assert.equal(new Set(manifest.scrapers.map(p => p.id)).size, 70);
+test('all upstream IDs and four independent V2 variants are represented once; 74 combined providers', () => {
+  assert.equal(manifest.scrapers.length, 74);
+  assert.equal(new Set(manifest.scrapers.map(p => p.id)).size, 74);
   for (const p of report.providers) assert.equal(manifest.scrapers.filter(s => s.id === p.id).length, 1);
 });
 for (const entry of report.providers.filter(p => p.action === 'imported')) {
