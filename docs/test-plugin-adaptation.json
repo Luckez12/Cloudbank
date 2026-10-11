@@ -5,7 +5,9 @@
       "referenceVersion": "1.1.0",
       "sourceSha256": "d4bded8b9cc90f15c9911551f4f93409bc745c4a4ddea5f4c49d5c2b7f3c9b6b",
       "referenceSnapshot": "17e99d41a378fff21fdc1ef8e9cc0036e6a4bfca",
-      "mode": "additional primary engine with bounded existing-engine fallback"
+      "mode": "additional primary engine with bounded existing-engine fallback",
+      "adaptedSourceSha256": "65600ae13dc39a524151ec4702260898883f0154e7ef3422cf0867769d562c6a",
+      "localPatch": "4KHDHub/V2/V3 consolidation: V2 bounded nested Hblinks and hubstream.dad dispatch, domain refresh, independent server collection, verified HLS masters, season zero, playback metadata."
     },
     {
       "id": "hdhub4u",

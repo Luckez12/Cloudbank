@@ -952,6 +952,8 @@ function getStreams(tmdbId, type, season, episode) {
           size: l.size || null,
           fileName: l.fileName || null,
           type: 'direct',
+          headers: l.headers || DEFAULT_HEADERS,
+          subtitles: l.subtitles || [],
           behaviorHints: { bingeGroup: '4khdhub-streams' }
         };
       });
@@ -1059,14 +1061,47 @@ var cloudbankTestPluginProvider = (function() {
   (function(module, exports, fetch) {
 /* CLOUDBANK_TEST_PLUGIN_SOURCE_START */
 const PROVIDER = "4KHDHub";
-const VERSION = "1.1.0";
-const BASES = ["https://4khdhub.one", "https://4khdhub.fans"];
+const VERSION = "1.2.0-cloudbank";
+const BASES = ["https://4khdhub.one", "https://4khdhub.fans", "https://4khdhub.click"];
 const TMDB_BASE = "https://api.themoviedb.org/3";
 const TMDB_API_KEY = "1865f43a0549ca50d341dd9ab8b29f49";
 const UA = "Mozilla/5.0 (Linux; Android 15) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0 Mobile Safari/537.36";
 const MULTI_FIRST_GRACE_MS = 1800;
 const MULTI_ABSOLUTE_MS = 5200;
 const QUALITY_TASK_LIMIT = 2;
+
+function fourKBounded(run, ms) {
+  if (ms <= 0) return Promise.reject(new Error('4KHDHub budget exhausted'));
+  return new Promise(function(resolve, reject) {
+    var timer = setTimeout(function() { reject(new Error('4KHDHub request timeout')); }, ms);
+    Promise.resolve().then(run).then(function(value) { clearTimeout(timer); resolve(value); }, function(error) { clearTimeout(timer); reject(error); });
+  });
+}
+var fourKDomain = null, fourKDomainAt = 0, fourKDomainPending = null;
+function latestFourKDomain() {
+  if (fourKDomainAt && Date.now() - fourKDomainAt < (fourKDomain ? 14400000 : 300000)) return Promise.resolve(fourKDomain);
+  if (fourKDomainPending) return fourKDomainPending;
+  fourKDomainPending = fourKBounded(function() {
+    return fetchJson('https://raw.githubusercontent.com/phisher98/TVVVV/refs/heads/main/domains.json').then(function(data) {
+      try {
+        var url = new URL(data && data['4khdhub']);
+        return /^https?:$/.test(url.protocol) && /(^|\.)4khdhub\.[a-z]+$/i.test(url.hostname) ? url.origin : null;
+      } catch (_) { return null; }
+    });
+  }, 1200).catch(function() { return null; }).then(function(value) {
+    fourKDomain = value; fourKDomainAt = Date.now(); fourKDomainPending = null; return value;
+  });
+  return fourKDomainPending;
+}
+function verifyFourKHls(url, referer) {
+  var headers = { 'User-Agent': UA, 'Accept': '*/*', 'Referer': referer || '' };
+  var origin = originOf(referer); if (origin) headers.Origin = origin;
+  return fetchResp(url, { headers: headers }).then(function(page) {
+    if (!/^\s*#EXTM3U(?:\s|$)/.test(page.text)) return null;
+    return { url: page.url, referer: referer || '', headers: headers, isHls: true,
+      isMaster: /#EXT-X-STREAM-INF:/i.test(page.text), label: 'HLS' };
+  }).catch(function() { return null; });
+}
 
 function cheerio() { return require("cheerio-without-node-native"); }
 
@@ -1077,12 +1112,12 @@ function fetchResp(url, options) {
     "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
     "Accept-Language": "en-US,en;q=0.9"
   }, opts.headers || {});
-  return fetch(url, opts).then(function (res) {
+  return fourKBounded(function() { return fetch(url, opts).then(function (res) {
     if (!res || !res.ok) throw new Error("HTTP " + (res ? res.status : "?") + " " + url);
     return res.text().then(function (text) {
       return { text: text, url: res.url || url, status: res.status, headers: res.headers };
     });
-  });
+  }); }, 2200);
 }
 
 function fetchText(url, options) { return fetchResp(url, options).then(function (x) { return x.text; }); }
@@ -1219,13 +1254,16 @@ function parseSearch(html, base, info, mediaType) {
   $("a[href]").each(function (_, el) {
     var href = absoluteUrl(base, $(el).attr("href"));
     var m = href.match(/\/(.+?)-(movie|series)-(\d+)\/?(?:[?#].*)?$/i);
-    if (!m) return;
+    var card = $(el).closest('.movie-card');
+    var format = String(card.find('.movie-card-format').text() || '').toLowerCase();
+    var cardType = /series/.test(format) ? 'series' : /movies?/.test(format) ? 'movie' : '';
+    if (!m && !cardType) return;
     if (map[href]) return;
     var context = candidateText($, el);
     map[href] = {
       url: href,
-      type: m[2].toLowerCase(),
-      title: titleFromAnchor($, el, href),
+      type: m ? m[2].toLowerCase() : cardType,
+      title: String(card.find(".movie-card-title").text() || "").trim() || titleFromAnchor($, el, href),
       year: parseYear(context),
       context: context
     };
@@ -1236,15 +1274,18 @@ function parseSearch(html, base, info, mediaType) {
   return items.filter(function (x) { return x.score > 0; });
 }
 function findDetail(info, mediaType) {
-  var queries = unique([info.title].concat(info.aliases || []));
+  var queries = unique([info.title].concat(info.aliases || [])).slice(0, 2);
+  var bases = unique([fourKDomain].concat(BASES).filter(Boolean));
+  var deadline = Date.now() + 4200;
   function tryBase(bi) {
-    if (bi >= BASES.length) return Promise.resolve(null);
-    var base = BASES[bi];
+    if (bi >= bases.length || Date.now() >= deadline) return Promise.resolve(null);
+    var base = bases[bi];
     function tryQuery(qi) {
+      if (Date.now() >= deadline) return Promise.resolve(null);
       if (qi >= queries.length) return tryBase(bi + 1);
       var q = queries[qi];
       var url = base + "/?s=" + encodeURIComponent(q);
-      return fetchText(url, { headers: { "Referer": base + "/" } }).then(function (html) {
+      return fourKBounded(function() { return fetchText(url, { headers: { "Referer": base + "/" } }); }, deadline - Date.now()).then(function (html) {
         var items = parseSearch(html, base, info, mediaType);
         var best = items[0] || null;
         console.log("[4KHDHub] search host=" + base + " query='" + q + "' items=" + items.length + " match=" + (best ? "yes" : "no"));
@@ -1281,7 +1322,7 @@ function parseMovieBlocks(html, detailUrl) {
     var links = [];
     $("a[href]").each(function (_, a) {
       var href = absoluteUrl(detailUrl, $(a).attr("href"));
-      if (/hubcloud|hubdrive/i.test(href)) links.push(href);
+      if (/hubcloud|hubdrive|hblinks|hubstream\.dad/i.test(href)) links.push(href);
     });
     if (links.length) blocks.push({ text: "", quality: "Auto", links: unique(links) });
   }
@@ -1494,12 +1535,20 @@ function resolveHubCdn(url, referer) {
   }).catch(function () { return null; });
 }
 
-function resolveHblinks(url, referer) {
+function resolveHblinks(url, referer, depth) {
+  depth = Number(depth || 0);
+  if (depth > 2) return Promise.resolve(null);
   return fetchText(url, { headers: { "Referer": referer || "" } }).then(function (html) {
     var links = collectAnchors(html, url).map(function (x) { return x.url; }).filter(function (u) {
-      return /hubcloud|hubdrive|hubcdn|workers\.dev|pixeldrain|hdstream4u|hubstream/i.test(u) || mediaLike(u);
-    });
-    return resolveCandidates(links.slice(0, 4), url);
+      return u !== url && (/hblinks|hubstream\.dad|hubcloud|hubdrive|hubcdn|workers\.dev|pixeldrain/i.test(u) || mediaLike(u));
+    }).slice(0, 4);
+    function next(i) {
+      if (i >= links.length) return Promise.resolve(null);
+      var nested = /hblinks|hubstream\.dad/i.test(hostOf(links[i]));
+      var attempt = nested ? resolveHblinks(links[i], url, depth + 1) : resolveServer(links[i], url);
+      return attempt.then(function(hit) { return hit || next(i + 1); }).catch(function() { return next(i + 1); });
+    }
+    return next(0);
   }).catch(function () { return null; });
 }
 
@@ -1578,6 +1627,7 @@ function resolveServer(url, referer) {
   if (!url) return Promise.resolve(null);
   return resolveFourKRedirect(url).then(function (resolved) {
     resolved = String(resolved || url);
+    if (/\.m3u8(?:$|[?#])/i.test(resolved)) return verifyFourKHls(resolved, referer);
     if (/workers\.dev/i.test(resolved) || mediaLike(resolved)) {
       return probeFinal(resolved, referer).then(function (p) {
         return p ? { url: p, referer: /workers\.dev/i.test(resolved) ? "" : (referer || ""), label: "Direct" } : null;
@@ -1592,8 +1642,11 @@ function resolveServer(url, referer) {
     if (/hubcloud/i.test(resolved)) return resolveHubCloud(resolved, referer);
     if (/hubdrive/i.test(resolved)) return resolveHubDrive(resolved, referer);
     if (/hubcdn/i.test(resolved)) return resolveHubCdn(resolved, referer).then(function (p) { return p ? { url: p, referer: resolved, label: "HubCDN" } : null; });
-    if (/hblinks/i.test(resolved)) return resolveHblinks(resolved, referer);
+    if (/hblinks|hubstream\.dad/i.test(hostOf(resolved))) return resolveHblinks(resolved, referer);
     return probeFinal(resolved, referer).then(function (p) { return p ? { url: p, referer: referer || "", label: hostOf(resolved) } : null; });
+  }).then(function(hit) {
+    if (hit && !hit.isHls && /\.m3u8(?:$|[?#])/i.test(hit.url || '')) return verifyFourKHls(hit.url, hit.referer || referer);
+    return hit;
   });
 }
 function resolveCandidates(links, referer) {
@@ -1606,16 +1659,13 @@ function resolveCandidates(links, referer) {
 }
 
 function buildStream(result, quality, detailUrl) {
+  var displayedQuality = result.isMaster ? 'Auto' : displayQuality(quality);
   return {
     name: PROVIDER,
-    title: "4KHDHub • " + displayQuality(quality) + " • " + (result.label || hostOf(result.url)),
-    url: result.url,
-    quality: displayQuality(quality),
-    headers: {
-      "User-Agent": UA,
-      "Accept": "*/*",
-      "Referer": result.referer || detailUrl
-    }
+    title: '4KHDHub • ' + displayedQuality + ' • ' + (result.label || hostOf(result.url)),
+    url: result.url, quality: displayedQuality,
+    headers: Object.assign({ 'User-Agent': UA, 'Accept': '*/*', 'Referer': result.referer || detailUrl }, result.headers || {}),
+    subtitles: result.subtitles || []
   };
 }
 
@@ -1667,100 +1717,58 @@ function resolveOneQuality(blocks, targetQuality, detailUrl) {
   return tryBlock(0);
 }
 
-function resolveBlocks(blocks, detailUrl) {
-  var targets = ["2160p", "1080p", "720p"];
-  var available = targets.filter(function (q) {
-    return (blocks || []).some(function (b) { return b.quality === q; });
+function resolveBlocks(blocks, detailUrl, providerDeadline) {
+  // Resolve independent server links, with three workers and a bounded collection window.
+  var selected = [], seenCandidates = Object.create(null);
+  ['2160p', '1080p', '720p', '480p', 'Auto'].forEach(function(quality) {
+    (blocks || []).filter(function(block) { return String(block.quality || 'Auto') === quality; })
+      .sort(function(a, b) { return blockScore(b, quality) - blockScore(a, quality); })
+      .slice(0, QUALITY_TASK_LIMIT).forEach(function(block) {
+        block.links.slice().sort(function(a, b) { return serverScore(b) - serverScore(a); }).forEach(function(url) {
+          if (seenCandidates[url]) return; seenCandidates[url] = true;
+          selected.push({ url: url, quality: quality });
+        });
+      });
   });
-
-  console.log(
-    "[4KHDHub] blocks=" + (blocks || []).length +
-    " available=" + available.map(displayQuality).join(",")
-  );
-
-  if (!available.length) {
-    /* Keep compatibility for older posts with only Auto/unknown quality. */
-    var fallback = (blocks || []).slice().sort(function (a, b) {
-      return blockScore(b) - blockScore(a);
-    }).slice(0, 2);
-
-    function fallbackNext(i) {
-      if (i >= fallback.length) return Promise.resolve([]);
-      return resolveCandidates(fallback[i].links, detailUrl).then(function (r) {
-        if (!r || !r.url) return fallbackNext(i + 1);
-        var q = fallback[i].quality || "Auto";
-        return [buildStream(r, q, detailUrl)];
-      }).catch(function () { return fallbackNext(i + 1); });
-    }
-    return fallbackNext(0);
+  // Round-robin quality groups so one large 4K block cannot consume every slot.
+  var groups = ['2160p', '1080p', '720p', '480p', 'Auto'].map(function(q) { return selected.filter(function(item) { return item.quality === q; }); });
+  selected = [];
+  for (var slot = 0; selected.length < 8 && groups.some(function(group) { return group.length > slot; }); slot++) {
+    groups.forEach(function(group) { if (group[slot] && selected.length < 8) selected.push(group[slot]); });
   }
-
-  var ready = [];
-  var pending = available.length;
-  var firstResolved = false;
-  var resolveFirst;
-  var resolveAll;
-
-  var firstGood = new Promise(function (resolve) { resolveFirst = resolve; });
-  var allDone = new Promise(function (resolve) { resolveAll = resolve; });
-
-  available.forEach(function (q) {
-    resolveOneQuality(blocks, q, detailUrl).then(function (stream) {
-      if (stream) {
-        ready.push(stream);
-        if (!firstResolved) {
-          firstResolved = true;
-          resolveFirst(true);
-        }
-      }
-    }).catch(function () {
-      /* One slow/broken quality must not hold the other qualities. */
-    }).then(function () {
-      pending--;
-      if (pending <= 0) resolveAll(true);
-    });
-  });
-
-  var grace = firstGood.then(function () {
-    return new Promise(function (resolve) {
-      setTimeout(resolve, MULTI_FIRST_GRACE_MS);
-    });
-  });
-
-  var absolute = new Promise(function (resolve) {
-    setTimeout(resolve, MULTI_ABSOLUTE_MS);
-  });
-
-  return Promise.race([allDone, grace, absolute]).then(function () {
-    var rank = { "4K": 3, "1080p": 2, "720p": 1 };
-    var seen = {};
-    var finalStreams = ready.filter(function (s) {
-      if (!s || !s.url || seen[s.quality]) return false;
-      seen[s.quality] = true;
-      return true;
-    }).sort(function (a, b) {
+  var ready = [], index = 0, deadline = Math.min(Date.now() + MULTI_ABSOLUTE_MS, providerDeadline || Infinity);
+  function worker() {
+    if (index >= selected.length || Date.now() >= deadline) return Promise.resolve();
+    var item = selected[index++];
+    return fourKBounded(function() { return resolveServer(item.url, detailUrl); }, Math.min(2500, deadline - Date.now())).then(function(hit) {
+      if (hit && hit.url) ready.push(buildStream(hit, item.quality, detailUrl));
+    }).catch(function() {}).then(worker);
+  }
+  return Promise.all(Array.from({ length: Math.min(3, selected.length) }, worker)).then(function() {
+    var seen = Object.create(null);
+    return ready.filter(function(stream) {
+      var key = JSON.stringify([stream.url, stream.headers, stream.subtitles]);
+      if (seen[key]) return false; seen[key] = true; return true;
+    }).sort(function(a, b) {
+      if ((a.quality === 'Auto') !== (b.quality === 'Auto')) return a.quality === 'Auto' ? -1 : 1;
+      var rank = { '4K': 2160, '2160p': 2160, '1080p': 1080, '720p': 720, '480p': 480 };
       return (rank[b.quality] || 0) - (rank[a.quality] || 0);
     });
-
-    console.log(
-      "[4KHDHub] multi-quality ready=" +
-      finalStreams.map(function (s) { return s.quality + ":" + hostOf(s.url); }).join(",")
-    );
-
-    return finalStreams;
   });
 }
 
 function getStreams(tmdbId, mediaType, season, episode) {
   mediaType = mediaType === "tv" ? "tv" : "movie";
-  season = Number(season || 1);
+  season = season == null ? 1 : Number(season);
   episode = Number(episode || 1);
   var startedAt = Date.now();
+  var providerDeadline = startedAt + 10000;
   console.log("[4KHDHub] v" + VERSION + " TMDB=" + tmdbId + " type=" + mediaType + (mediaType === "tv" ? " S" + season + "E" + episode : ""));
   var info;
   var detail;
-  return tmdbDetails(tmdbId, mediaType)
-    .then(function (d) {
+  return Promise.all([tmdbDetails(tmdbId, mediaType), latestFourKDomain()])
+    .then(function (values) {
+      var d = values[0];
       info = tmdbInfo(d || {}, mediaType);
       console.log("[4KHDHub] title='" + info.title + "' year=" + info.year);
       if (!info.title) return null;
@@ -1776,7 +1784,7 @@ function getStreams(tmdbId, mediaType, season, episode) {
       return fetchText(detail.url, { headers: { "Referer": found.base + "/" } }).then(function (html) {
         var blocks = mediaType === "tv" ? parseTvBlocks(html, detail.url, season, episode) : parseMovieBlocks(html, detail.url);
         if (mediaType === "tv") console.log("[4KHDHub] episode blocks=" + blocks.length);
-        return resolveBlocks(blocks, detail.url);
+        return resolveBlocks(blocks, detail.url, providerDeadline);
       });
     })
     .then(function (streams) {
