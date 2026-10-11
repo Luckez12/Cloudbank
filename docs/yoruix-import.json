@@ -161,7 +161,9 @@
       "action": "imported",
       "filename": "providers/vidlink-v2.js",
       "runtimeModules": [],
-      "enabled": true
+      "enabled": true,
+      "patchedSourceSha256": "18d9d1efe55c4f808d15a03051fa2103309caeeb32a054ca8e649bd6db156e2c",
+      "localPatch": "VidLink merged API flow: V2 response schemas/subtitles, original adaptive playlist retention, non-blocking metadata, no variant expansion."
     },
     {
       "id": "vidnest",

@@ -35,7 +35,7 @@ for (const entry of report.providers.filter(p => p.action === 'imported' && mani
     const start = source.indexOf(begin) + begin.length;
     const finish = source.lastIndexOf(end);
     assert.ok(start >= begin.length && finish > start);
-    assert.equal(crypto.createHash('sha256').update(source.subarray(start, finish)).digest('hex'), entry.sourceSha256);
+    assert.equal(crypto.createHash('sha256').update(source.subarray(start, finish)).digest('hex'), entry.patchedSourceSha256 || entry.sourceSha256);
     const box = load(entry.filename);
     assert.equal(typeof box.module.exports.getStreams, 'function');
     assert.equal(box.getStreams, box.module.exports.getStreams);
