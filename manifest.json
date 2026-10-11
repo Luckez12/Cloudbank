@@ -1,6 +1,6 @@
 {
   "name": "Cloudbank",
-  "version": "1.20.7",
+  "version": "1.20.8",
   "scrapers": [
     {
       "id": "kisskh",
@@ -2693,7 +2693,7 @@
       "id": "vixsrc",
       "name": "VixSrc",
       "description": "VixSrc - The best place to watch movies and TV shows online for free. Stream in 1080p HD",
-      "version": "1.0.4",
+      "version": "1.1.0",
       "author": "Nuvio Team",
       "supportedTypes": [
         "movie",
@@ -2701,7 +2701,6 @@
       ],
       "filename": "providers/vixsrc.js",
       "enabled": true,
-      "hasSettings": true,
       "formats": [
         "mp4",
         "m3u8"
@@ -2709,7 +2708,7 @@
       "logo": "https://i.postimg.cc/1tHrBvzs/vixsrc.png",
       "contentLanguage": [
         "en",
-        "Ita"
+        "it"
       ],
       "runtimeTimeoutMs": 20000,
       "upstreamSupportedTypes": [
@@ -2717,37 +2716,10 @@
         "tv"
       ],
       "upstreamVersion": "1.0.0",
-      "notes": "Imported from D3adlyRocket/All-in-One-Nuvio at 3f09a6ff4360498895e622877af7a32212f75038. Cloudbank adapter preserves upstream extraction/settings, uses shared TMDB detail metadata when available, caps async result wait at 19s, and returns valid stream arrays. Playback and host settings support require app testing. Optional Node SOCKS proxy is unavailable in embedded runtime; native fetch remains the fallback.",
+      "notes": "Imported from D3adlyRocket/All-in-One-Nuvio at 3f09a6ff4360498895e622877af7a32212f75038. Cloudbank adapter preserves upstream extraction/settings, uses shared TMDB detail metadata when available, caps async result wait at 19s, and returns valid stream arrays. Playback and host settings support require app testing. Optional Node SOCKS proxy is unavailable in embedded runtime; native fetch remains the fallback. VixSrc/V2 merged: official API/embed first, direct page then original custom-domain API fallback; robust scoped signed-payload parsing, master HLS verification, bounded English subtitle attachment; native fetch only. Live playback unverified.",
       "sourceRepository": "https://github.com/D3adlyRocket/All-in-One-Nuvio",
       "sourceCommit": "3f09a6ff4360498895e622877af7a32212f75038",
       "runtimeModules": []
-    },
-    {
-      "id": "vixsrc-v2",
-      "name": "Vixsrc V2",
-      "description": "Vixsrc M3U8 streaming with auto quality selection",
-      "version": "1.0.3",
-      "author": "Nuvio Team",
-      "supportedTypes": [
-        "movie",
-        "tv"
-      ],
-      "filename": "providers/vixsrc-v2.js",
-      "enabled": true,
-      "logo": "https://vixsrc.to/favicon.ico",
-      "contentLanguage": [
-        "en"
-      ],
-      "runtimeTimeoutMs": 20000,
-      "sourceRepository": "https://github.com/yoruix/nuvio-providers",
-      "sourceCommit": "ed38d1aee0024f56479369c9423fefb278e0b62a",
-      "upstreamVersion": "1.0.0",
-      "upstreamSupportedTypes": [
-        "movie",
-        "tv"
-      ],
-      "runtimeModules": [],
-      "notes": "Independent Yoruix import at ed38d1aee0024f56479369c9423fefb278e0b62a. Existing provider versions remain intact. Uses the Cloudbank adapter; upstream enabled/settings/platform flags preserved. Playback is not verified."
     },
     {
       "id": "vidfast",

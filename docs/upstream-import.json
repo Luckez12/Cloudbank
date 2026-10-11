@@ -514,7 +514,9 @@
       "sourceSha256": "b38a464f826f7ea87fee2c4e483ccbe9d5925e8a89a678a816b77873245611eb",
       "action": "imported",
       "filename": "providers/vixsrc.js",
-      "runtimeModules": []
+      "runtimeModules": [],
+      "patchedSourceSha256": "74e40d294e5a61732f21558bc4d6e4bd4b88135a1509e04e6cd8d4523fae1671",
+      "localPatch": "VixSrc/V2 consolidation: official direct page plus original API/embed routes, scoped parser, URL query preservation, verified HLS master and attached subtitles."
     },
     {
       "id": "vidfast",
