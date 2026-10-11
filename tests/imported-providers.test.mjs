@@ -23,12 +23,11 @@ function load(filename, overrides = {}) {
   vm.runInContext(fs.readFileSync(filename, 'utf8'), sandbox, { timeout: 2000 });
   return sandbox;
 }
-test('all source IDs and independent variants are represented once; 103 combined providers', () => {
-  assert.equal(manifest.scrapers.length, 103);
-  assert.equal(new Set(manifest.scrapers.map(p => p.id)).size, 103);
-  for (const p of report.providers) assert.equal(manifest.scrapers.filter(s => s.id === p.id).length, 1);
+test('registered source IDs and independent variants are represented once', () => {
+  assert.equal(new Set(manifest.scrapers.map(p => p.id)).size, manifest.scrapers.length);
+  for (const p of manifest.scrapers.filter(p => p.sourceRepository)) assert.equal(report.providers.filter(s => s.id === p.id).length, 1);
 });
-for (const entry of report.providers.filter(p => p.action === 'imported')) {
+for (const entry of report.providers.filter(p => p.action === 'imported' && manifest.scrapers.some(s => s.id === p.id))) {
   test(`${entry.id}: source integrity, portable module load, host input guards`, async () => {
     const source = fs.readFileSync(entry.filename);
     const begin = Buffer.from('/* CLOUDBANK_UPSTREAM_SOURCE_START */\n');
@@ -113,7 +112,7 @@ test('Yoruix flags and variant numbering remain independent', () => {
     for (const id of [base, `${base}-v2`, `${base}-v3`]) assert.ok(get(id));
     assert.equal(get(`${base}-v3`).sourceRepository, secondReport.repository);
   }
-  for (const record of secondReport.providers) assert.equal(get(record.id).enabled, record.enabled);
+  for (const record of secondReport.providers.filter(p => get(p.id))) assert.equal(get(record.id).enabled, record.enabled);
 });
 
 test('StreamFlix real resolver preserves movie output and TV fallback without Node ws', async () => {

@@ -85,7 +85,7 @@ for (const scraper of manifest.scrapers) {
   if (fs.lstatSync(providerPath).isSymbolicLink()) fail(`Provider cannot be a symlink: ${scraper.filename}`);
   const source = fs.readFileSync(providerPath, 'utf8');
 
-  if (source.includes('CLOUDBANK_STREAM_DISPLAY_START') || source.includes('module.exports = cloudbankDisplayInstall(module.exports,')) {
+  if (source.includes('CLOUDBANK_STREAM_DISPLAY_START')) {
     fail(`${scraper.filename} still includes the rolled-back stream display formatter`);
   }
 

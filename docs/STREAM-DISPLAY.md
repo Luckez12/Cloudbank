@@ -1,15 +1,22 @@
-# Original provider display restored — 1.20.2
+# PlayIMDb original display — 1.20.3
 
-The common English stream formatter has been removed from all 103 providers.
-Each provider once again returns its own original stream name and title,
-including its original layout, symbols and available metadata.
+All registered providers use the original PlayIMDb layout:
 
-The rollback does not remove the anime mapping repair from 1.20.1. Provider
-extraction, headers, URLs, subtitle tracks, settings and registration remain
-unchanged. The imported upstream source hashes remain valid.
+```text
+🟡 Provider | 720p HD | English-Audio
+🎬 Movie Title - 2026
+💎 720P | 🌍 English
+🎞️ M3U8 | ⏱️ 90 min | 📌 Server 1
+```
 
-The former formatter helper is now a compatibility passthrough. Running
-`python3 scripts/embed_stream_display.py` removes any remaining old formatter;
-it cannot reinstall the rejected display. Validation rejects an active formatter.
+Series use `🎬 Series Title - S1E2 (2026)`. Unavailable title, quality,
+audio, format and duration are omitted. Server numbers are list positions when
+no source server name exists. Quality and audio come from provider output;
+they are never inferred from a provider's catalog language. Movie runtime is
+TMDB metadata, not a measurement of the video file. No new network requests.
+PlayIMDb itself retains its original upstream output, including its defaults.
 
-This ZIP uses repository-root paths and contains no YML files.
+Only name/title presentation changes. Playback URLs, headers, subtitles,
+settings, mapping repairs, enabled flags and provider registrations are kept.
+The formatter is embedded because the app downloads standalone provider files.
+Run `python3 scripts/embed_stream_display.py` after changing its source.
