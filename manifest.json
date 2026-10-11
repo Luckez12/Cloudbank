@@ -1122,7 +1122,7 @@
     },
     {
       "id": "castle",
-      "name": "\ud83c\udff0 Castle",
+      "name": "Castle",
       "description": "Multi Lang provider",
       "version": "2.1.0",
       "author": "Nuvio Team",
