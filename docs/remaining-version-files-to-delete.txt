@@ -1,0 +1,17 @@
+providers/kisskh-v2.js
+providers/moviebox-v2.js
+providers/moviebox-v3.js
+providers/anizone-v2.js
+providers/animepahe-v2.js
+providers/allmovieland-v2.js
+providers/cinemacity-v2.js
+providers/dahmermovies-v2.js
+providers/dooflix-v2.js
+providers/hianime-v2.js
+providers/kurage-v2.js
+providers/movieblast-v2.js
+providers/moviesdrive-v2.js
+providers/moviesmod-v2.js
+providers/netmirror-v2.js
+providers/uhdmovies-v2.js
+providers/videasy-v2.js

@@ -102,23 +102,12 @@ test('metadata adapter uses shared details, clones response and forwards episode
   assert.equal(calls.length, before + 1);
 });
 
-test('Yoruix flags and variant numbering remain independent', () => {
-  const get = id => manifest.scrapers.find(p => p.id === id);
-  assert.equal(get('videasy-v2').enabled, false);
-  assert.equal(get('videasy').enabled, true);
-  assert.deepEqual(get('netmirror-v2').disabledPlatforms, ['ios']);
-  assert.equal(get('netmirror-v2').supportsExternalPlayer, false);
-  for (const base of ['moviebox']) {
-    for (const id of [base, `${base}-v2`, `${base}-v3`]) assert.ok(get(id));
-    assert.equal(get(`${base}-v3`).sourceRepository, secondReport.repository);
+test('version consolidation retains ordinary IDs and historical Yoruix records', () => {
+  assert.ok(manifest.scrapers.find(p => p.id === 'videasy').enabled);
+  assert.equal(manifest.scrapers.some(p => /-v\d+$/.test(p.id)), false);
+  for (const record of secondReport.providers.filter(p => manifest.scrapers.some(s => s.id === p.id))) {
+    assert.equal(manifest.scrapers.find(p => p.id === record.id).enabled, record.enabled);
   }
-  assert.ok(get('4khdhub'));
-  assert.equal(get('4khdhub-v2'), undefined);
-  assert.equal(get('4khdhub-v3'), undefined);
-  assert.ok(get('hdhub4u'));
-  assert.equal(get('hdhub4u-v2'), undefined);
-  assert.equal(get('hdhub4u-v3'), undefined);
-  for (const record of secondReport.providers.filter(p => get(p.id))) assert.equal(get(record.id).enabled, record.enabled);
 });
 
 test('StreamFlix real resolver preserves movie output and TV fallback without Node ws', async () => {

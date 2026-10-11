@@ -1,12 +1,12 @@
 {
   "name": "Cloudbank",
-  "version": "1.20.10",
+  "version": "1.20.11",
   "scrapers": [
     {
       "id": "kisskh",
       "name": "KissKH",
       "description": "Asian drama, series and movie streams with subtitle metadata",
-      "version": "1.3.5",
+      "version": "1.3.6",
       "author": "Luckez",
       "supportedTypes": [
         "movie",
@@ -25,47 +25,13 @@
         "ko",
         "zh",
         "th",
-        "ja"
+        "ja",
+        "ch"
       ],
       "disabledPlatforms": [],
       "supportsExternalPlayer": true,
-      "notes": "V15 Shared Discovery Context: TMDB detail metadata is coalesced by VUEO core once per scan when the V15 runtime bridge is available; local TMDB fallback remains for older runtimes. V15 centralized trace hooks emit metadata/candidate/verification stages without changing source extraction. V15 Shared Discovery Context + centralized trace hooks. TMDB metadata is coalesced by VUEO core when available, with provider-local fallback retained. Candidate/verification stages emit lightweight diagnostics. Runtime budget alignment: provider now receives the full 20s app runtime instead of the 10s descriptor default, so the existing bounded title/detail/video/subtitle pipeline is not killed before it can return valid links. Test-Plugin adaptation: transferred engine first (11s maximum), existing Cloudbank engine retained as fallback (7.5s maximum). Shared metadata, provider identity and display preserved; Android playback unverified.",
+      "notes": "V15 Shared Discovery Context: TMDB detail metadata is coalesced by VUEO core once per scan when the V15 runtime bridge is available; local TMDB fallback remains for older runtimes. V15 centralized trace hooks emit metadata/candidate/verification stages without changing source extraction. V15 Shared Discovery Context + centralized trace hooks. TMDB metadata is coalesced by VUEO core when available, with provider-local fallback retained. Candidate/verification stages emit lightweight diagnostics. Runtime budget alignment: provider now receives the full 20s app runtime instead of the 10s descriptor default, so the existing bounded title/detail/video/subtitle pipeline is not killed before it can return valid links. Test-Plugin adaptation: transferred engine first (11s maximum), existing Cloudbank engine retained as fallback (7.5s maximum). Shared metadata, provider identity and display preserved; Android playback unverified. Version consolidation: alternate cores embedded as bounded delayed/failed-primary fallbacks; provider identity, playback metadata and settings preserved. Source disabled/platform flags retained per engine. Playback requires app testing.",
       "runtimeTimeoutMs": 20000
-    },
-    {
-      "id": "kisskh-v2",
-      "name": "Kisskh V2",
-      "description": "Streams Korean dramas and movies from onlykdrama.top",
-      "version": "1.0.3",
-      "author": "Michat88",
-      "supportedTypes": [
-        "movie",
-        "tv"
-      ],
-      "filename": "providers/kisskh-v2.js",
-      "enabled": true,
-      "hasSettings": true,
-      "formats": [
-        "mp4",
-        "m3u8"
-      ],
-      "logo": "https://i.postimg.cc/2yLnTzPP/kisskh.jpg",
-      "contentLanguage": [
-        "ko",
-        "ch",
-        "ja",
-        "th"
-      ],
-      "runtimeTimeoutMs": 20000,
-      "sourceRepository": "https://github.com/D3adlyRocket/All-in-One-Nuvio",
-      "sourceCommit": "3f09a6ff4360498895e622877af7a32212f75038",
-      "upstreamSupportedTypes": [
-        "movie",
-        "tv"
-      ],
-      "upstreamVersion": "1.0.0",
-      "runtimeModules": [],
-      "notes": "Independent V2 import from All-in-One-Nuvio. Original Cloudbank provider remains intact. Uses the same Cloudbank compatibility adapter as other imports. Playback is not yet verified."
     },
     {
       "id": "onetouchtv",
@@ -128,7 +94,7 @@
       "id": "moviebox",
       "name": "MovieBox",
       "description": "MovieBox signed mobile API with existing H5 mirror discovery fallback",
-      "version": "2.9.5",
+      "version": "2.9.6",
       "author": "Luckez",
       "supportedTypes": [
         "movie",
@@ -139,90 +105,25 @@
       "limited": false,
       "formats": [
         "mp4",
-        "m3u8"
+        "m3u8",
+        "mpd"
       ],
       "logo": "https://www.google.com/s2/favicons?domain=moviebox.ph&sz=128",
       "contentLanguage": [
         "en",
         "ms",
-        "id"
+        "id",
+        "hin",
+        "tam",
+        "tel"
       ],
       "disabledPlatforms": [],
       "supportsExternalPlayer": true,
       "runtimeTimeoutMs": 20000,
-      "notes": "V16 Provider Repair: execution-scoped mirror health stops repeated NXDOMAIN/404 retries, recursive H5 payload parsing supports more response envelopes/ID field names, and alias fallback fan-out is reduced when mirrors are unhealthy. V15 Shared Discovery Context: TMDB detail metadata is coalesced by VUEO core once per scan when the V15 runtime bridge is available; local TMDB fallback remains for older runtimes. V15 centralized trace hooks emit metadata/candidate/verification stages without changing source extraction. V15 Shared Discovery Context + centralized trace hooks. TMDB metadata is coalesced by VUEO core when available, with provider-local fallback retained. Candidate/verification stages emit lightweight diagnostics. Discovery Rebuild V1: MovieBox title scoring now strips season/year/quality noise before alias matching, TV year mismatch is a soft preference instead of a hard penalty, and more TMDB aliases are covered without increasing the mirror fan-out. Test-Plugin adaptation: transferred engine first (11s maximum), existing Cloudbank engine retained as fallback (7.5s maximum). Shared metadata, provider identity and display preserved; Android playback unverified."
-    },
-    {
-      "id": "moviebox-v2",
-      "name": "MovieBox V2",
-      "description": "MovieBox streaming with multiple language support (DASH + MP4)",
-      "version": "1.0.3",
-      "author": "Nuvio Team",
-      "supportedTypes": [
-        "movie",
-        "tv"
-      ],
-      "filename": "providers/moviebox-v2.js",
-      "enabled": true,
-      "formats": [
-        "mp4",
-        "mpd"
-      ],
-      "logo": "https://moviebox.ph/favicon.ico",
-      "contentLanguage": [
-        "en",
-        "hin",
-        "tam",
-        "tel"
-      ],
-      "runtimeTimeoutMs": 20000,
-      "sourceRepository": "https://github.com/D3adlyRocket/All-in-One-Nuvio",
-      "sourceCommit": "3f09a6ff4360498895e622877af7a32212f75038",
-      "upstreamSupportedTypes": [
-        "movie",
-        "tv"
-      ],
-      "upstreamVersion": "1.2.3",
+      "notes": "V16 Provider Repair: execution-scoped mirror health stops repeated NXDOMAIN/404 retries, recursive H5 payload parsing supports more response envelopes/ID field names, and alias fallback fan-out is reduced when mirrors are unhealthy. V15 Shared Discovery Context: TMDB detail metadata is coalesced by VUEO core once per scan when the V15 runtime bridge is available; local TMDB fallback remains for older runtimes. V15 centralized trace hooks emit metadata/candidate/verification stages without changing source extraction. V15 Shared Discovery Context + centralized trace hooks. TMDB metadata is coalesced by VUEO core when available, with provider-local fallback retained. Candidate/verification stages emit lightweight diagnostics. Discovery Rebuild V1: MovieBox title scoring now strips season/year/quality noise before alias matching, TV year mismatch is a soft preference instead of a hard penalty, and more TMDB aliases are covered without increasing the mirror fan-out. Test-Plugin adaptation: transferred engine first (11s maximum), existing Cloudbank engine retained as fallback (7.5s maximum). Shared metadata, provider identity and display preserved; Android playback unverified. Version consolidation: alternate cores embedded as bounded delayed/failed-primary fallbacks; provider identity, playback metadata and settings preserved. Source disabled/platform flags retained per engine. Playback requires app testing.",
       "runtimeModules": [
         "crypto-js"
-      ],
-      "notes": "Independent V2 import from All-in-One-Nuvio. Original Cloudbank provider remains intact. Uses the same Cloudbank compatibility adapter as other imports. Playback is not yet verified."
-    },
-    {
-      "id": "moviebox-v3",
-      "name": "MovieBox V3",
-      "description": "MovieBox streaming with multiple language support (DASH + MP4)",
-      "version": "1.0.3",
-      "author": "Nuvio Team",
-      "supportedTypes": [
-        "movie",
-        "tv"
-      ],
-      "filename": "providers/moviebox-v3.js",
-      "enabled": true,
-      "formats": [
-        "mp4",
-        "mpd"
-      ],
-      "logo": "https://moviebox.ph/favicon.ico",
-      "contentLanguage": [
-        "en",
-        "hin",
-        "tam",
-        "tel"
-      ],
-      "runtimeTimeoutMs": 20000,
-      "sourceRepository": "https://github.com/yoruix/nuvio-providers",
-      "sourceCommit": "ed38d1aee0024f56479369c9423fefb278e0b62a",
-      "upstreamVersion": "1.1.0",
-      "upstreamSupportedTypes": [
-        "movie",
-        "tv"
-      ],
-      "runtimeModules": [
-        "crypto-js"
-      ],
-      "notes": "Independent Yoruix import at ed38d1aee0024f56479369c9423fefb278e0b62a. Existing provider versions remain intact. Uses the Cloudbank adapter; upstream enabled/settings/platform flags preserved. Playback is not verified."
+      ]
     },
     {
       "id": "4khdhub",
@@ -478,7 +379,7 @@
       "id": "anizone",
       "name": "AniZone",
       "description": "AniZone high-quality anime streaming with multi-audio and soft subtitles",
-      "version": "1.0.6",
+      "version": "1.0.7",
       "author": "Nuvio Team",
       "supportedTypes": [
         "movie",
@@ -500,44 +401,12 @@
         "tv"
       ],
       "upstreamVersion": "1.0.2",
-      "notes": "Imported from D3adlyRocket/All-in-One-Nuvio at 3f09a6ff4360498895e622877af7a32212f75038. Cloudbank adapter preserves upstream extraction/settings, uses shared TMDB detail metadata when available, caps async result wait at 19s, and returns valid stream arrays. Playback and host settings support require app testing.",
+      "notes": "Imported from D3adlyRocket/All-in-One-Nuvio at 3f09a6ff4360498895e622877af7a32212f75038. Cloudbank adapter preserves upstream extraction/settings, uses shared TMDB detail metadata when available, caps async result wait at 19s, and returns valid stream arrays. Playback and host settings support require app testing. Version consolidation: alternate cores embedded as bounded delayed/failed-primary fallbacks; provider identity, playback metadata and settings preserved. Source disabled/platform flags retained per engine. Playback requires app testing.",
       "sourceRepository": "https://github.com/D3adlyRocket/All-in-One-Nuvio",
       "sourceCommit": "3f09a6ff4360498895e622877af7a32212f75038",
       "runtimeModules": [
         "cheerio-without-node-native"
       ]
-    },
-    {
-      "id": "anizone-v2",
-      "name": "AniZone V2",
-      "description": "AniZone high-quality anime streaming with multi-audio and soft subtitles",
-      "version": "1.0.4",
-      "author": "Nuvio Team",
-      "supportedTypes": [
-        "movie",
-        "tv"
-      ],
-      "filename": "providers/anizone-v2.js",
-      "enabled": true,
-      "formats": [
-        "m3u8"
-      ],
-      "logo": "https://anizone.to/favicon.ico",
-      "contentLanguage": [
-        "en"
-      ],
-      "runtimeTimeoutMs": 20000,
-      "sourceRepository": "https://github.com/yoruix/nuvio-providers",
-      "sourceCommit": "ed38d1aee0024f56479369c9423fefb278e0b62a",
-      "upstreamVersion": "1.0.0",
-      "upstreamSupportedTypes": [
-        "movie",
-        "tv"
-      ],
-      "runtimeModules": [
-        "cheerio-without-node-native"
-      ],
-      "notes": "Independent Yoruix import at ed38d1aee0024f56479369c9423fefb278e0b62a. Existing provider versions remain intact. Uses the Cloudbank adapter; upstream enabled/settings/platform flags preserved. Playback is not verified."
     },
     {
       "id": "anikototv",
@@ -612,7 +481,7 @@
       "id": "animepahe",
       "name": "AnimePahe",
       "description": "Watch anime online free in HD with fast streaming servers. Stream latest anime episodes and movies daily",
-      "version": "1.0.6",
+      "version": "1.0.7",
       "author": "Nuvio Team",
       "supportedTypes": [
         "movie",
@@ -636,45 +505,12 @@
         "tv"
       ],
       "upstreamVersion": "1.0.1",
-      "notes": "Imported from D3adlyRocket/All-in-One-Nuvio at 3f09a6ff4360498895e622877af7a32212f75038. Cloudbank adapter preserves upstream extraction/settings, uses shared TMDB detail metadata when available, caps async result wait at 19s, and returns valid stream arrays. Playback and host settings support require app testing.",
+      "notes": "Imported from D3adlyRocket/All-in-One-Nuvio at 3f09a6ff4360498895e622877af7a32212f75038. Cloudbank adapter preserves upstream extraction/settings, uses shared TMDB detail metadata when available, caps async result wait at 19s, and returns valid stream arrays. Playback and host settings support require app testing. Version consolidation: alternate cores embedded as bounded delayed/failed-primary fallbacks; provider identity, playback metadata and settings preserved. Source disabled/platform flags retained per engine. Playback requires app testing.",
       "sourceRepository": "https://github.com/D3adlyRocket/All-in-One-Nuvio",
       "sourceCommit": "3f09a6ff4360498895e622877af7a32212f75038",
       "runtimeModules": [
         "cheerio-without-node-native"
       ]
-    },
-    {
-      "id": "animepahe-v2",
-      "name": "AnimePahe V2",
-      "description": "AnimePahe (Sub/Dub)",
-      "version": "1.0.4",
-      "author": "Nuvio Team",
-      "supportedTypes": [
-        "movie",
-        "tv"
-      ],
-      "filename": "providers/animepahe-v2.js",
-      "enabled": true,
-      "hasSettings": true,
-      "formats": [
-        "m3u8"
-      ],
-      "logo": "https://www.google.com/s2/favicons?domain=animepahe.ru&sz=128",
-      "contentLanguage": [
-        "en"
-      ],
-      "runtimeTimeoutMs": 20000,
-      "sourceRepository": "https://github.com/yoruix/nuvio-providers",
-      "sourceCommit": "ed38d1aee0024f56479369c9423fefb278e0b62a",
-      "upstreamVersion": "1.0.1",
-      "upstreamSupportedTypes": [
-        "movie",
-        "tv"
-      ],
-      "runtimeModules": [
-        "cheerio-without-node-native"
-      ],
-      "notes": "Independent Yoruix import at ed38d1aee0024f56479369c9423fefb278e0b62a. Existing provider versions remain intact. Uses the Cloudbank adapter; upstream enabled/settings/platform flags preserved. Playback is not verified."
     },
     {
       "id": "animesalt",
@@ -851,7 +687,7 @@
       "id": "allmovieland",
       "name": "AllMovieLand",
       "description": "AllMovieLand streaming provider with multi-language support",
-      "version": "1.0.4",
+      "version": "1.0.5",
       "author": "Nuvio Team",
       "supportedTypes": [
         "movie",
@@ -876,47 +712,12 @@
         "tv"
       ],
       "upstreamVersion": "1.0.0",
-      "notes": "Imported from D3adlyRocket/All-in-One-Nuvio at 3f09a6ff4360498895e622877af7a32212f75038. Cloudbank adapter preserves upstream extraction/settings, uses shared TMDB detail metadata when available, caps async result wait at 19s, and returns valid stream arrays. Playback and host settings support require app testing.",
+      "notes": "Imported from D3adlyRocket/All-in-One-Nuvio at 3f09a6ff4360498895e622877af7a32212f75038. Cloudbank adapter preserves upstream extraction/settings, uses shared TMDB detail metadata when available, caps async result wait at 19s, and returns valid stream arrays. Playback and host settings support require app testing. Version consolidation: alternate cores embedded as bounded delayed/failed-primary fallbacks; provider identity, playback metadata and settings preserved. Source disabled/platform flags retained per engine. Playback requires app testing.",
       "sourceRepository": "https://github.com/D3adlyRocket/All-in-One-Nuvio",
       "sourceCommit": "3f09a6ff4360498895e622877af7a32212f75038",
       "runtimeModules": [
         "cheerio-without-node-native"
       ]
-    },
-    {
-      "id": "allmovieland-v2",
-      "name": "AllMovieLand V2",
-      "description": "AllMovieLand streaming provider with multi-language support",
-      "version": "1.0.3",
-      "author": "Nuvio Team",
-      "supportedTypes": [
-        "movie",
-        "tv"
-      ],
-      "filename": "providers/allmovieland-v2.js",
-      "enabled": true,
-      "formats": [
-        "m3u8"
-      ],
-      "logo": "https://www.google.com/s2/favicons?domain=allmovieland.one&sz=128",
-      "contentLanguage": [
-        "en",
-        "hi",
-        "ta",
-        "te"
-      ],
-      "runtimeTimeoutMs": 20000,
-      "sourceRepository": "https://github.com/yoruix/nuvio-providers",
-      "sourceCommit": "ed38d1aee0024f56479369c9423fefb278e0b62a",
-      "upstreamVersion": "1.0.0",
-      "upstreamSupportedTypes": [
-        "movie",
-        "tv"
-      ],
-      "runtimeModules": [
-        "cheerio-without-node-native"
-      ],
-      "notes": "Independent Yoruix import at ed38d1aee0024f56479369c9423fefb278e0b62a. Existing provider versions remain intact. Uses the Cloudbank adapter; upstream enabled/settings/platform flags preserved. Playback is not verified."
     },
     {
       "id": "animezey",
@@ -1120,7 +921,7 @@
       "id": "cinemacity",
       "name": "CinemaCity",
       "description": "Multi Language Provider",
-      "version": "1.0.4",
+      "version": "1.0.5",
       "author": "Nuvio Team",
       "supportedTypes": [
         "movie",
@@ -1137,56 +938,24 @@
       "contentLanguage": [
         "en",
         "hi",
-        "ar"
-      ],
-      "runtimeTimeoutMs": 20000,
-      "upstreamSupportedTypes": [
-        "movie",
-        "tv"
-      ],
-      "upstreamVersion": "1.0.0",
-      "notes": "Imported from D3adlyRocket/All-in-One-Nuvio at 3f09a6ff4360498895e622877af7a32212f75038. Cloudbank adapter preserves upstream extraction/settings, uses shared TMDB detail metadata when available, caps async result wait at 19s, and returns valid stream arrays. Playback and host settings support require app testing.",
-      "sourceRepository": "https://github.com/D3adlyRocket/All-in-One-Nuvio",
-      "sourceCommit": "3f09a6ff4360498895e622877af7a32212f75038",
-      "runtimeModules": []
-    },
-    {
-      "id": "cinemacity-v2",
-      "name": "CinemaCity V2",
-      "description": "CinemaCity (Multi-Language)",
-      "version": "1.0.3",
-      "author": "Nuvio Team",
-      "supportedTypes": [
-        "movie",
-        "tv"
-      ],
-      "filename": "providers/cinemacity-v2.js",
-      "enabled": true,
-      "formats": [
-        "mp4"
-      ],
-      "logo": "https://www.google.com/s2/favicons?domain=cinema-city.pl&sz=128",
-      "contentLanguage": [
-        "en",
-        "hi",
+        "ar",
         "ta",
         "te",
         "id",
-        "pl",
-        "ar"
+        "pl"
       ],
       "runtimeTimeoutMs": 20000,
-      "sourceRepository": "https://github.com/yoruix/nuvio-providers",
-      "sourceCommit": "ed38d1aee0024f56479369c9423fefb278e0b62a",
-      "upstreamVersion": "1.0.0",
       "upstreamSupportedTypes": [
         "movie",
         "tv"
       ],
+      "upstreamVersion": "1.0.0",
+      "notes": "Imported from D3adlyRocket/All-in-One-Nuvio at 3f09a6ff4360498895e622877af7a32212f75038. Cloudbank adapter preserves upstream extraction/settings, uses shared TMDB detail metadata when available, caps async result wait at 19s, and returns valid stream arrays. Playback and host settings support require app testing. Version consolidation: alternate cores embedded as bounded delayed/failed-primary fallbacks; provider identity, playback metadata and settings preserved. Source disabled/platform flags retained per engine. Playback requires app testing.",
+      "sourceRepository": "https://github.com/D3adlyRocket/All-in-One-Nuvio",
+      "sourceCommit": "3f09a6ff4360498895e622877af7a32212f75038",
       "runtimeModules": [
         "cheerio-without-node-native"
-      ],
-      "notes": "Independent Yoruix import at ed38d1aee0024f56479369c9423fefb278e0b62a. Existing provider versions remain intact. Uses the Cloudbank adapter; upstream enabled/settings/platform flags preserved. Playback is not verified."
+      ]
     },
     {
       "id": "ctgmovies",
@@ -1226,7 +995,7 @@
       "id": "dahmermovies",
       "name": "Dahmermovies",
       "description": "1080p Movies from Dahmermovies",
-      "version": "1.0.4",
+      "version": "1.0.5",
       "author": "Nuvio Team",
       "supportedTypes": [
         "movie",
@@ -1250,41 +1019,10 @@
         "tv"
       ],
       "upstreamVersion": "1.0.0",
-      "notes": "Imported from D3adlyRocket/All-in-One-Nuvio at 3f09a6ff4360498895e622877af7a32212f75038. Cloudbank adapter preserves upstream extraction/settings, uses shared TMDB detail metadata when available, caps async result wait at 19s, and returns valid stream arrays. Playback and host settings support require app testing.",
+      "notes": "Imported from D3adlyRocket/All-in-One-Nuvio at 3f09a6ff4360498895e622877af7a32212f75038. Cloudbank adapter preserves upstream extraction/settings, uses shared TMDB detail metadata when available, caps async result wait at 19s, and returns valid stream arrays. Playback and host settings support require app testing. Version consolidation: alternate cores embedded as bounded delayed/failed-primary fallbacks; provider identity, playback metadata and settings preserved. Source disabled/platform flags retained per engine. Playback requires app testing.",
       "sourceRepository": "https://github.com/D3adlyRocket/All-in-One-Nuvio",
       "sourceCommit": "3f09a6ff4360498895e622877af7a32212f75038",
       "runtimeModules": []
-    },
-    {
-      "id": "dahmermovies-v2",
-      "name": "DahmerMovies V2",
-      "description": "Dahmer Movies streaming service. Can be slow at times to fetch and stream. Only use if needed.",
-      "version": "1.0.3",
-      "author": "Nuvio Team",
-      "supportedTypes": [
-        "movie",
-        "tv"
-      ],
-      "filename": "providers/dahmermovies-v2.js",
-      "enabled": true,
-      "hasSettings": true,
-      "formats": [
-        "mkv"
-      ],
-      "logo": "https://image.similarpng.com/file/similarpng/very-thumbnail/2021/05/Letter-D-logo-design-template-with-geometric-shape-style-on-transparent-background-PNG.png",
-      "contentLanguage": [
-        "en"
-      ],
-      "runtimeTimeoutMs": 20000,
-      "sourceRepository": "https://github.com/yoruix/nuvio-providers",
-      "sourceCommit": "ed38d1aee0024f56479369c9423fefb278e0b62a",
-      "upstreamVersion": "1.0.2",
-      "upstreamSupportedTypes": [
-        "movie",
-        "tv"
-      ],
-      "runtimeModules": [],
-      "notes": "Independent Yoruix import at ed38d1aee0024f56479369c9423fefb278e0b62a. Existing provider versions remain intact. Uses the Cloudbank adapter; upstream enabled/settings/platform flags preserved. Playback is not verified."
     },
     {
       "id": "dahmermovies-tv",
@@ -1323,7 +1061,7 @@
       "id": "dooflix",
       "name": "DooFlix",
       "description": "Fast streaming provider with direct TMDB integration",
-      "version": "1.0.4",
+      "version": "1.0.5",
       "author": "Nuvio Team",
       "supportedTypes": [
         "movie",
@@ -1339,49 +1077,19 @@
       "logo": "https://i.postimg.cc/59H1DmRk/dooflix.png",
       "contentLanguage": [
         "en",
-        "es"
-      ],
-      "runtimeTimeoutMs": 20000,
-      "upstreamSupportedTypes": [
-        "movie",
-        "tv"
-      ],
-      "upstreamVersion": "1.0.0",
-      "notes": "Imported from D3adlyRocket/All-in-One-Nuvio at 3f09a6ff4360498895e622877af7a32212f75038. Cloudbank adapter preserves upstream extraction/settings, uses shared TMDB detail metadata when available, caps async result wait at 19s, and returns valid stream arrays. Playback and host settings support require app testing.",
-      "sourceRepository": "https://github.com/D3adlyRocket/All-in-One-Nuvio",
-      "sourceCommit": "3f09a6ff4360498895e622877af7a32212f75038",
-      "runtimeModules": []
-    },
-    {
-      "id": "dooflix-v2",
-      "name": "DooFlix V2",
-      "description": "Fast streaming provider with direct TMDB integration",
-      "version": "1.0.3",
-      "author": "Nuvio Team",
-      "supportedTypes": [
-        "movie",
-        "tv"
-      ],
-      "filename": "providers/dooflix-v2.js",
-      "enabled": true,
-      "formats": [
-        "m3u8"
-      ],
-      "logo": "https://www.google.com/s2/favicons?domain=dooflix.org&sz=128",
-      "contentLanguage": [
-        "en",
+        "es",
         "hi"
       ],
       "runtimeTimeoutMs": 20000,
-      "sourceRepository": "https://github.com/yoruix/nuvio-providers",
-      "sourceCommit": "ed38d1aee0024f56479369c9423fefb278e0b62a",
-      "upstreamVersion": "1.0.0",
       "upstreamSupportedTypes": [
         "movie",
         "tv"
       ],
-      "runtimeModules": [],
-      "notes": "Independent Yoruix import at ed38d1aee0024f56479369c9423fefb278e0b62a. Existing provider versions remain intact. Uses the Cloudbank adapter; upstream enabled/settings/platform flags preserved. Playback is not verified."
+      "upstreamVersion": "1.0.0",
+      "notes": "Imported from D3adlyRocket/All-in-One-Nuvio at 3f09a6ff4360498895e622877af7a32212f75038. Cloudbank adapter preserves upstream extraction/settings, uses shared TMDB detail metadata when available, caps async result wait at 19s, and returns valid stream arrays. Playback and host settings support require app testing. Version consolidation: alternate cores embedded as bounded delayed/failed-primary fallbacks; provider identity, playback metadata and settings preserved. Source disabled/platform flags retained per engine. Playback requires app testing.",
+      "sourceRepository": "https://github.com/D3adlyRocket/All-in-One-Nuvio",
+      "sourceCommit": "3f09a6ff4360498895e622877af7a32212f75038",
+      "runtimeModules": []
     },
     {
       "id": "einthusan",
@@ -1526,7 +1234,7 @@
       "id": "hianime",
       "name": "HiAnime",
       "description": "HiAnime multi-server anime streaming with real-time mapping and subtitles",
-      "version": "1.0.5",
+      "version": "1.0.6",
       "author": "Nuvio Team",
       "supportedTypes": [
         "movie",
@@ -1549,45 +1257,12 @@
         "tv"
       ],
       "upstreamVersion": "1.0.0",
-      "notes": "Imported from D3adlyRocket/All-in-One-Nuvio at 3f09a6ff4360498895e622877af7a32212f75038. Cloudbank adapter preserves upstream extraction/settings, uses shared TMDB detail metadata when available, caps async result wait at 19s, and returns valid stream arrays. Playback and host settings support require app testing.",
+      "notes": "Imported from D3adlyRocket/All-in-One-Nuvio at 3f09a6ff4360498895e622877af7a32212f75038. Cloudbank adapter preserves upstream extraction/settings, uses shared TMDB detail metadata when available, caps async result wait at 19s, and returns valid stream arrays. Playback and host settings support require app testing. Version consolidation: alternate cores embedded as bounded delayed/failed-primary fallbacks; provider identity, playback metadata and settings preserved. Source disabled/platform flags retained per engine. Playback requires app testing.",
       "sourceRepository": "https://github.com/D3adlyRocket/All-in-One-Nuvio",
       "sourceCommit": "3f09a6ff4360498895e622877af7a32212f75038",
       "runtimeModules": [
         "cheerio-without-node-native"
       ]
-    },
-    {
-      "id": "hianime-v2",
-      "name": "HiAnime V2",
-      "description": "HiAnime multi-server anime streaming with real-time mapping and subtitles",
-      "version": "1.0.4",
-      "author": "Nuvio Team",
-      "supportedTypes": [
-        "movie",
-        "tv"
-      ],
-      "filename": "providers/hianime-v2.js",
-      "enabled": true,
-      "hasSettings": true,
-      "formats": [
-        "m3u8"
-      ],
-      "logo": "https://www.google.com/s2/favicons?domain=hianime.to&sz=128",
-      "contentLanguage": [
-        "en"
-      ],
-      "runtimeTimeoutMs": 20000,
-      "sourceRepository": "https://github.com/yoruix/nuvio-providers",
-      "sourceCommit": "ed38d1aee0024f56479369c9423fefb278e0b62a",
-      "upstreamVersion": "1.0.0",
-      "upstreamSupportedTypes": [
-        "movie",
-        "tv"
-      ],
-      "runtimeModules": [
-        "cheerio-without-node-native"
-      ],
-      "notes": "Independent Yoruix import at ed38d1aee0024f56479369c9423fefb278e0b62a. Existing provider versions remain intact. Uses the Cloudbank adapter; upstream enabled/settings/platform flags preserved. Playback is not verified."
     },
     {
       "id": "hindmoviez",
@@ -1627,7 +1302,7 @@
       "id": "kurage",
       "name": "Kurage",
       "description": "Kurage.live anime streaming with tRPC API and multi-server proxy support",
-      "version": "1.0.4",
+      "version": "1.0.5",
       "author": "Paregi12",
       "supportedTypes": [
         "movie",
@@ -1641,7 +1316,8 @@
       ],
       "formats": [
         "mkv",
-        "m3u8"
+        "m3u8",
+        "mp4"
       ],
       "logo": "https://i.postimg.cc/3N2V7pHc/kurage.png",
       "contentLanguage": [
@@ -1654,46 +1330,16 @@
         "tv"
       ],
       "upstreamVersion": "1.0.0",
-      "notes": "Imported from D3adlyRocket/All-in-One-Nuvio at 3f09a6ff4360498895e622877af7a32212f75038. Cloudbank adapter preserves upstream extraction/settings, uses shared TMDB detail metadata when available, caps async result wait at 19s, and returns valid stream arrays. Playback and host settings support require app testing.",
+      "notes": "Imported from D3adlyRocket/All-in-One-Nuvio at 3f09a6ff4360498895e622877af7a32212f75038. Cloudbank adapter preserves upstream extraction/settings, uses shared TMDB detail metadata when available, caps async result wait at 19s, and returns valid stream arrays. Playback and host settings support require app testing. Version consolidation: alternate cores embedded as bounded delayed/failed-primary fallbacks; provider identity, playback metadata and settings preserved. Source disabled/platform flags retained per engine. Playback requires app testing.",
       "sourceRepository": "https://github.com/D3adlyRocket/All-in-One-Nuvio",
       "sourceCommit": "3f09a6ff4360498895e622877af7a32212f75038",
       "runtimeModules": []
     },
     {
-      "id": "kurage-v2",
-      "name": "Kurage V2",
-      "description": "Kurage.live anime streaming with tRPC API and multi-server proxy support",
-      "version": "1.0.3",
-      "author": "Nuvio Team",
-      "supportedTypes": [
-        "movie",
-        "tv"
-      ],
-      "filename": "providers/kurage-v2.js",
-      "enabled": true,
-      "formats": [
-        "mp4"
-      ],
-      "logo": "https://kurage.live/favicon.ico",
-      "contentLanguage": [
-        "en"
-      ],
-      "runtimeTimeoutMs": 20000,
-      "sourceRepository": "https://github.com/yoruix/nuvio-providers",
-      "sourceCommit": "ed38d1aee0024f56479369c9423fefb278e0b62a",
-      "upstreamVersion": "1.0.0",
-      "upstreamSupportedTypes": [
-        "movie",
-        "tv"
-      ],
-      "runtimeModules": [],
-      "notes": "Independent Yoruix import at ed38d1aee0024f56479369c9423fefb278e0b62a. Existing provider versions remain intact. Uses the Cloudbank adapter; upstream enabled/settings/platform flags preserved. Playback is not verified."
-    },
-    {
       "id": "movieblast",
       "name": "MovieBlast",
       "description": "MovieBlast - Hindi, Tamil, Telugu & English Movies/Series with multi-quality streams",
-      "version": "1.0.4",
+      "version": "1.0.5",
       "author": "Nuvio Team",
       "supportedTypes": [
         "movie",
@@ -1720,7 +1366,7 @@
         "tv"
       ],
       "upstreamVersion": "1.0.0",
-      "notes": "Imported from D3adlyRocket/All-in-One-Nuvio at 3f09a6ff4360498895e622877af7a32212f75038. Cloudbank adapter preserves upstream extraction/settings, uses shared TMDB detail metadata when available, caps async result wait at 19s, and returns valid stream arrays. Playback and host settings support require app testing.",
+      "notes": "Imported from D3adlyRocket/All-in-One-Nuvio at 3f09a6ff4360498895e622877af7a32212f75038. Cloudbank adapter preserves upstream extraction/settings, uses shared TMDB detail metadata when available, caps async result wait at 19s, and returns valid stream arrays. Playback and host settings support require app testing. Version consolidation: alternate cores embedded as bounded delayed/failed-primary fallbacks; provider identity, playback metadata and settings preserved. Source disabled/platform flags retained per engine. Playback requires app testing.",
       "sourceRepository": "https://github.com/D3adlyRocket/All-in-One-Nuvio",
       "sourceCommit": "3f09a6ff4360498895e622877af7a32212f75038",
       "runtimeModules": [
@@ -1728,45 +1374,10 @@
       ]
     },
     {
-      "id": "movieblast-v2",
-      "name": "MovieBlast V2",
-      "description": "Direct links via MovieBlast API with multi-language support",
-      "version": "1.0.3",
-      "author": "Nuvio Team",
-      "supportedTypes": [
-        "movie",
-        "tv"
-      ],
-      "filename": "providers/movieblast-v2.js",
-      "enabled": true,
-      "formats": [
-        "mp4",
-        "mkv"
-      ],
-      "logo": "https://raw.githubusercontent.com/phisher98/TVVVV/refs/heads/main/Icons/movieblast.png",
-      "contentLanguage": [
-        "te",
-        "hi",
-        "en"
-      ],
-      "runtimeTimeoutMs": 20000,
-      "sourceRepository": "https://github.com/yoruix/nuvio-providers",
-      "sourceCommit": "ed38d1aee0024f56479369c9423fefb278e0b62a",
-      "upstreamVersion": "1.0.0",
-      "upstreamSupportedTypes": [
-        "movie",
-        "tv"
-      ],
-      "runtimeModules": [
-        "crypto-js"
-      ],
-      "notes": "Independent Yoruix import at ed38d1aee0024f56479369c9423fefb278e0b62a. Existing provider versions remain intact. Uses the Cloudbank adapter; upstream enabled/settings/platform flags preserved. Playback is not verified."
-    },
-    {
       "id": "moviesdrive",
       "name": "MoviesDrive",
       "description": "MoviesDrive streaming with HubCloud and Google Drive extraction",
-      "version": "3.0.5",
+      "version": "3.0.6",
       "author": "Nuvio Team",
       "supportedTypes": [
         "movie",
@@ -1789,7 +1400,7 @@
         "tv"
       ],
       "upstreamVersion": "3.0.1",
-      "notes": "Imported from D3adlyRocket/All-in-One-Nuvio at 3f09a6ff4360498895e622877af7a32212f75038. Cloudbank adapter preserves upstream extraction/settings, uses shared TMDB detail metadata when available, caps async result wait at 19s, and returns valid stream arrays. Playback and host settings support require app testing.",
+      "notes": "Imported from D3adlyRocket/All-in-One-Nuvio at 3f09a6ff4360498895e622877af7a32212f75038. Cloudbank adapter preserves upstream extraction/settings, uses shared TMDB detail metadata when available, caps async result wait at 19s, and returns valid stream arrays. Playback and host settings support require app testing. Version consolidation: alternate cores embedded as bounded delayed/failed-primary fallbacks; provider identity, playback metadata and settings preserved. Source disabled/platform flags retained per engine. Playback requires app testing.",
       "sourceRepository": "https://github.com/D3adlyRocket/All-in-One-Nuvio",
       "sourceCommit": "3f09a6ff4360498895e622877af7a32212f75038",
       "runtimeModules": [
@@ -1797,44 +1408,10 @@
       ]
     },
     {
-      "id": "moviesdrive-v2",
-      "name": "MoviesDrive V2",
-      "description": "MoviesDrive streaming with HubCloud and Google Drive extraction",
-      "version": "1.0.3",
-      "author": "Nuvio Team",
-      "supportedTypes": [
-        "movie",
-        "tv"
-      ],
-      "filename": "providers/moviesdrive-v2.js",
-      "enabled": true,
-      "formats": [
-        "mkv",
-        "mp4"
-      ],
-      "logo": "https://www.google.com/s2/favicons?domain=moviesdrives.my&sz=128",
-      "contentLanguage": [
-        "en",
-        "hin"
-      ],
-      "runtimeTimeoutMs": 20000,
-      "sourceRepository": "https://github.com/yoruix/nuvio-providers",
-      "sourceCommit": "ed38d1aee0024f56479369c9423fefb278e0b62a",
-      "upstreamVersion": "1.0.0",
-      "upstreamSupportedTypes": [
-        "movie",
-        "tv"
-      ],
-      "runtimeModules": [
-        "cheerio-without-node-native"
-      ],
-      "notes": "Independent Yoruix import at ed38d1aee0024f56479369c9423fefb278e0b62a. Existing provider versions remain intact. Uses the Cloudbank adapter; upstream enabled/settings/platform flags preserved. Playback is not verified."
-    },
-    {
       "id": "moviesmod",
       "name": "MoviesMod",
       "description": "Movie and TV show streams from MoviesMod with multiple quality options",
-      "version": "1.0.5",
+      "version": "1.0.6",
       "author": "Nuvio Team",
       "supportedTypes": [
         "movie",
@@ -1858,44 +1435,12 @@
         "tv"
       ],
       "upstreamVersion": "1.0.1",
-      "notes": "Imported from D3adlyRocket/All-in-One-Nuvio at 3f09a6ff4360498895e622877af7a32212f75038. Cloudbank adapter preserves upstream extraction/settings, uses shared TMDB detail metadata when available, caps async result wait at 19s, and returns valid stream arrays. Playback and host settings support require app testing.",
+      "notes": "Imported from D3adlyRocket/All-in-One-Nuvio at 3f09a6ff4360498895e622877af7a32212f75038. Cloudbank adapter preserves upstream extraction/settings, uses shared TMDB detail metadata when available, caps async result wait at 19s, and returns valid stream arrays. Playback and host settings support require app testing. Version consolidation: alternate cores embedded as bounded delayed/failed-primary fallbacks; provider identity, playback metadata and settings preserved. Source disabled/platform flags retained per engine. Playback requires app testing.",
       "sourceRepository": "https://github.com/D3adlyRocket/All-in-One-Nuvio",
       "sourceCommit": "3f09a6ff4360498895e622877af7a32212f75038",
       "runtimeModules": [
         "cheerio-without-node-native"
       ]
-    },
-    {
-      "id": "moviesmod-v2",
-      "name": "MoviesMod V2",
-      "description": "Movie and TV show streams from MoviesMod with multiple quality options",
-      "version": "1.0.3",
-      "author": "Nuvio Team",
-      "supportedTypes": [
-        "movie",
-        "tv"
-      ],
-      "filename": "providers/moviesmod-v2.js",
-      "enabled": true,
-      "formats": [
-        "mkv"
-      ],
-      "logo": "https://www.google.com/s2/favicons?domain=moviesmod.farm&sz=128",
-      "contentLanguage": [
-        "en"
-      ],
-      "runtimeTimeoutMs": 20000,
-      "sourceRepository": "https://github.com/yoruix/nuvio-providers",
-      "sourceCommit": "ed38d1aee0024f56479369c9423fefb278e0b62a",
-      "upstreamVersion": "1.0.1",
-      "upstreamSupportedTypes": [
-        "movie",
-        "tv"
-      ],
-      "runtimeModules": [
-        "cheerio-without-node-native"
-      ],
-      "notes": "Independent Yoruix import at ed38d1aee0024f56479369c9423fefb278e0b62a. Existing provider versions remain intact. Uses the Cloudbank adapter; upstream enabled/settings/platform flags preserved. Playback is not verified."
     },
     {
       "id": "movieshunt",
@@ -2029,7 +1574,7 @@
       "id": "netmirror",
       "name": "NetMirror",
       "description": "Streaming links from netmirror.",
-      "version": "1.0.14",
+      "version": "1.0.15",
       "author": "Nuvio Team",
       "supportedTypes": [
         "movie",
@@ -2049,42 +1594,10 @@
         "tv"
       ],
       "upstreamVersion": "1.0.10",
-      "notes": "Imported from D3adlyRocket/All-in-One-Nuvio at 3f09a6ff4360498895e622877af7a32212f75038. Cloudbank adapter preserves upstream extraction/settings, uses shared TMDB detail metadata when available, caps async result wait at 19s, and returns valid stream arrays. Playback and host settings support require app testing.",
+      "notes": "Imported from D3adlyRocket/All-in-One-Nuvio at 3f09a6ff4360498895e622877af7a32212f75038. Cloudbank adapter preserves upstream extraction/settings, uses shared TMDB detail metadata when available, caps async result wait at 19s, and returns valid stream arrays. Playback and host settings support require app testing. Version consolidation: alternate cores embedded as bounded delayed/failed-primary fallbacks; provider identity, playback metadata and settings preserved. Source disabled/platform flags retained per engine. Playback requires app testing.",
       "sourceRepository": "https://github.com/D3adlyRocket/All-in-One-Nuvio",
       "sourceCommit": "3f09a6ff4360498895e622877af7a32212f75038",
       "runtimeModules": []
-    },
-    {
-      "id": "netmirror-v2",
-      "name": "NetMirror V2",
-      "description": "Streaming links from netmirror. Automatically disabled on iOS due to compatibility issues.",
-      "version": "1.0.3",
-      "author": "Nuvio Team",
-      "supportedTypes": [
-        "movie",
-        "tv"
-      ],
-      "filename": "providers/netmirror-v2.js",
-      "enabled": true,
-      "hasSettings": true,
-      "logo": "https://net22.cc/favicon.ico",
-      "contentLanguage": [
-        "en"
-      ],
-      "disabledPlatforms": [
-        "ios"
-      ],
-      "supportsExternalPlayer": false,
-      "runtimeTimeoutMs": 20000,
-      "sourceRepository": "https://github.com/yoruix/nuvio-providers",
-      "sourceCommit": "ed38d1aee0024f56479369c9423fefb278e0b62a",
-      "upstreamVersion": "1.0.3",
-      "upstreamSupportedTypes": [
-        "movie",
-        "tv"
-      ],
-      "runtimeModules": [],
-      "notes": "Independent Yoruix import at ed38d1aee0024f56479369c9423fefb278e0b62a. Existing provider versions remain intact. Uses the Cloudbank adapter; upstream enabled/settings/platform flags preserved. Playback is not verified."
     },
     {
       "id": "persianstremio",
@@ -2325,7 +1838,7 @@
       "id": "uhdmovies",
       "name": "UHDMovies",
       "description": "UHD Movies streaming with multiple resolution",
-      "version": "1.2.5",
+      "version": "1.2.6",
       "author": "Nuvio Team",
       "supportedTypes": [
         "movie",
@@ -2346,44 +1859,12 @@
         "tv"
       ],
       "upstreamVersion": "1.2.1",
-      "notes": "Imported from D3adlyRocket/All-in-One-Nuvio at 3f09a6ff4360498895e622877af7a32212f75038. Cloudbank adapter preserves upstream extraction/settings, uses shared TMDB detail metadata when available, caps async result wait at 19s, and returns valid stream arrays. Playback and host settings support require app testing.",
+      "notes": "Imported from D3adlyRocket/All-in-One-Nuvio at 3f09a6ff4360498895e622877af7a32212f75038. Cloudbank adapter preserves upstream extraction/settings, uses shared TMDB detail metadata when available, caps async result wait at 19s, and returns valid stream arrays. Playback and host settings support require app testing. Version consolidation: alternate cores embedded as bounded delayed/failed-primary fallbacks; provider identity, playback metadata and settings preserved. Source disabled/platform flags retained per engine. Playback requires app testing.",
       "sourceRepository": "https://github.com/D3adlyRocket/All-in-One-Nuvio",
       "sourceCommit": "3f09a6ff4360498895e622877af7a32212f75038",
       "runtimeModules": [
         "cheerio-without-node-native"
       ]
-    },
-    {
-      "id": "uhdmovies-v2",
-      "name": "UHDMovies V2",
-      "description": "UHD Movies streaming with multiple resolution",
-      "version": "1.0.3",
-      "author": "Nuvio Team",
-      "supportedTypes": [
-        "movie",
-        "tv"
-      ],
-      "filename": "providers/uhdmovies-v2.js",
-      "enabled": true,
-      "formats": [
-        "mkv"
-      ],
-      "logo": "https://www.google.com/s2/favicons?domain=uhdmovies.pink&sz=128",
-      "contentLanguage": [
-        "en"
-      ],
-      "runtimeTimeoutMs": 20000,
-      "sourceRepository": "https://github.com/yoruix/nuvio-providers",
-      "sourceCommit": "ed38d1aee0024f56479369c9423fefb278e0b62a",
-      "upstreamVersion": "1.2.0",
-      "upstreamSupportedTypes": [
-        "movie",
-        "tv"
-      ],
-      "runtimeModules": [
-        "cheerio-without-node-native"
-      ],
-      "notes": "Independent Yoruix import at ed38d1aee0024f56479369c9423fefb278e0b62a. Existing provider versions remain intact. Uses the Cloudbank adapter; upstream enabled/settings/platform flags preserved. Playback is not verified."
     },
     {
       "id": "vegamovies",
@@ -2456,7 +1937,7 @@
       "id": "videasy",
       "name": "VidEasy",
       "description": "Videasy streaming with encrypted TMDB ID support for movies and TV shows",
-      "version": "1.0.4",
+      "version": "1.0.5",
       "author": "Nuvio Team",
       "supportedTypes": [
         "movie",
@@ -2467,42 +1948,10 @@
       "hasSettings": true,
       "formats": [
         "mp4",
-        "m3u8"
-      ],
-      "logo": "https://i.postimg.cc/7LHYMtVV/videasy.png",
-      "contentLanguage": [
-        "en"
-      ],
-      "runtimeTimeoutMs": 20000,
-      "upstreamSupportedTypes": [
-        "movie",
-        "tv"
-      ],
-      "upstreamVersion": "1.0.0",
-      "notes": "Imported from D3adlyRocket/All-in-One-Nuvio at 3f09a6ff4360498895e622877af7a32212f75038. Cloudbank adapter preserves upstream extraction/settings, uses shared TMDB detail metadata when available, caps async result wait at 19s, and returns valid stream arrays. Playback and host settings support require app testing.",
-      "sourceRepository": "https://github.com/D3adlyRocket/All-in-One-Nuvio",
-      "sourceCommit": "3f09a6ff4360498895e622877af7a32212f75038",
-      "runtimeModules": []
-    },
-    {
-      "id": "videasy-v2",
-      "name": "VIDEASY V2",
-      "description": "VideoEasy streaming with multiple server support and languages",
-      "version": "1.0.3",
-      "author": "Nuvio Team",
-      "supportedTypes": [
-        "movie",
-        "tv"
-      ],
-      "filename": "providers/videasy-v2.js",
-      "enabled": false,
-      "limited": true,
-      "formats": [
         "m3u8",
-        "mp4",
         "mkv"
       ],
-      "logo": "https://www.videasy.net/logo.png",
+      "logo": "https://i.postimg.cc/7LHYMtVV/videasy.png",
       "contentLanguage": [
         "en",
         "de",
@@ -2513,15 +1962,15 @@
         "pt"
       ],
       "runtimeTimeoutMs": 20000,
-      "sourceRepository": "https://github.com/yoruix/nuvio-providers",
-      "sourceCommit": "ed38d1aee0024f56479369c9423fefb278e0b62a",
-      "upstreamVersion": "1.0.0",
       "upstreamSupportedTypes": [
         "movie",
         "tv"
       ],
-      "runtimeModules": [],
-      "notes": "Independent Yoruix import at ed38d1aee0024f56479369c9423fefb278e0b62a. Existing provider versions remain intact. Uses the Cloudbank adapter; upstream enabled/settings/platform flags preserved. Playback is not verified."
+      "upstreamVersion": "1.0.0",
+      "notes": "Imported from D3adlyRocket/All-in-One-Nuvio at 3f09a6ff4360498895e622877af7a32212f75038. Cloudbank adapter preserves upstream extraction/settings, uses shared TMDB detail metadata when available, caps async result wait at 19s, and returns valid stream arrays. Playback and host settings support require app testing. Version consolidation: alternate cores embedded as bounded delayed/failed-primary fallbacks; provider identity, playback metadata and settings preserved. Source disabled/platform flags retained per engine. Playback requires app testing.",
+      "sourceRepository": "https://github.com/D3adlyRocket/All-in-One-Nuvio",
+      "sourceCommit": "3f09a6ff4360498895e622877af7a32212f75038",
+      "runtimeModules": []
     },
     {
       "id": "vidsrc",

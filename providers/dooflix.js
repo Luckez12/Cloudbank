@@ -163,6 +163,311 @@ var _0x11dac7=_0xe5ff;(function(_0x14c3f7,_0x383793){var _0x2c5f87=_0xe5ff,_0x13
   if (typeof self !== "undefined") self.getStreams = module.exports.getStreams;
 })();
 
+/* CLOUDBANK_VERSION_MERGE_ADAPTER_START */
+function cloudbankVersionMerge(engines, providerId) {
+  var primary = engines[0].provider;
+  var merged = Object.assign({}, primary);
+  function platform(args) {
+    var options = args[4];
+    var hint = options && options.platform || (typeof globalThis !== 'undefined' && (globalThis.VUEO_PLATFORM || globalThis.PLATFORM || globalThis.platform));
+    if (!hint && typeof navigator !== 'undefined') hint = navigator.userAgent;
+    hint = String(hint || '').toLowerCase();
+    if (/ios|iphone|ipad/.test(hint)) return 'ios';
+    if (/android/.test(hint)) return 'android';
+    return hint;
+  }
+  function available(engine, args) {
+    if (!engine.enabled) return false;
+    if (!engine.disabledPlatforms.length) return true;
+    var current = platform(args);
+    // Preserve source platform restrictions when the host cannot identify its platform.
+    return !!current && engine.disabledPlatforms.indexOf(current) < 0;
+  }
+  function key(value) {
+    if (value == null || typeof value !== 'object') return JSON.stringify(value);
+    if (Array.isArray(value)) return '[' + value.map(key).join(',') + ']';
+    return '{' + Object.keys(value).sort().map(function(k) { return JSON.stringify(k) + ':' + key(value[k]); }).join(',') + '}';
+  }
+  function combine(results) {
+    var seen = Object.create(null), out = [];
+    results.forEach(function(rows) {
+      if (!Array.isArray(rows)) return;
+      rows.forEach(function(stream) {
+        if (!stream || typeof stream.url !== 'string' || !/^(https?:\/\/|magnet:)/i.test(stream.url)) return;
+        var identity;
+        try { identity = key([stream.url, stream.name || '', stream.headers || {}, stream.subtitles || [], stream.audio || stream.language || '', stream.quality || '']); }
+        catch (_) { identity = String(stream.url) + '/' + String(stream.name || ''); }
+        if (seen[identity]) return;
+        seen[identity] = true;
+        out.push(Object.assign({}, stream, { provider: providerId }));
+      });
+    });
+    return out;
+  }
+  merged.getStreams = function(id, type, season, episode) {
+    var args = Array.prototype.slice.call(arguments);
+    type = type === 'series' ? 'tv' : type;
+    if (!String(id || '').trim() || (type !== 'movie' && type !== 'tv')) return Promise.resolve([]);
+    if (type === 'tv' && (!Number.isInteger(Number(season)) || Number(season) < 0 || !Number.isInteger(Number(episode)) || Number(episode) < 1)) return Promise.resolve([]);
+    args[0] = String(id); args[1] = type;
+    if (type === 'tv') { args[2] = Number(season); args[3] = Number(episode); }
+    var deadline = Date.now() + 18500;
+    var active = engines.filter(function(engine) { return available(engine, args); });
+    var results = active.map(function() { return []; });
+    return new Promise(function(resolve) {
+      var done = false, primaryDone = false, alternateStarted = false, alternateDone = false;
+      var timers = [];
+      function finish() {
+        if (done) return; done = true;
+        timers.forEach(clearTimeout);
+        resolve(combine(results));
+      }
+      function attempt(index, ms, next) {
+        if (done || Date.now() >= deadline) { next(); return; }
+        var settled = false;
+        var timer = setTimeout(function() { settle([]); }, Math.min(ms, deadline - Date.now())); timers.push(timer);
+        function settle(rows) {
+          if (settled || done) return; settled = true; clearTimeout(timer);
+          results[index] = Array.isArray(rows) ? rows : [];
+          next();
+        }
+        Promise.resolve().then(function() { return active[index].provider.getStreams.apply(active[index].provider, args); }).then(settle, function() { settle([]); });
+      }
+      function alternate(index) {
+        if (done) return;
+        if (index >= active.length) { alternateDone = true; if (primaryDone) finish(); return; }
+        attempt(index, 6000, function() {
+          if (combine([results[index]]).length) { alternateDone = true; if (primaryDone) finish(); }
+          else alternate(index + 1);
+        });
+      }
+      function startAlternate() {
+        if (alternateStarted || done) return; alternateStarted = true; alternate(1);
+      }
+      if (!active.length) { finish(); return; }
+      timers.push(setTimeout(finish, 18500));
+      // A fast successful primary starts no duplicate engine. A slow or failed one unlocks the fallback.
+      timers.push(setTimeout(startAlternate, 5000));
+      attempt(0, 18500, function() {
+        primaryDone = true;
+        if (combine([results[0]]).length) { finish(); return; }
+        startAlternate();
+        if (alternateDone) finish();
+      });
+    });
+  };
+  // Preserve primary settings and add missing alternate controls/options under the same provider ID.
+  if (engines.some(function(engine) { return engine.enabled && typeof engine.provider.onSettings === 'function'; })) {
+    merged.onSettings = function() {
+      var args = arguments;
+      return Promise.all(engines.filter(function(engine) { return engine.enabled && typeof engine.provider.onSettings === 'function'; }).map(function(engine) {
+        return new Promise(function(resolve) {
+          var timer = setTimeout(function() { resolve([]); }, 1500);
+          Promise.resolve().then(function() { return engine.provider.onSettings.apply(engine.provider, args); }).then(function(value) { clearTimeout(timer); resolve(value); }, function() { clearTimeout(timer); resolve([]); });
+        });
+      })).then(function(values) {
+        if (values.length && !Array.isArray(values[0])) return values[0];
+        var out = [], keys = Object.create(null), headers = Object.create(null);
+        values.forEach(function(rows) {
+          if (!Array.isArray(rows)) return;
+          rows.forEach(function(setting) {
+            if (!setting || typeof setting !== 'object') return;
+            if (!setting.key) {
+              var identity = key(setting); if (!headers[identity]) { headers[identity] = true; out.push(setting); } return;
+            }
+            var existing = keys[setting.key];
+            if (!existing) { existing = Object.assign({}, setting); if (Array.isArray(setting.options)) existing.options = setting.options.slice(); keys[setting.key] = existing; out.push(existing); return; }
+            if (existing.type === setting.type && Array.isArray(existing.options) && Array.isArray(setting.options)) {
+              setting.options.forEach(function(option) { if (!existing.options.some(function(current) { return current.value === option.value; })) existing.options.push(option); });
+            }
+          });
+        });
+        return out;
+      });
+    };
+  }
+  return merged;
+}
+function cloudbankMergedBudgetFetch(nativeFetch, deadline) {
+  function bounded(run) {
+    var remaining = Math.min(2200, deadline - Date.now());
+    if (remaining <= 0) return Promise.reject(new Error('Merged engine budget exhausted'));
+    return new Promise(function(resolve, reject) {
+      var timer = setTimeout(function() { reject(new Error('Merged engine request timeout')); }, remaining);
+      Promise.resolve().then(run).then(function(value) { clearTimeout(timer); resolve(value); }, function(error) { clearTimeout(timer); reject(error); });
+    });
+  }
+  return function(url, options) {
+    return bounded(function() { return nativeFetch(url, options); }).then(function(response) {
+      return { ok: response.ok, status: response.status, statusText: response.statusText, url: response.url, headers: response.headers,
+        text: function() { return bounded(function() { return response.text(); }); },
+        json: function() { return bounded(function() { return response.json(); }); },
+        arrayBuffer: function() { return bounded(function() { return response.arrayBuffer(); }); } };
+    });
+  };
+}
+function cloudbankMergedMetadataFetch(nativeFetch) {
+  return function(url, options) {
+    var raw = typeof url === 'string' ? url : url && url.url;
+    var match = typeof raw === 'string' && /^https:\/\/api\.themoviedb\.org\/3\/(movie|tv)\/(\d+)(?:\?|$)/.exec(raw);
+    if (!match || options && options.method && String(options.method).toUpperCase() !== 'GET' || typeof vueoSharedTmdb !== 'function') return nativeFetch(url, options);
+    var context = typeof globalThis !== 'undefined' ? globalThis.VUEO_DISCOVERY_CONTEXT : null;
+    if (typeof context === 'string') { try { context = JSON.parse(context); } catch (_) { context = null; } }
+    var contextId = context && (context.tmdbId || context.tmdb && context.tmdb.id);
+    if (contextId && String(contextId) !== match[2]) return nativeFetch(url, options);
+    return vueoSharedTmdb(raw, function() {
+      return nativeFetch(url, options).then(function(response) { if (!response.ok) throw new Error('TMDB HTTP ' + response.status); return response.json(); });
+    }).then(function(data) {
+      var body = JSON.stringify(data);
+      return { ok: true, status: 200, url: raw, headers: { get: function(name) { return String(name).toLowerCase() === 'content-type' ? 'application/json' : null; } },
+        json: function() { return Promise.resolve(JSON.parse(body)); }, text: function() { return Promise.resolve(body); } };
+    });
+  };
+}
+/* CLOUDBANK_VERSION_MERGE_ADAPTER_END */
+
+var cloudbankMergedEngines = [{ id: "dooflix", enabled: true, disabledPlatforms: [], provider: module.exports }];
+cloudbankMergedEngines.push({ id: "dooflix-v2", enabled: true, disabledPlatforms: [], provider: (function() {
+  function createEngine(deadline) {
+  var embedded = { exports: {} };
+  function portableRequire(name) {
+    if (name !== "crypto-js" && name !== "cheerio-without-node-native") throw new Error("Unsupported merged module: " + name);
+    return require(name);
+  }
+  (function(module, exports, require, fetch, global) {
+/* CLOUDBANK_MERGED_ENGINE_START:dooflix-v2 */
+/**
+ * dooflix - Built from src/dooflix/
+ * Generated: 2026-06-01T14:20:20.721Z
+ */
+var __defProp = Object.defineProperty;
+var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
+var __getOwnPropNames = Object.getOwnPropertyNames;
+var __hasOwnProp = Object.prototype.hasOwnProperty;
+var __export = (target, all) => {
+  for (var name in all)
+    __defProp(target, name, { get: all[name], enumerable: true });
+};
+var __copyProps = (to, from, except, desc) => {
+  if (from && typeof from === "object" || typeof from === "function") {
+    for (let key of __getOwnPropNames(from))
+      if (!__hasOwnProp.call(to, key) && key !== except)
+        __defProp(to, key, { get: () => from[key], enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable });
+  }
+  return to;
+};
+var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
+var __async = (__this, __arguments, generator) => {
+  return new Promise((resolve, reject) => {
+    var fulfilled = (value) => {
+      try {
+        step(generator.next(value));
+      } catch (e) {
+        reject(e);
+      }
+    };
+    var rejected = (value) => {
+      try {
+        step(generator.throw(value));
+      } catch (e) {
+        reject(e);
+      }
+    };
+    var step = (x) => x.done ? resolve(x.value) : Promise.resolve(x.value).then(fulfilled, rejected);
+    step((generator = generator.apply(__this, __arguments)).next());
+  });
+};
+
+// src/dooflix/index.js
+var dooflix_exports = {};
+__export(dooflix_exports, {
+  getStreams: () => getStreams
+});
+module.exports = __toCommonJS(dooflix_exports);
+
+// src/dooflix/constants.js
+var BASE_API = "https://panel.watchkaroabhi.com";
+var API_KEY = "qNhKLJiZVyoKdi9NCQGz8CIGrpUijujE";
+var HEADERS = {
+  "X-Package-Name": "com.king.moja",
+  "User-Agent": "dooflix",
+  "X-App-Version": "305"
+};
+var STREAM_REFERER = "https://molop.art/";
+
+// src/dooflix/index.js
+function getStreams(tmdbId, mediaType = "movie", season = null, episode = null) {
+  return __async(this, null, function* () {
+    console.log(`[DooFlix] Fetching streams for TMDB ID: ${tmdbId}, Type: ${mediaType}`);
+    try {
+      let requestUrl;
+      if (mediaType === "movie") {
+        requestUrl = `${BASE_API}/api/3/movie/${tmdbId}/links?api_key=${API_KEY}`;
+      } else {
+        if (!season || !episode) {
+          console.error("[DooFlix] Missing season or episode for TV show");
+          return [];
+        }
+        requestUrl = `${BASE_API}/api/3/tv/${tmdbId}/season/${season}/episode/${episode}/links?api_key=${API_KEY}`;
+      }
+      const response = yield fetch(requestUrl, { headers: HEADERS });
+      if (!response.ok) {
+        console.log(`[DooFlix] API error: ${response.status}`);
+        return [];
+      }
+      const data = yield response.json();
+      const links = data.links || [];
+      const streams = [];
+      for (const linkObj of links) {
+        try {
+          const res = yield fetch(linkObj.url, {
+            method: "GET",
+            headers: {
+              "Referer": STREAM_REFERER,
+              "User-Agent": HEADERS["User-Agent"]
+            },
+            redirect: "manual"
+          });
+          let streamUrl = res.headers.get("location") || res.url;
+          if (streamUrl && streamUrl !== linkObj.url) {
+            streams.push({
+              name: "DooFlix",
+              title: `DooFlix - ${linkObj.host || "Server"}`,
+              url: streamUrl,
+              quality: "Auto",
+              headers: {
+                "Referer": STREAM_REFERER,
+                "User-Agent": HEADERS["User-Agent"]
+              },
+              provider: "dooflix"
+            });
+          }
+        } catch (e) {
+          console.log(`[DooFlix] Error fetching redirect for ${linkObj.url}: ${e.message}`);
+        }
+      }
+      return streams;
+    } catch (error) {
+      console.error(`[DooFlix] Error: ${error.message}`);
+      return [];
+    }
+  });
+}
+
+/* CLOUDBANK_MERGED_ENGINE_END:dooflix-v2 */
+  })(embedded, embedded.exports, portableRequire, cloudbankMergedBudgetFetch(cloudbankMergedMetadataFetch(fetch), deadline), typeof globalThis !== "undefined" ? globalThis : global);
+  return Object.assign({}, embedded.exports);
+  }
+  var settingsProvider = createEngine(Date.now() + 6000);
+  return Object.assign({}, settingsProvider, { getStreams: function() {
+    // A fresh request scope prevents an expired scan from borrowing a later scan's deadline.
+    var engine = createEngine(Date.now() + 6000);
+    return engine.getStreams.apply(engine, arguments);
+  } });
+})() });
+module.exports = cloudbankVersionMerge(cloudbankMergedEngines, "dooflix");
+if (typeof globalThis !== "undefined") { globalThis.getStreams = module.exports.getStreams; if (module.exports.onSettings) globalThis.onSettings = module.exports.onSettings; }
+
 /* CLOUDBANK_PLAYIMDB_DISPLAY_START */
 /* CLOUDBANK_PLAYIMDB_DISPLAY_V1
  * Embedded in each provider: the app downloads standalone JavaScript files.

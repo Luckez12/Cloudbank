@@ -14,7 +14,18 @@ test('UTC one-day difference accepted; two days and specials rejected',async()=>
 test('Anikoto movie route adapts old schema',async()=>{const {request,calls}=setup(()=>reply([{myanimelist:199,anilist:199,themoviedb:129,media:'MOVIE','themoviedb-season':null}]));const m=await(await request('https://arm.haglund.dev/api/v2/tmdb?id=129')).json();assert.equal(m.mal_id,199);assert.equal(m.anilist,199);assert.equal(m.episode,1);assert.equal(calls[0][0],'https://arm.haglund.dev/api/v2/themoviedb?id=129');});
 test('TMDB dates override Cinemeta alternative season numbering',async()=>{const base=handler([row(2)],{2:dataset(2,[[1,'2024-05-01']])},[{season:2,episode:8,released:'2023-01-01'}]);const {request}=setup(u=>u.hostname==='api.themoviedb.org'?reply({episodes:[{season_number:2,episode_number:8,air_date:'2024-05-01'}]}):base(u));await request('https://api.themoviedb.org/3/tv/77?api_key=test');assert.equal((await request(url)).status,200);});
 test('successful results cache; failures retry; unrelated options unchanged',async()=>{let available=false;const base=handler([row(2)],{2:dataset(2,[[1,'2024-05-01']])});const {request,calls}=setup(u=>u.hostname==='arm.haglund.dev'&&!available?reply({},503):base(u));assert.equal((await request(url)).status,404);available=true;assert.equal((await request(url)).status,200);let count=calls.length;assert.equal((await request(url)).status,200);assert.equal(calls.length,count);const opts={method:'POST',headers:{'X-Test':'yes'}};const f=setup((u,o)=>{assert.equal(o,opts);return reply({ok:true});});await f.request('https://example.com/stream',opts);assert.equal(f.calls.length,1);});
-test('six providers embed exact helper outside upstream boundaries',()=>{for(const id of ['hianime','hianime-v2','animepahe','animepahe-v2','anizone-v2','anikototv']){const s=fs.readFileSync('providers/'+id+'.js','utf8');const start=s.indexOf('/* CLOUDBANK_ANIME_MAPPING_START */\n')+'/* CLOUDBANK_ANIME_MAPPING_START */\n'.length;const end=s.indexOf('\n/* CLOUDBANK_ANIME_MAPPING_END */');assert.equal(s.slice(start,end),helper.trimEnd());assert.ok(end<s.indexOf('/* CLOUDBANK_UPSTREAM_SOURCE_START */'));assert.ok(s.includes('cloudbankAnimeMappingFetch(cloudbankMetadataFetch(fetch))'));}});
+test('six consolidated resolver paths retain exact mapping helper outside upstream boundaries',()=>{
+ for(const id of ['hianime','animepahe','anizone','anikototv']){
+  const s=fs.readFileSync('providers/'+id+'.js','utf8');
+  const start=s.indexOf('/* CLOUDBANK_ANIME_MAPPING_START */\n')+'/* CLOUDBANK_ANIME_MAPPING_START */\n'.length;
+  const end=s.indexOf('\n/* CLOUDBANK_ANIME_MAPPING_END */');
+  assert.equal(s.slice(start,end),helper.trimEnd(),id);
+  assert.ok(end<s.indexOf('/* CLOUDBANK_UPSTREAM_SOURCE_START */'),id);
+  if(id==='anizone') assert.ok(s.includes('cloudbankAnimeMappingFetch(cloudbankMergedBudgetFetch(cloudbankMergedMetadataFetch(fetch), deadline))'));
+  else assert.ok(s.includes('cloudbankAnimeMappingFetch(cloudbankMetadataFetch(fetch))'));
+  if(['hianime','animepahe'].includes(id)) assert.ok(s.includes('cloudbankAnimeMappingFetch(cloudbankMergedBudgetFetch(cloudbankMergedMetadataFetch(fetch), deadline))'));
+ }
+});
 test('Anikoto first TV call resolves numeric ID before any TMDB metadata request',async()=>{const {request}=setup(handler([row(2)],{2:dataset(2,[[1,'2024-05-01']])}));const m=await(await request('https://arm.haglund.dev/api/v2/tmdb?id=77&s=2&e=8')).json();assert.equal(m.mal_id,2);assert.equal(m.episode,1);});
 test('real Demon Slayer provider responses match actual payload schema',async()=>{const fixture=JSON.parse(fs.readFileSync('tests/fixtures/anime-mapping-demon-slayer.json'));const {request}=setup(u=>u.hostname==='arm.haglund.dev'?reply([fixture.arm]):u.hostname==='api.ani.zip'?reply(fixture.ani):u.hostname==='api.themoviedb.org'?reply(fixture.tmdb):reply({meta:{videos:[]}}));await request('https://api.themoviedb.org/3/tv/85937?api_key=test');const m=await(await request('https://id-mapping-api-malid.hf.space/api/resolve?id=tt9335498&s=1&e=1')).json();assert.equal(m.mal_id,38000);assert.equal(m.mal_episode,1);});
 test('verified mapping title resolves MAL title without fragile redundant Jikan request',async()=>{const {request,calls}=setup(handler([row(2)],{2:dataset(2,[[1,'2024-05-01']])}));await request(url);let count=calls.length;const m=await(await request('https://api.jikan.moe/v4/anime/2')).json();assert.equal(m.data.title,'Season title');assert.equal(m.data.mal_id,2);assert.equal(calls.length,count);});
@@ -33,8 +44,9 @@ test('all six actual upstream resolvers reach source lookup after repaired TV ma
     body=JSON.stringify(data);
     return {ok:true,status:200,headers:{get(){return 'application/json';}},json:async()=>data,text:async()=>u.hostname==='anizone.to'?'':body};
    }};
-  box.globalThis=box;box.global=box;box.VUEO_DISCOVERY_CONTEXT={tmdb};vm.createContext(box);vm.runInContext(fs.readFileSync('providers/'+id+'.js','utf8'),box);
-  await box.module.exports.getStreams('85937','tv',1,1);
+  box.globalThis=box;box.global=box;box.VUEO_DISCOVERY_CONTEXT={tmdb};vm.createContext(box);vm.runInContext(fs.readFileSync('providers/'+id.replace(/-v2$/, '')+'.js','utf8'),box);
+  const provider=id.endsWith('-v2')?box.cloudbankMergedEngines.find(e=>e.id===id).provider:box.module.exports;
+  await provider.getStreams('85937','tv',1,1);
   assert.ok(requests.some(u=>id.startsWith('animepahe')?/animepahe/.test(u.hostname):id==='anizone-v2'?u.hostname==='anizone.to':u.hostname==='megaplay.buzz'),id+' should reach source host: '+requests.map(u=>u.href).join(', '));
   assert.ok(!requests.some(u=>u.hostname==='id-mapping-api-malid.hf.space'||u.pathname==='/api/v2/tmdb'||u.hostname==='api.jikan.moe'),id+' should use verified mapping and title');
  }

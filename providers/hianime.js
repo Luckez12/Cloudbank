@@ -295,6 +295,515 @@ function _0x518a(_0x1b78e1,_0x35433d){_0x1b78e1=_0x1b78e1-0x17e;const _0x492afb=
   if (typeof self !== "undefined") self.getStreams = module.exports.getStreams;
 })();
 
+/* CLOUDBANK_VERSION_MERGE_ADAPTER_START */
+function cloudbankVersionMerge(engines, providerId) {
+  var primary = engines[0].provider;
+  var merged = Object.assign({}, primary);
+  function platform(args) {
+    var options = args[4];
+    var hint = options && options.platform || (typeof globalThis !== 'undefined' && (globalThis.VUEO_PLATFORM || globalThis.PLATFORM || globalThis.platform));
+    if (!hint && typeof navigator !== 'undefined') hint = navigator.userAgent;
+    hint = String(hint || '').toLowerCase();
+    if (/ios|iphone|ipad/.test(hint)) return 'ios';
+    if (/android/.test(hint)) return 'android';
+    return hint;
+  }
+  function available(engine, args) {
+    if (!engine.enabled) return false;
+    if (!engine.disabledPlatforms.length) return true;
+    var current = platform(args);
+    // Preserve source platform restrictions when the host cannot identify its platform.
+    return !!current && engine.disabledPlatforms.indexOf(current) < 0;
+  }
+  function key(value) {
+    if (value == null || typeof value !== 'object') return JSON.stringify(value);
+    if (Array.isArray(value)) return '[' + value.map(key).join(',') + ']';
+    return '{' + Object.keys(value).sort().map(function(k) { return JSON.stringify(k) + ':' + key(value[k]); }).join(',') + '}';
+  }
+  function combine(results) {
+    var seen = Object.create(null), out = [];
+    results.forEach(function(rows) {
+      if (!Array.isArray(rows)) return;
+      rows.forEach(function(stream) {
+        if (!stream || typeof stream.url !== 'string' || !/^(https?:\/\/|magnet:)/i.test(stream.url)) return;
+        var identity;
+        try { identity = key([stream.url, stream.name || '', stream.headers || {}, stream.subtitles || [], stream.audio || stream.language || '', stream.quality || '']); }
+        catch (_) { identity = String(stream.url) + '/' + String(stream.name || ''); }
+        if (seen[identity]) return;
+        seen[identity] = true;
+        out.push(Object.assign({}, stream, { provider: providerId }));
+      });
+    });
+    return out;
+  }
+  merged.getStreams = function(id, type, season, episode) {
+    var args = Array.prototype.slice.call(arguments);
+    type = type === 'series' ? 'tv' : type;
+    if (!String(id || '').trim() || (type !== 'movie' && type !== 'tv')) return Promise.resolve([]);
+    if (type === 'tv' && (!Number.isInteger(Number(season)) || Number(season) < 0 || !Number.isInteger(Number(episode)) || Number(episode) < 1)) return Promise.resolve([]);
+    args[0] = String(id); args[1] = type;
+    if (type === 'tv') { args[2] = Number(season); args[3] = Number(episode); }
+    var deadline = Date.now() + 18500;
+    var active = engines.filter(function(engine) { return available(engine, args); });
+    var results = active.map(function() { return []; });
+    return new Promise(function(resolve) {
+      var done = false, primaryDone = false, alternateStarted = false, alternateDone = false;
+      var timers = [];
+      function finish() {
+        if (done) return; done = true;
+        timers.forEach(clearTimeout);
+        resolve(combine(results));
+      }
+      function attempt(index, ms, next) {
+        if (done || Date.now() >= deadline) { next(); return; }
+        var settled = false;
+        var timer = setTimeout(function() { settle([]); }, Math.min(ms, deadline - Date.now())); timers.push(timer);
+        function settle(rows) {
+          if (settled || done) return; settled = true; clearTimeout(timer);
+          results[index] = Array.isArray(rows) ? rows : [];
+          next();
+        }
+        Promise.resolve().then(function() { return active[index].provider.getStreams.apply(active[index].provider, args); }).then(settle, function() { settle([]); });
+      }
+      function alternate(index) {
+        if (done) return;
+        if (index >= active.length) { alternateDone = true; if (primaryDone) finish(); return; }
+        attempt(index, 6000, function() {
+          if (combine([results[index]]).length) { alternateDone = true; if (primaryDone) finish(); }
+          else alternate(index + 1);
+        });
+      }
+      function startAlternate() {
+        if (alternateStarted || done) return; alternateStarted = true; alternate(1);
+      }
+      if (!active.length) { finish(); return; }
+      timers.push(setTimeout(finish, 18500));
+      // A fast successful primary starts no duplicate engine. A slow or failed one unlocks the fallback.
+      timers.push(setTimeout(startAlternate, 5000));
+      attempt(0, 18500, function() {
+        primaryDone = true;
+        if (combine([results[0]]).length) { finish(); return; }
+        startAlternate();
+        if (alternateDone) finish();
+      });
+    });
+  };
+  // Preserve primary settings and add missing alternate controls/options under the same provider ID.
+  if (engines.some(function(engine) { return engine.enabled && typeof engine.provider.onSettings === 'function'; })) {
+    merged.onSettings = function() {
+      var args = arguments;
+      return Promise.all(engines.filter(function(engine) { return engine.enabled && typeof engine.provider.onSettings === 'function'; }).map(function(engine) {
+        return new Promise(function(resolve) {
+          var timer = setTimeout(function() { resolve([]); }, 1500);
+          Promise.resolve().then(function() { return engine.provider.onSettings.apply(engine.provider, args); }).then(function(value) { clearTimeout(timer); resolve(value); }, function() { clearTimeout(timer); resolve([]); });
+        });
+      })).then(function(values) {
+        if (values.length && !Array.isArray(values[0])) return values[0];
+        var out = [], keys = Object.create(null), headers = Object.create(null);
+        values.forEach(function(rows) {
+          if (!Array.isArray(rows)) return;
+          rows.forEach(function(setting) {
+            if (!setting || typeof setting !== 'object') return;
+            if (!setting.key) {
+              var identity = key(setting); if (!headers[identity]) { headers[identity] = true; out.push(setting); } return;
+            }
+            var existing = keys[setting.key];
+            if (!existing) { existing = Object.assign({}, setting); if (Array.isArray(setting.options)) existing.options = setting.options.slice(); keys[setting.key] = existing; out.push(existing); return; }
+            if (existing.type === setting.type && Array.isArray(existing.options) && Array.isArray(setting.options)) {
+              setting.options.forEach(function(option) { if (!existing.options.some(function(current) { return current.value === option.value; })) existing.options.push(option); });
+            }
+          });
+        });
+        return out;
+      });
+    };
+  }
+  return merged;
+}
+function cloudbankMergedBudgetFetch(nativeFetch, deadline) {
+  function bounded(run) {
+    var remaining = Math.min(2200, deadline - Date.now());
+    if (remaining <= 0) return Promise.reject(new Error('Merged engine budget exhausted'));
+    return new Promise(function(resolve, reject) {
+      var timer = setTimeout(function() { reject(new Error('Merged engine request timeout')); }, remaining);
+      Promise.resolve().then(run).then(function(value) { clearTimeout(timer); resolve(value); }, function(error) { clearTimeout(timer); reject(error); });
+    });
+  }
+  return function(url, options) {
+    return bounded(function() { return nativeFetch(url, options); }).then(function(response) {
+      return { ok: response.ok, status: response.status, statusText: response.statusText, url: response.url, headers: response.headers,
+        text: function() { return bounded(function() { return response.text(); }); },
+        json: function() { return bounded(function() { return response.json(); }); },
+        arrayBuffer: function() { return bounded(function() { return response.arrayBuffer(); }); } };
+    });
+  };
+}
+function cloudbankMergedMetadataFetch(nativeFetch) {
+  return function(url, options) {
+    var raw = typeof url === 'string' ? url : url && url.url;
+    var match = typeof raw === 'string' && /^https:\/\/api\.themoviedb\.org\/3\/(movie|tv)\/(\d+)(?:\?|$)/.exec(raw);
+    if (!match || options && options.method && String(options.method).toUpperCase() !== 'GET' || typeof vueoSharedTmdb !== 'function') return nativeFetch(url, options);
+    var context = typeof globalThis !== 'undefined' ? globalThis.VUEO_DISCOVERY_CONTEXT : null;
+    if (typeof context === 'string') { try { context = JSON.parse(context); } catch (_) { context = null; } }
+    var contextId = context && (context.tmdbId || context.tmdb && context.tmdb.id);
+    if (contextId && String(contextId) !== match[2]) return nativeFetch(url, options);
+    return vueoSharedTmdb(raw, function() {
+      return nativeFetch(url, options).then(function(response) { if (!response.ok) throw new Error('TMDB HTTP ' + response.status); return response.json(); });
+    }).then(function(data) {
+      var body = JSON.stringify(data);
+      return { ok: true, status: 200, url: raw, headers: { get: function(name) { return String(name).toLowerCase() === 'content-type' ? 'application/json' : null; } },
+        json: function() { return Promise.resolve(JSON.parse(body)); }, text: function() { return Promise.resolve(body); } };
+    });
+  };
+}
+/* CLOUDBANK_VERSION_MERGE_ADAPTER_END */
+
+var cloudbankMergedEngines = [{ id: "hianime", enabled: true, disabledPlatforms: [], provider: module.exports }];
+cloudbankMergedEngines.push({ id: "hianime-v2", enabled: true, disabledPlatforms: [], provider: (function() {
+  function createEngine(deadline) {
+  var embedded = { exports: {} };
+  function portableRequire(name) {
+    if (name !== "crypto-js" && name !== "cheerio-without-node-native") throw new Error("Unsupported merged module: " + name);
+    return require(name);
+  }
+  (function(module, exports, require, fetch, global) {
+/* CLOUDBANK_MERGED_ENGINE_START:hianime-v2 */
+/**
+ * hianime - Built from src/hianime/
+ * Generated: 2026-06-01T14:20:20.767Z
+ */
+var __create = Object.create;
+var __defProp = Object.defineProperty;
+var __defProps = Object.defineProperties;
+var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
+var __getOwnPropDescs = Object.getOwnPropertyDescriptors;
+var __getOwnPropNames = Object.getOwnPropertyNames;
+var __getOwnPropSymbols = Object.getOwnPropertySymbols;
+var __getProtoOf = Object.getPrototypeOf;
+var __hasOwnProp = Object.prototype.hasOwnProperty;
+var __propIsEnum = Object.prototype.propertyIsEnumerable;
+var __defNormalProp = (obj, key, value) => key in obj ? __defProp(obj, key, { enumerable: true, configurable: true, writable: true, value }) : obj[key] = value;
+var __spreadValues = (a, b) => {
+  for (var prop in b || (b = {}))
+    if (__hasOwnProp.call(b, prop))
+      __defNormalProp(a, prop, b[prop]);
+  if (__getOwnPropSymbols)
+    for (var prop of __getOwnPropSymbols(b)) {
+      if (__propIsEnum.call(b, prop))
+        __defNormalProp(a, prop, b[prop]);
+    }
+  return a;
+};
+var __spreadProps = (a, b) => __defProps(a, __getOwnPropDescs(b));
+var __copyProps = (to, from, except, desc) => {
+  if (from && typeof from === "object" || typeof from === "function") {
+    for (let key of __getOwnPropNames(from))
+      if (!__hasOwnProp.call(to, key) && key !== except)
+        __defProp(to, key, { get: () => from[key], enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable });
+  }
+  return to;
+};
+var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__getProtoOf(mod)) : {}, __copyProps(
+  // If the importer is in node compatibility mode or this is not an ESM
+  // file that has been converted to a CommonJS file using a Babel-
+  // compatible transform (i.e. "__esModule" has not been set), then set
+  // "default" to the CommonJS "module.exports" for node compatibility.
+  isNodeMode || !mod || !mod.__esModule ? __defProp(target, "default", { value: mod, enumerable: true }) : target,
+  mod
+));
+var __async = (__this, __arguments, generator) => {
+  return new Promise((resolve, reject) => {
+    var fulfilled = (value) => {
+      try {
+        step(generator.next(value));
+      } catch (e) {
+        reject(e);
+      }
+    };
+    var rejected = (value) => {
+      try {
+        step(generator.throw(value));
+      } catch (e) {
+        reject(e);
+      }
+    };
+    var step = (x) => x.done ? resolve(x.value) : Promise.resolve(x.value).then(fulfilled, rejected);
+    step((generator = generator.apply(__this, __arguments)).next());
+  });
+};
+
+// src/hianime/index.js
+var import_cheerio_without_node_native = __toESM(require("cheerio-without-node-native"));
+
+// src/hianime/constants.js
+var MEGAPLAY_BASE = "https://megaplay.buzz";
+var VIDWISH_BASE = "https://vidwish.live";
+var MEGACLOUD_BASE = "https://megacloud.bloggy.click";
+var TMDB_API_KEY = "1865f43a0549ca50d341dd9ab8b29f49";
+var DEFAULT_HEADERS = {
+  "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+  "Accept": "*/*",
+  "Connection": "keep-alive"
+};
+
+// src/hianime/utils.js
+function fetchText(_0) {
+  return __async(this, arguments, function* (url, options = {}) {
+    const response = yield fetch(url, __spreadValues({
+      headers: __spreadValues(__spreadValues({}, DEFAULT_HEADERS), options.headers)
+    }, options));
+    if (!response.ok)
+      throw new Error(`HTTP ${response.status} on ${url}`);
+    return yield response.text();
+  });
+}
+function fetchJson(_0) {
+  return __async(this, arguments, function* (url, options = {}) {
+    const text = yield fetchText(url, options);
+    return JSON.parse(text);
+  });
+}
+function getImdbId(tmdbId, mediaType) {
+  return __async(this, null, function* () {
+    try {
+      const url = `https://api.themoviedb.org/3/${mediaType === "tv" ? "tv" : "movie"}/${tmdbId}/external_ids?api_key=${TMDB_API_KEY}`;
+      const data = yield fetchJson(url);
+      return data.imdb_id || null;
+    } catch (e) {
+      return null;
+    }
+  });
+}
+function getTmdbShowTitle(tmdbId, mediaType) {
+  return __async(this, null, function* () {
+    try {
+      const url = `https://api.themoviedb.org/3/${mediaType === "tv" ? "tv" : "movie"}/${tmdbId}?api_key=${TMDB_API_KEY}`;
+      const data = yield fetchJson(url);
+      return data.name || data.title || data.original_title || null;
+    } catch (e) {
+      return null;
+    }
+  });
+}
+function resolveMapping(imdbId, season, episode) {
+  return __async(this, null, function* () {
+    try {
+      const url = `https://id-mapping-api-malid.hf.space/api/resolve?id=${imdbId}&s=${season}&e=${episode}`;
+      const data = yield fetchJson(url);
+      if (data.error)
+        return null;
+      return data;
+    } catch (e) {
+      return null;
+    }
+  });
+}
+function searchMalId(title, mediaType) {
+  return __async(this, null, function* () {
+    try {
+      const type = mediaType === "movie" ? "movie" : "tv";
+      const url = `https://api.jikan.moe/v4/anime?q=${encodeURIComponent(title)}&type=${type}&limit=1`;
+      const data = yield fetchJson(url);
+      if (data.data && data.data.length > 0) {
+        return data.data[0].mal_id;
+      }
+      return null;
+    } catch (e) {
+      return null;
+    }
+  });
+}
+
+// src/hianime/index.js
+function extractSources(apiUrl, referer, origin, serverName, animeTitle, episodeNum, type) {
+  return __async(this, null, function* () {
+    var _a;
+    try {
+      const json = yield fetchJson(apiUrl, {
+        headers: {
+          "X-Requested-With": "XMLHttpRequest",
+          "Referer": referer,
+          "Origin": origin
+        }
+      });
+      const file = (_a = json.sources) == null ? void 0 : _a.file;
+      if (!file)
+        return [];
+      const streamTitle = `${animeTitle} - Episode ${episodeNum} (${type.toUpperCase()})`;
+      const streams = [];
+      streams.push({
+        name: `HiAnime [${serverName}] (${type.toUpperCase()})`,
+        title: streamTitle,
+        url: file,
+        quality: "Auto",
+        headers: __spreadProps(__spreadValues({}, DEFAULT_HEADERS), {
+          "Referer": `${origin}/`,
+          "Origin": origin
+        }),
+        provider: "hianime",
+        type: "m3u8"
+      });
+      if (json.tracks && json.tracks.length > 0) {
+        const subtitles = json.tracks.filter((t) => t.file && t.kind === "captions").map((t) => ({
+          url: t.file,
+          name: t.label || "English",
+          language: t.label ? t.label.slice(0, 3).toLowerCase() : "en"
+        }));
+        streams[0].subtitles = subtitles;
+      }
+      return streams;
+    } catch (e) {
+      return [];
+    }
+  });
+}
+function scrapeType(malId, episode, type, animeTitle) {
+  return __async(this, null, function* () {
+    const streams = [];
+    const megaUrl = `${MEGAPLAY_BASE}/stream/mal/${malId}/${episode}/${type}`;
+    try {
+      const html = yield fetchText(megaUrl, {
+        headers: { "Referer": megaUrl }
+      });
+      const $ = import_cheerio_without_node_native.default.load(html);
+      const player = $("div.fix-area#megaplay-player");
+      if (!player.length)
+        return [];
+      const dataId = player.attr("data-id");
+      const realId = player.attr("data-realid");
+      const extractions = [];
+      if (dataId) {
+        const apiUrl = `${MEGAPLAY_BASE}/stream/getSources?id=${dataId}&id=${dataId}`;
+        extractions.push(
+          extractSources(apiUrl, megaUrl, MEGAPLAY_BASE, "MegaPlay", animeTitle, episode, type)
+        );
+      }
+      if (realId) {
+        const vidPage = `${VIDWISH_BASE}/stream/s-2/${realId}/${type}`;
+        extractions.push((() => __async(this, null, function* () {
+          try {
+            const vidHtml = yield fetchText(vidPage, { headers: { "Referer": megaUrl } });
+            const $v = import_cheerio_without_node_native.default.load(vidHtml);
+            const vPlayer = $v("div.fix-area#megaplay-player");
+            const vDataId = vPlayer.attr("data-id");
+            if (vDataId) {
+              const apiUrl = `${VIDWISH_BASE}/stream/getSources?id=${vDataId}&id=${vDataId}`;
+              return yield extractSources(apiUrl, vidPage, VIDWISH_BASE, "Vidwish", animeTitle, episode, type);
+            }
+          } catch (err) {
+          }
+          return [];
+        }))());
+      }
+      if (realId) {
+        const megacloudPage = `${MEGACLOUD_BASE}/stream/s-3/${realId}/${type}`;
+        extractions.push((() => __async(this, null, function* () {
+          try {
+            const mcHtml = yield fetchText(megacloudPage, { headers: { "Referer": megaUrl } });
+            const $m = import_cheerio_without_node_native.default.load(mcHtml);
+            const mPlayer = $m("div.fix-area#megaplay-player");
+            const mDataId = mPlayer.attr("data-id");
+            if (mDataId) {
+              const apiUrl = `${MEGACLOUD_BASE}/stream/getSources?id=${mDataId}&id=${mDataId}`;
+              return yield extractSources(apiUrl, megacloudPage, MEGACLOUD_BASE, "MegaCloud", animeTitle, episode, type);
+            }
+          } catch (err) {
+          }
+          return [];
+        }))());
+      }
+      const results = yield Promise.all(extractions);
+      for (const res of results) {
+        streams.push(...res);
+      }
+    } catch (e) {
+    }
+    return streams;
+  });
+}
+function onSettings() {
+  return __async(this, null, function* () {
+    return [
+      { type: "header", label: "Stream Preferences" },
+      {
+        type: "select",
+        key: "subDub",
+        label: "Audio/Subtitle Preference",
+        options: [
+          { label: "Sub & Dub", value: "both" },
+          { label: "Sub Only", value: "sub" },
+          { label: "Dub Only", value: "dub" }
+        ],
+        defaultValue: "both"
+      }
+    ];
+  });
+}
+function getStreams(tmdbId, mediaType = "tv", season = 1, episode = 1) {
+  return __async(this, null, function* () {
+    try {
+      let malId = null;
+      let mappedEp = episode;
+      let showTitle = "";
+      const imdbId = yield getImdbId(tmdbId, mediaType);
+      showTitle = (yield getTmdbShowTitle(tmdbId, mediaType)) || (mediaType === "movie" ? "Movie" : "Anime");
+      if (!imdbId)
+        return [];
+      const s = mediaType === "movie" ? 1 : season;
+      const e = mediaType === "movie" ? 1 : episode;
+      if (mediaType === "movie") {
+        malId = yield searchMalId(showTitle, "movie");
+        mappedEp = 1;
+      }
+      if (!malId && mediaType !== "movie") {
+        const mapping = yield resolveMapping(imdbId, s, e);
+        if (mapping && mapping.mal_id) {
+          malId = mapping.mal_id;
+          mappedEp = mapping.mal_episode || episode;
+        }
+      }
+      if (!malId)
+        return [];
+      const settings = globalThis.SCRAPER_SETTINGS || {};
+      const preference = settings.subDub || "both";
+      let allStreams = [];
+      if (preference === "both") {
+        const [subStreams, dubStreams] = yield Promise.all([
+          scrapeType(malId, mappedEp, "sub", showTitle),
+          scrapeType(malId, mappedEp, "dub", showTitle)
+        ]);
+        allStreams = [...subStreams, ...dubStreams];
+      } else {
+        allStreams = yield scrapeType(malId, mappedEp, preference, showTitle);
+      }
+      const seen = /* @__PURE__ */ new Set();
+      return allStreams.filter((s2) => {
+        if (seen.has(s2.url))
+          return false;
+        seen.add(s2.url);
+        return true;
+      });
+    } catch (e) {
+      return [];
+    }
+  });
+}
+module.exports = { getStreams, onSettings };
+
+/* CLOUDBANK_MERGED_ENGINE_END:hianime-v2 */
+  })(embedded, embedded.exports, portableRequire, cloudbankAnimeMappingFetch(cloudbankMergedBudgetFetch(cloudbankMergedMetadataFetch(fetch), deadline)), typeof globalThis !== "undefined" ? globalThis : global);
+  return Object.assign({}, embedded.exports);
+  }
+  var settingsProvider = createEngine(Date.now() + 6000);
+  return Object.assign({}, settingsProvider, { getStreams: function() {
+    // A fresh request scope prevents an expired scan from borrowing a later scan's deadline.
+    var engine = createEngine(Date.now() + 6000);
+    return engine.getStreams.apply(engine, arguments);
+  } });
+})() });
+module.exports = cloudbankVersionMerge(cloudbankMergedEngines, "hianime");
+if (typeof globalThis !== "undefined") { globalThis.getStreams = module.exports.getStreams; if (module.exports.onSettings) globalThis.onSettings = module.exports.onSettings; }
+
 /* CLOUDBANK_PLAYIMDB_DISPLAY_START */
 /* CLOUDBANK_PLAYIMDB_DISPLAY_V1
  * Embedded in each provider: the app downloads standalone JavaScript files.

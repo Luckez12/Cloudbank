@@ -1,0 +1,273 @@
+{
+  "manifestVersion": "1.20.11",
+  "strategy": "Preserve established extraction, retain alternate cores as delayed/failed-primary fallbacks; remove standalone variants.",
+  "groups": [
+    {
+      "id": "kisskh",
+      "filename": "providers/kisskh.js",
+      "engines": [
+        {
+          "id": "kisskh-v2",
+          "enabled": true,
+          "disabledPlatforms": [],
+          "supportsExternalPlayer": true,
+          "sourceRepository": "https://github.com/D3adlyRocket/All-in-One-Nuvio",
+          "sourceCommit": "3f09a6ff4360498895e622877af7a32212f75038",
+          "sourceSha256": "81b0afffb337390782cace12c5d657c6aa42765d05f5da986022284a99bafb98"
+        }
+      ],
+      "mergedFileSha256": "d94c1805da902972c1e92999ffe9eb1847040e38cba825bf1feb235638b8a8c0"
+    },
+    {
+      "id": "moviebox",
+      "filename": "providers/moviebox.js",
+      "engines": [
+        {
+          "id": "moviebox-v2",
+          "enabled": true,
+          "disabledPlatforms": [],
+          "supportsExternalPlayer": true,
+          "sourceRepository": "https://github.com/D3adlyRocket/All-in-One-Nuvio",
+          "sourceCommit": "3f09a6ff4360498895e622877af7a32212f75038",
+          "sourceSha256": "874dc691ce22292ffcbc7ef797000c5c2d7b26a1cc9d674503c4830ca17572d4"
+        },
+        {
+          "id": "moviebox-v3",
+          "enabled": true,
+          "disabledPlatforms": [],
+          "supportsExternalPlayer": true,
+          "sourceRepository": "https://github.com/yoruix/nuvio-providers",
+          "sourceCommit": "ed38d1aee0024f56479369c9423fefb278e0b62a",
+          "sourceSha256": "5b3d2c649dc4b5c223e70dd0e0d74fb544f15f99019864d44502dded2c6928d4"
+        }
+      ],
+      "mergedFileSha256": "8de76a703af19c07f479b1feb3ef487c0123ba7fb5076383c2c2ab76d3fde30d"
+    },
+    {
+      "id": "anizone",
+      "filename": "providers/anizone.js",
+      "engines": [
+        {
+          "id": "anizone-v2",
+          "enabled": true,
+          "disabledPlatforms": [],
+          "supportsExternalPlayer": true,
+          "sourceRepository": "https://github.com/yoruix/nuvio-providers",
+          "sourceCommit": "ed38d1aee0024f56479369c9423fefb278e0b62a",
+          "sourceSha256": "0dbdc78b24804babc29f0674da00a46e7b7915ebb5278d58790439d4ba03690b"
+        }
+      ],
+      "mergedFileSha256": "bc6d68d9d1a0dbfb68c01fc17850c6e0e75bac111b8c557d76484691e49d2ea5"
+    },
+    {
+      "id": "animepahe",
+      "filename": "providers/animepahe.js",
+      "engines": [
+        {
+          "id": "animepahe-v2",
+          "enabled": true,
+          "disabledPlatforms": [],
+          "supportsExternalPlayer": true,
+          "sourceRepository": "https://github.com/yoruix/nuvio-providers",
+          "sourceCommit": "ed38d1aee0024f56479369c9423fefb278e0b62a",
+          "sourceSha256": "3b567b1e8e83d64777b617ee9323f411dab1474c700864058c4444e4f52cf842"
+        }
+      ],
+      "mergedFileSha256": "1a86da69224fd99d311f7da5b3874d9a3f768f6b0d796097cfb8730287ceb782"
+    },
+    {
+      "id": "allmovieland",
+      "filename": "providers/allmovieland.js",
+      "engines": [
+        {
+          "id": "allmovieland-v2",
+          "enabled": true,
+          "disabledPlatforms": [],
+          "supportsExternalPlayer": true,
+          "sourceRepository": "https://github.com/yoruix/nuvio-providers",
+          "sourceCommit": "ed38d1aee0024f56479369c9423fefb278e0b62a",
+          "sourceSha256": "d1b156dffd03425f57e3ac042ddadf05edc56d834be0134a013abf8e54b9bf9b"
+        }
+      ],
+      "mergedFileSha256": "690863b7855b702faeff15054e408f90ca862d6b83cff988bec7be5a14b433c7"
+    },
+    {
+      "id": "cinemacity",
+      "filename": "providers/cinemacity.js",
+      "engines": [
+        {
+          "id": "cinemacity-v2",
+          "enabled": true,
+          "disabledPlatforms": [],
+          "supportsExternalPlayer": true,
+          "sourceRepository": "https://github.com/yoruix/nuvio-providers",
+          "sourceCommit": "ed38d1aee0024f56479369c9423fefb278e0b62a",
+          "sourceSha256": "e3a5ca37785b04610a23a44a509dabf134c9154a35dd91d3070f3766029b5792"
+        }
+      ],
+      "mergedFileSha256": "2d62ed182a079aa1f8c6fd66c41228514a008abfa17f4ddb794b17b61c476d8c"
+    },
+    {
+      "id": "dahmermovies",
+      "filename": "providers/dahmermovies.js",
+      "engines": [
+        {
+          "id": "dahmermovies-v2",
+          "enabled": true,
+          "disabledPlatforms": [],
+          "supportsExternalPlayer": true,
+          "sourceRepository": "https://github.com/yoruix/nuvio-providers",
+          "sourceCommit": "ed38d1aee0024f56479369c9423fefb278e0b62a",
+          "sourceSha256": "469a6a06dc8af06013adc7ad966e0082429ad776d4f0dba4e57ec815e3e88bb5"
+        }
+      ],
+      "mergedFileSha256": "46a61f2373a64e62ee75c096d9cefec31c12bfbc4b6bf68bf99bad7db3b3063d"
+    },
+    {
+      "id": "dooflix",
+      "filename": "providers/dooflix.js",
+      "engines": [
+        {
+          "id": "dooflix-v2",
+          "enabled": true,
+          "disabledPlatforms": [],
+          "supportsExternalPlayer": true,
+          "sourceRepository": "https://github.com/yoruix/nuvio-providers",
+          "sourceCommit": "ed38d1aee0024f56479369c9423fefb278e0b62a",
+          "sourceSha256": "0e8ad342ffe970ea100695f521f10bdf880d869aa9228713a0848a20dc9bd412"
+        }
+      ],
+      "mergedFileSha256": "a5da78ec8773903af3366da21a3c406083402fd8ba6389ddac5154f3e7433066"
+    },
+    {
+      "id": "hianime",
+      "filename": "providers/hianime.js",
+      "engines": [
+        {
+          "id": "hianime-v2",
+          "enabled": true,
+          "disabledPlatforms": [],
+          "supportsExternalPlayer": true,
+          "sourceRepository": "https://github.com/yoruix/nuvio-providers",
+          "sourceCommit": "ed38d1aee0024f56479369c9423fefb278e0b62a",
+          "sourceSha256": "d6b79c8d8e8e19d4362d33cdd8a9107e425ce1eeefb55b56f8ec8b961126e09f"
+        }
+      ],
+      "mergedFileSha256": "19f12001a8e5592cd248f59a24f63653247461ffa6ace7708043e2fa4e2d7b3a"
+    },
+    {
+      "id": "kurage",
+      "filename": "providers/kurage.js",
+      "engines": [
+        {
+          "id": "kurage-v2",
+          "enabled": true,
+          "disabledPlatforms": [],
+          "supportsExternalPlayer": true,
+          "sourceRepository": "https://github.com/yoruix/nuvio-providers",
+          "sourceCommit": "ed38d1aee0024f56479369c9423fefb278e0b62a",
+          "sourceSha256": "87bbb1d8359caec9c7b98f22c9a88a9045c8bb1b5c0780a0e04842ab62bbabdb"
+        }
+      ],
+      "mergedFileSha256": "80968a7d7b8a171cc35ce1b539f7408a9973cd66c5be66200e46e9fed722762a"
+    },
+    {
+      "id": "movieblast",
+      "filename": "providers/movieblast.js",
+      "engines": [
+        {
+          "id": "movieblast-v2",
+          "enabled": true,
+          "disabledPlatforms": [],
+          "supportsExternalPlayer": true,
+          "sourceRepository": "https://github.com/yoruix/nuvio-providers",
+          "sourceCommit": "ed38d1aee0024f56479369c9423fefb278e0b62a",
+          "sourceSha256": "8fc6c9c3b021df2df2430dbd2559aece034cea02c5f0f9d4d514eebbb394584c"
+        }
+      ],
+      "mergedFileSha256": "989c749e961861201310a4ac759a438d1b97f7905d75bb5cb0d45d0133e9c84f"
+    },
+    {
+      "id": "moviesdrive",
+      "filename": "providers/moviesdrive.js",
+      "engines": [
+        {
+          "id": "moviesdrive-v2",
+          "enabled": true,
+          "disabledPlatforms": [],
+          "supportsExternalPlayer": true,
+          "sourceRepository": "https://github.com/yoruix/nuvio-providers",
+          "sourceCommit": "ed38d1aee0024f56479369c9423fefb278e0b62a",
+          "sourceSha256": "73098d13964fbeca2b19a3c80782a27b08129898b8da5a82f9b8088f37168d68"
+        }
+      ],
+      "mergedFileSha256": "bd9ecb8f670ddf251c355ad5681003abb1a4586f517b64a2a1f7aca1cadd0716"
+    },
+    {
+      "id": "moviesmod",
+      "filename": "providers/moviesmod.js",
+      "engines": [
+        {
+          "id": "moviesmod-v2",
+          "enabled": true,
+          "disabledPlatforms": [],
+          "supportsExternalPlayer": true,
+          "sourceRepository": "https://github.com/yoruix/nuvio-providers",
+          "sourceCommit": "ed38d1aee0024f56479369c9423fefb278e0b62a",
+          "sourceSha256": "98aeea26aa4511affc468b897dc050ca1d481684fcf712693fb8b1928f7135f8"
+        }
+      ],
+      "mergedFileSha256": "70642fe7ff352cdf5ad980fdd5971403b1f0a2fd17c4c2cc11e6bdfd3f52d4ab"
+    },
+    {
+      "id": "netmirror",
+      "filename": "providers/netmirror.js",
+      "engines": [
+        {
+          "id": "netmirror-v2",
+          "enabled": true,
+          "disabledPlatforms": [
+            "ios"
+          ],
+          "supportsExternalPlayer": false,
+          "sourceRepository": "https://github.com/yoruix/nuvio-providers",
+          "sourceCommit": "ed38d1aee0024f56479369c9423fefb278e0b62a",
+          "sourceSha256": "30c207564c1b85bc0fd01bfc9a4741727593c535b9b13c2702b2c0453326b8f8"
+        }
+      ],
+      "mergedFileSha256": "1e37b9cfcfec52a8932e220fd7e655ed717b9aca06457047f7811f673a8150d6"
+    },
+    {
+      "id": "uhdmovies",
+      "filename": "providers/uhdmovies.js",
+      "engines": [
+        {
+          "id": "uhdmovies-v2",
+          "enabled": true,
+          "disabledPlatforms": [],
+          "supportsExternalPlayer": true,
+          "sourceRepository": "https://github.com/yoruix/nuvio-providers",
+          "sourceCommit": "ed38d1aee0024f56479369c9423fefb278e0b62a",
+          "sourceSha256": "910588acb9a44abb569391dc61643aead09fef349f00887740bb9fa5889bd36e"
+        }
+      ],
+      "mergedFileSha256": "070f6bae5f8b4215cf61d275ff51c6e472152e97e23fc1b98a2265cce68717b4"
+    },
+    {
+      "id": "videasy",
+      "filename": "providers/videasy.js",
+      "engines": [
+        {
+          "id": "videasy-v2",
+          "enabled": false,
+          "disabledPlatforms": [],
+          "supportsExternalPlayer": true,
+          "sourceRepository": "https://github.com/yoruix/nuvio-providers",
+          "sourceCommit": "ed38d1aee0024f56479369c9423fefb278e0b62a",
+          "sourceSha256": "3e554771641bd6208cd763c6ee6aa12a06ad858a52d7430cd43571fa9cde068d"
+        }
+      ],
+      "mergedFileSha256": "bf902755743cb75b17c9f412701cdbe90c04362c986b5588f95e25f9f1c5bf90"
+    }
+  ]
+}
