@@ -173,7 +173,9 @@
       "sourceSha256": "1b23fb0b7740e707fb2e3c5f6f69ca51c4bb4fc6afc8f1ae851af22e3f66bb89",
       "action": "imported",
       "filename": "providers/castle.js",
-      "runtimeModules": []
+      "runtimeModules": [],
+      "patchedSourceSha256": "d9bd80f484f71d0033c0c966efa7bc2500c105a327c9b1e4b6303696ad2d8778",
+      "localPatch": "Castle/V2 consolidation, readable yoruix core with bounded audio requests and response handling fixes; original decryption and playback contract preserved."
     },
     {
       "id": "cineby",

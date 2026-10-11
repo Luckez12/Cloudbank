@@ -1,6 +1,6 @@
 {
   "name": "Cloudbank",
-  "version": "1.20.6",
+  "version": "1.20.7",
   "scrapers": [
     {
       "id": "kisskh",
@@ -540,7 +540,7 @@
     },
     {
       "id": "allwish",
-      "name": "🌟 All-Wish",
+      "name": "\ud83c\udf1f All-Wish",
       "description": "All-Wish TV episodes via All-Wish servers",
       "version": "1.0.5",
       "author": "Kabir",
@@ -918,7 +918,7 @@
     },
     {
       "id": "animeworld",
-      "name": "🗡️ AnimeWorld",
+      "name": "\ud83d\udde1\ufe0f AnimeWorld",
       "description": "Watch AnimeWorld India",
       "version": "1.0.4",
       "author": "piratezoro9",
@@ -951,7 +951,7 @@
     },
     {
       "id": "anime-sama",
-      "name": "🐍 Anime-Sama",
+      "name": "\ud83d\udc0d Anime-Sama",
       "description": "Watch AnimeSama France",
       "version": "1.1.31",
       "author": "Gowaru",
@@ -1122,9 +1122,9 @@
     },
     {
       "id": "castle",
-      "name": "🏰 Castle",
+      "name": "\ud83c\udff0 Castle",
       "description": "Multi Lang provider",
-      "version": "2.0.4",
+      "version": "2.1.0",
       "author": "Nuvio Team",
       "supportedTypes": [
         "movie",
@@ -1147,53 +1147,15 @@
         "tv"
       ],
       "upstreamVersion": "2.0.0",
-      "notes": "Imported from D3adlyRocket/All-in-One-Nuvio at 3f09a6ff4360498895e622877af7a32212f75038. Cloudbank adapter preserves upstream extraction/settings, uses shared TMDB detail metadata when available, caps async result wait at 19s, and returns valid stream arrays. Playback and host settings support require app testing.",
+      "notes": "Imported from D3adlyRocket/All-in-One-Nuvio at 3f09a6ff4360498895e622877af7a32212f75038. Cloudbank adapter preserves upstream extraction/settings, uses shared TMDB detail metadata when available, caps async result wait at 19s, and returns valid stream arrays. Playback and host settings support require app testing. Castle V2 consolidated into Castle: equivalent upstream backend retained; readable core, bounded concurrent audio extraction, shared fallback, numeric quality and season handling fixes. Existing AES/JNI, playback headers and subtitles retained. Device playback requires user validation.",
       "sourceRepository": "https://github.com/D3adlyRocket/All-in-One-Nuvio",
       "sourceCommit": "3f09a6ff4360498895e622877af7a32212f75038",
       "runtimeModules": []
     },
     {
-      "id": "castle-v2",
-      "name": "Castle V2",
-      "description": "Multi Lang provider",
-      "version": "1.0.3",
-      "author": "Nuvio Team",
-      "supportedTypes": [
-        "movie",
-        "tv"
-      ],
-      "filename": "providers/castle-v2.js",
-      "enabled": true,
-      "formats": [
-        "mp4",
-        "m3u8"
-      ],
-      "logo": "https://static.hbayy.com/simple-blog-13/prod/_nuxt/big-logo.DESZ4mBj.png",
-      "contentLanguage": [
-        "en",
-        "hi",
-        "ta",
-        "te",
-        "ml",
-        "kn"
-      ],
-      "runtimeTimeoutMs": 20000,
-      "sourceRepository": "https://github.com/yoruix/nuvio-providers",
-      "sourceCommit": "ed38d1aee0024f56479369c9423fefb278e0b62a",
-      "upstreamVersion": "1.0.0",
-      "upstreamSupportedTypes": [
-        "movie",
-        "tv"
-      ],
-      "runtimeModules": [
-        "crypto-js"
-      ],
-      "notes": "Independent Yoruix import at ed38d1aee0024f56479369c9423fefb278e0b62a. Existing provider versions remain intact. Uses the Cloudbank adapter; upstream enabled/settings/platform flags preserved. Playback is not verified."
-    },
-    {
       "id": "cineby",
       "name": "Cineby",
-      "description": "Multi-server movie and TV streaming — 4K/1080p/720p from Videasy network without subtitles",
+      "description": "Multi-server movie and TV streaming \u2014 4K/1080p/720p from Videasy network without subtitles",
       "version": "1.9.6",
       "author": "Nuvio Team",
       "supportedTypes": [
@@ -1560,7 +1522,7 @@
       "name": "Einthustan",
       "description": "1080p Movies in Multi-Lang",
       "version": "1.0.4",
-      "author": "✮☆[D3ADLY]☆✮",
+      "author": "\u272e\u2606[D3ADLY]\u2606\u272e",
       "supportedTypes": [
         "movie",
         "tv"
@@ -1627,8 +1589,8 @@
     },
     {
       "id": "goated",
-      "name": "🐐 Goated",
-      "description": "4K • 1080p Movies & Series in Multi Language",
+      "name": "\ud83d\udc10 Goated",
+      "description": "4K \u2022 1080p Movies & Series in Multi Language",
       "version": "1.0.4",
       "author": "Nuvio Team",
       "supportedTypes": [
@@ -1766,7 +1728,7 @@
       "name": "HindMoviez",
       "description": "HindMoviez - Hindi & English Movies and Series (480p / 720p / 1080p / 4K)",
       "version": "1.0.5",
-      "author": "Sanchit (@S4NCHITT) — Murph's Streams",
+      "author": "Sanchit (@S4NCHITT) \u2014 Murph's Streams",
       "supportedTypes": [
         "movie",
         "tv"
@@ -2071,7 +2033,7 @@
     },
     {
       "id": "movieshunt",
-      "name": "🎬 MoviesHunt",
+      "name": "\ud83c\udfac MoviesHunt",
       "description": "Hollywood & Bollywood Movies in Multi Language",
       "version": "1.0.4",
       "author": "piratezoro9",
@@ -2260,7 +2222,7 @@
     },
     {
       "id": "persianstremio",
-      "name": "🌸 PersianStremio",
+      "name": "\ud83c\udf38 PersianStremio",
       "description": "Persian Stremio plugin for movies, series,and Persian media content in Iranian & English.",
       "version": "1.4.4",
       "author": "Nuvio Team",
@@ -2293,8 +2255,8 @@
     },
     {
       "id": "peachify",
-      "name": "🍑 Peachify",
-      "description": "Streams from peachify.top — 3 server sources (MovieBox/Holly/Air) via Cloudflare Workers with AES-256-GCM decryption",
+      "name": "\ud83c\udf51 Peachify",
+      "description": "Streams from peachify.top \u2014 3 server sources (MovieBox/Holly/Air) via Cloudflare Workers with AES-256-GCM decryption",
       "version": "1.0.4",
       "author": "piratezoro9",
       "supportedTypes": [
@@ -2430,8 +2392,8 @@
     },
     {
       "id": "torrentio",
-      "name": "🧲 Torrentio",
-      "description": "Torrentio – Torrent streaming. Supports optional debrid services.",
+      "name": "\ud83e\uddf2 Torrentio",
+      "description": "Torrentio \u2013 Torrent streaming. Supports optional debrid services.",
       "version": "1.0.4",
       "author": "Nuvio Team",
       "supportedTypes": [
@@ -2463,7 +2425,7 @@
     },
     {
       "id": "vidrock",
-      "name": "🪨 VidRock",
+      "name": "\ud83e\udea8 VidRock",
       "description": "VidRock - 1080p 480p and 360p",
       "version": "1.0.4",
       "author": "Nuvio Team",
@@ -2821,7 +2783,7 @@
     },
     {
       "id": "vidlove",
-      "name": "❤️ VidLove",
+      "name": "\u2764\ufe0f VidLove",
       "description": "Movie and TV show streams from MovieBox, LookMovie, VidnNest etc",
       "version": "1.0.4",
       "author": "Jeff",
@@ -2924,7 +2886,7 @@
     },
     {
       "id": "onlykdrama",
-      "name": "🫰 OnlyKDrama",
+      "name": "\ud83e\udef0 OnlyKDrama",
       "description": "Asian Drama",
       "version": "1.0.4",
       "author": "Moiz Ahmed + Codex",
@@ -3190,7 +3152,7 @@
     {
       "id": "vidnest-anime",
       "name": "VidnestAnime",
-      "description": "Vidnest anime streaming with TMDB→AniList mapping and 5 servers (hindi, satoru, miko, pahe, anya)",
+      "description": "Vidnest anime streaming with TMDB\u2192AniList mapping and 5 servers (hindi, satoru, miko, pahe, anya)",
       "version": "1.0.3",
       "author": "Nuvio Team",
       "supportedTypes": [
