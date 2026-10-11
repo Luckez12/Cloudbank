@@ -1,0 +1,64 @@
+{
+  "providers": [
+    {
+      "id": "4khdhub",
+      "referenceVersion": "1.1.0",
+      "sourceSha256": "d4bded8b9cc90f15c9911551f4f93409bc745c4a4ddea5f4c49d5c2b7f3c9b6b",
+      "referenceSnapshot": "17e99d41a378fff21fdc1ef8e9cc0036e6a4bfca",
+      "mode": "additional primary engine with bounded existing-engine fallback"
+    },
+    {
+      "id": "hdhub4u",
+      "referenceVersion": "1.1.1",
+      "sourceSha256": "1f7effdf15ffbf24a88ad5b9652284ee5d6f20c6ef00194c4423d2c6051c5455",
+      "referenceSnapshot": "17e99d41a378fff21fdc1ef8e9cc0036e6a4bfca",
+      "mode": "additional primary engine with bounded existing-engine fallback",
+      "adaptedSourceSha256": "93b88df92a807db8891a46d1015dd4ed3fd3e88b91b0a98c8a05ee28008b384c",
+      "localCorrection": "Reject explicit wrong season before extraction"
+    },
+    {
+      "id": "cinemode",
+      "referenceVersion": "2.1.7",
+      "sourceSha256": "cb6e014c1dcbcff9a91b76951d49ac7d06c5b59eab702c158a8ef2038777b801",
+      "referenceSnapshot": "17e99d41a378fff21fdc1ef8e9cc0036e6a4bfca",
+      "mode": "additional primary engine with bounded existing-engine fallback"
+    },
+    {
+      "id": "kisskh",
+      "referenceVersion": "1.0.13",
+      "sourceSha256": "2235dd42a66954894bdc7f4eba5330e855354671180f328693c2d7dc94c3becf",
+      "referenceSnapshot": "17e99d41a378fff21fdc1ef8e9cc0036e6a4bfca",
+      "mode": "additional primary engine with bounded existing-engine fallback",
+      "adaptedSourceSha256": "d526a6428f02244cdb5fabe56cbd385ffe56dbb7033dce4bc8f8bfced45ecb4e",
+      "localCorrection": "Reject stale metadata context"
+    },
+    {
+      "id": "onetouchtv",
+      "referenceVersion": "1.0.4",
+      "sourceSha256": "c6c52bba9802190d21f2736a77878bd4866f4881779f76b81b08c6139b42b195",
+      "referenceSnapshot": "17e99d41a378fff21fdc1ef8e9cc0036e6a4bfca",
+      "mode": "additional primary engine with bounded existing-engine fallback"
+    },
+    {
+      "id": "msm21",
+      "referenceVersion": "1.0.6",
+      "sourceSha256": "19a5eae9fcb997e2e01d50119d6ab92722eddc3c4198b28bec3b5288b6d3d09c",
+      "referenceSnapshot": "17e99d41a378fff21fdc1ef8e9cc0036e6a4bfca",
+      "mode": "additional primary engine with bounded existing-engine fallback"
+    },
+    {
+      "id": "pencurimovie",
+      "referenceVersion": "1.0.8",
+      "sourceSha256": "a6f3d14e7e56ec4129ccf24b34a506b9bc35ca873e2b9fad756b48c6a91301bd",
+      "referenceSnapshot": "17e99d41a378fff21fdc1ef8e9cc0036e6a4bfca",
+      "mode": "additional primary engine with bounded existing-engine fallback"
+    },
+    {
+      "id": "moviebox",
+      "referenceVersion": "1.1.7",
+      "sourceSha256": "dc5f1bc6ed007ea5dc5d4281c412700d39bb4fc0d2ce0b3ec23e1fbe89978bca",
+      "referenceSnapshot": "17e99d41a378fff21fdc1ef8e9cc0036e6a4bfca",
+      "mode": "additional primary engine with bounded existing-engine fallback"
+    }
+  ]
+}
