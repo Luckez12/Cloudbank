@@ -1,6 +1,6 @@
 {
   "name": "Cloudbank",
-  "version": "1.20.8",
+  "version": "1.20.9",
   "scrapers": [
     {
       "id": "kisskh",
@@ -101,7 +101,7 @@
       "id": "hdhub4u",
       "name": "HDHub4u",
       "description": "Movie and TV stream provider",
-      "version": "1.6.6",
+      "version": "1.7.0",
       "author": "Luckez",
       "supportedTypes": [
         "movie",
@@ -122,77 +122,7 @@
       "disabledPlatforms": [],
       "supportsExternalPlayer": true,
       "runtimeTimeoutMs": 20000,
-      "notes": "V17.1 latest-merge repair: restores the repo-wide TMDB title profile and required fast/discovery-rebuild contracts that were lost when the targeted V17 files were overlaid onto an older provider baseline. V16 Provider Repair: coalesced domain lookup, WordPress REST primary-title discovery, primary-first search, then bounded alias fallback. Low-confidence unrelated cards never enter extraction. V15 Shared Discovery Context: TMDB detail metadata is coalesced by VUEO core once per scan when the V15 runtime bridge is available; local TMDB fallback remains for older runtimes. V15 centralized trace hooks emit metadata/candidate/verification stages without changing source extraction. V15 Shared Discovery Context + centralized trace hooks. TMDB metadata is coalesced by VUEO core when available, with provider-local fallback retained. Candidate/verification stages emit lightweight diagnostics. Discovery Rebuild V1: raw TMDB title is searched before season/year variants; current and legacy result-card layouts are parsed; noisy release strings are normalized before scoring so valid title matches are not lost. Existing QuickJS recursion/parser hotfixes remain. Test-Plugin adaptation: transferred engine first (11s maximum), existing Cloudbank engine retained as fallback (7.5s maximum). Shared metadata, provider identity and display preserved; Android playback unverified."
-    },
-    {
-      "id": "hdhub4u-v2",
-      "name": "HDHub4u V2",
-      "description": "Direct links from HDHub4u with high-speed download support",
-      "version": "1.0.3",
-      "author": "Nuvio Team",
-      "supportedTypes": [
-        "movie",
-        "tv"
-      ],
-      "filename": "providers/hdhub4u-v2.js",
-      "enabled": true,
-      "formats": [
-        "mkv",
-        "mp4"
-      ],
-      "logo": "https://www.google.com/s2/favicons?domain=new6.hdhub4u.fo&sz=128",
-      "contentLanguage": [
-        "en",
-        "hin"
-      ],
-      "runtimeTimeoutMs": 20000,
-      "sourceRepository": "https://github.com/D3adlyRocket/All-in-One-Nuvio",
-      "sourceCommit": "3f09a6ff4360498895e622877af7a32212f75038",
-      "upstreamSupportedTypes": [
-        "movie",
-        "tv"
-      ],
-      "upstreamVersion": "1.1.1",
-      "runtimeModules": [
-        "cheerio-without-node-native",
-        "crypto-js"
-      ],
-      "notes": "Independent V2 import from All-in-One-Nuvio. Original Cloudbank provider remains intact. Uses the same Cloudbank compatibility adapter as other imports. Playback is not yet verified."
-    },
-    {
-      "id": "hdhub4u-v3",
-      "name": "HDHub4u V3",
-      "description": "Direct links from HDHub4u with high-speed download support",
-      "version": "1.0.3",
-      "author": "Nuvio Team",
-      "supportedTypes": [
-        "movie",
-        "tv"
-      ],
-      "filename": "providers/hdhub4u-v3.js",
-      "enabled": true,
-      "formats": [
-        "mkv",
-        "mp4"
-      ],
-      "logo": "https://www.google.com/s2/favicons?domain=new6.hdhub4u.fo&sz=128",
-      "contentLanguage": [
-        "en",
-        "hin"
-      ],
-      "runtimeTimeoutMs": 20000,
-      "sourceRepository": "https://github.com/yoruix/nuvio-providers",
-      "sourceCommit": "ed38d1aee0024f56479369c9423fefb278e0b62a",
-      "upstreamVersion": "1.1.0",
-      "upstreamSupportedTypes": [
-        "movie",
-        "tv"
-      ],
-      "runtimeModules": [
-        "cheerio-without-node-native",
-        "crypto-js"
-      ],
-      "notes": "Independent Yoruix import at ed38d1aee0024f56479369c9423fefb278e0b62a. Existing provider versions remain intact. Uses the Cloudbank adapter; upstream enabled/settings/platform flags preserved. Playback is not verified."
+      "notes": "V17.1 latest-merge repair: restores the repo-wide TMDB title profile and required fast/discovery-rebuild contracts that were lost when the targeted V17 files were overlaid onto an older provider baseline. V16 Provider Repair: coalesced domain lookup, WordPress REST primary-title discovery, primary-first search, then bounded alias fallback. Low-confidence unrelated cards never enter extraction. V15 Shared Discovery Context: TMDB detail metadata is coalesced by VUEO core once per scan when the V15 runtime bridge is available; local TMDB fallback remains for older runtimes. V15 centralized trace hooks emit metadata/candidate/verification stages without changing source extraction. V15 Shared Discovery Context + centralized trace hooks. TMDB metadata is coalesced by VUEO core when available, with provider-local fallback retained. Candidate/verification stages emit lightweight diagnostics. Discovery Rebuild V1: raw TMDB title is searched before season/year variants; current and legacy result-card layouts are parsed; noisy release strings are normalized before scoring so valid title matches are not lost. Existing QuickJS recursion/parser hotfixes remain. Test-Plugin adaptation: transferred engine first (11s maximum), existing Cloudbank engine retained as fallback (7.5s maximum). Shared metadata, provider identity and display preserved; Android playback unverified. HDHub4u/V2/V3 consolidated: current engine and original fallback retained; imported domain fallbacks, broader Hblinks host dispatch, Vidstack subtitle preservation, verified HLS master priority, server-preserving deduplication, body request limits and season-zero handling. Device playback unverified."
     },
     {
       "id": "moviebox",
@@ -540,7 +470,7 @@
     },
     {
       "id": "allwish",
-      "name": "\ud83c\udf1f All-Wish",
+      "name": "All-Wish",
       "description": "All-Wish TV episodes via All-Wish servers",
       "version": "1.0.5",
       "author": "Kabir",
@@ -918,7 +848,7 @@
     },
     {
       "id": "animeworld",
-      "name": "\ud83d\udde1\ufe0f AnimeWorld",
+      "name": "AnimeWorld",
       "description": "Watch AnimeWorld India",
       "version": "1.0.4",
       "author": "piratezoro9",
@@ -951,7 +881,7 @@
     },
     {
       "id": "anime-sama",
-      "name": "\ud83d\udc0d Anime-Sama",
+      "name": "Anime-Sama",
       "description": "Watch AnimeSama France",
       "version": "1.1.31",
       "author": "Gowaru",
@@ -1589,7 +1519,7 @@
     },
     {
       "id": "goated",
-      "name": "\ud83d\udc10 Goated",
+      "name": "Goated",
       "description": "4K \u2022 1080p Movies & Series in Multi Language",
       "version": "1.0.4",
       "author": "Nuvio Team",
@@ -2033,7 +1963,7 @@
     },
     {
       "id": "movieshunt",
-      "name": "\ud83c\udfac MoviesHunt",
+      "name": "MoviesHunt",
       "description": "Hollywood & Bollywood Movies in Multi Language",
       "version": "1.0.4",
       "author": "piratezoro9",
@@ -2222,7 +2152,7 @@
     },
     {
       "id": "persianstremio",
-      "name": "\ud83c\udf38 PersianStremio",
+      "name": "PersianStremio",
       "description": "Persian Stremio plugin for movies, series,and Persian media content in Iranian & English.",
       "version": "1.4.4",
       "author": "Nuvio Team",
@@ -2255,7 +2185,7 @@
     },
     {
       "id": "peachify",
-      "name": "\ud83c\udf51 Peachify",
+      "name": "Peachify",
       "description": "Streams from peachify.top \u2014 3 server sources (MovieBox/Holly/Air) via Cloudflare Workers with AES-256-GCM decryption",
       "version": "1.0.4",
       "author": "piratezoro9",
@@ -2392,7 +2322,7 @@
     },
     {
       "id": "torrentio",
-      "name": "\ud83e\uddf2 Torrentio",
+      "name": "Torrentio",
       "description": "Torrentio \u2013 Torrent streaming. Supports optional debrid services.",
       "version": "1.0.4",
       "author": "Nuvio Team",
@@ -2425,7 +2355,7 @@
     },
     {
       "id": "vidrock",
-      "name": "\ud83e\udea8 VidRock",
+      "name": "VidRock",
       "description": "VidRock - 1080p 480p and 360p",
       "version": "1.0.4",
       "author": "Nuvio Team",
@@ -2755,7 +2685,7 @@
     },
     {
       "id": "vidlove",
-      "name": "\u2764\ufe0f VidLove",
+      "name": "VidLove",
       "description": "Movie and TV show streams from MovieBox, LookMovie, VidnNest etc",
       "version": "1.0.4",
       "author": "Jeff",
@@ -2858,7 +2788,7 @@
     },
     {
       "id": "onlykdrama",
-      "name": "\ud83e\udef0 OnlyKDrama",
+      "name": "OnlyKDrama",
       "description": "Asian Drama",
       "version": "1.0.4",
       "author": "Moiz Ahmed + Codex",

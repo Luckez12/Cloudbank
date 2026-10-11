@@ -89,7 +89,7 @@ const TMDB_API_KEY = '439c478a771f35c05022f9feabcca01c';
 const TMDB_BASE_URL = 'https://api.themoviedb.org/3';
 
 // HDHub4u Configuration
-let MAIN_URL = "https://hdhub4u.frl";
+let MAIN_URL = "https://new3.hdhub4u.free";
 const DOMAINS_URL = "https://raw.githubusercontent.com/phisher98/TVVVV/refs/heads/main/domains.json";
 const DOMAIN_CACHE_TTL = 4 * 60 * 60 * 1000; // 4 hours
 let domainCacheTimestamp = 0;
@@ -1511,7 +1511,8 @@ function getStreams(tmdbId, mediaType = 'movie', season = null, episode = null) 
                             url: link.url,
                             quality: qualityStr,
                             size: formattedSize,
-                            headers: HEADERS,
+                            headers: link.headers || HEADERS,
+                            subtitles: link.subtitles || [],
                             provider: 'hdhub4u'
                         };
                     });
@@ -1574,9 +1575,9 @@ var cloudbankTestPluginProvider = (function() {
 "use strict";
 
 var PROVIDER = "HDHub4u";
-var VERSION = "1.1.1";
-var PRIMARY_BASE = "https://new5.hdhub4u.cl";
-var FALLBACK_BASES = ["https://hdhub4u.frl"];
+var VERSION = "1.2.0-cloudbank";
+var PRIMARY_BASE = "https://new3.hdhub4u.free";
+var FALLBACK_BASES = ["https://new6.hdhub4u.cl", "https://new6.hdhub4u.fo", "https://hdhub4u.frl"];
 var DOMAINS_URL = "https://raw.githubusercontent.com/phisher98/TVVVV/refs/heads/main/domains.json";
 var SEARCH_BASE = "https://search.hdhub4u.glass/collections/post/documents/search";
 var TMDB_BASE = "https://api.themoviedb.org/3";
@@ -1643,11 +1644,14 @@ function fetchResponse(url, options, timeoutMs) {
 }
 
 function fetchText(url, options, timeoutMs) {
-  return fetchResponse(url, options, timeoutMs).then(function(res) {
+  var opts = options || {};
+  opts.headers = mergeHeaders(opts.headers || {});
+  return withTimeout(Promise.resolve().then(function() { return fetch(url, opts); }).then(function(res) {
+    if (!res || !res.ok) throw new Error("HTTP " + (res ? res.status : "?"));
     return res.text().then(function(text) {
       return { text: text, url: res.url || url, status: res.status, headers: res.headers };
     });
-  });
+  }), timeoutMs || 2100, "HTTP body");
 }
 
 function fetchJson(url, options, timeoutMs) {
@@ -1796,11 +1800,21 @@ function rot13(v) {
   });
 }
 
+var hdhubDomainCache = null, hdhubDomainCachedAt = 0, hdhubDomainCheckedAt = 0, hdhubDomainInFlight = null;
 function discoverCurrentBase() {
-  return fetchJson(DOMAINS_URL, { headers: { "Accept": "application/json" } }, 1200)
-    .then(function(data) {
-      return data && data.HDHUB4u ? String(data.HDHUB4u).replace(/\/+$/, "") : null;
-    }).catch(function() { return null; });
+  if (hdhubDomainCache && Date.now() - hdhubDomainCachedAt < 4 * 60 * 60 * 1000) return Promise.resolve(hdhubDomainCache);
+  if (hdhubDomainInFlight) return hdhubDomainInFlight;
+  if (!hdhubDomainCache && hdhubDomainCheckedAt && Date.now() - hdhubDomainCheckedAt < 5 * 60 * 1000) return Promise.resolve(null);
+  hdhubDomainInFlight = fetchJson(DOMAINS_URL, { headers: { "Accept": "application/json" } }, 1200).then(function(data) {
+    var raw = data && data.HDHUB4u;
+    try {
+      var parsed = new URL(String(raw || ''));
+      if (!/^https?:$/.test(parsed.protocol) || !/(^|\.)hdhub4u\.[a-z]+$/i.test(parsed.hostname)) return null;
+      hdhubDomainCache = parsed.origin; hdhubDomainCachedAt = Date.now();
+      return hdhubDomainCache;
+    } catch (_) { return null; }
+  }).catch(function() { return null; }).then(function(value) { hdhubDomainCheckedAt = Date.now(); hdhubDomainInFlight = null; return value; });
+  return hdhubDomainInFlight;
 }
 
 function parseSearch(html, base) {
@@ -1851,13 +1865,13 @@ function scoreCandidate(c, info, mediaType, season) {
   if (info.year && c.year) {
     var diff = Math.abs(Number(info.year) - Number(c.year));
     if (diff === 0) score += 450;
-    else if (diff === 1) score += mediaType === "tv" && Number(season || 1) > 1 ? 120 : 40;
+    else if (diff === 1) score += mediaType === "tv" && Number(season == null ? 1 : season) > 1 ? 120 : 40;
     else if (diff > 2) score -= 900;
   }
 
   if (mediaType === "tv") {
     var sm = String(c.title || "").match(/\bseason\s*(\d{1,2})\b/i);
-    if (sm && Number(sm[1]) === Number(season || 1)) score += 350;
+    if (sm && Number(sm[1]) === Number(season == null ? 1 : season)) score += 350;
     else if (sm) return -99999;
   } else if (/\bseason\s*\d+/i.test(c.title || "")) {
     score -= 900;
@@ -1945,38 +1959,22 @@ function searchOne(base, query, info, mediaType, season) {
 
 function findDetail(info, mediaType, season) {
   var queries = unique([info.title].concat((info.aliases || []).slice(0, 1)));
-  var base = PRIMARY_BASE;
-
-  function tryApi(i) {
-    if (i >= queries.length) return Promise.resolve(null);
-    return searchApi(base, queries[i], info, mediaType, season).then(function(hit) {
-      return hit || tryApi(i + 1);
-    }).catch(function() {
-      return tryApi(i + 1);
-    });
-  }
-
-  return tryApi(0).then(function(hit) {
-    if (hit) return hit;
-
-    console.log("[HDHub4u] search API missed -> website search fallback");
-    return searchOne(base, info.title, info, mediaType, season).catch(function() {
-      return null;
-    });
-  }).then(function(hit) {
-    if (hit) return hit;
-
-    console.log("[HDHub4u] primary domain missed -> refresh domain once");
-    return discoverCurrentBase().then(function(current) {
-      if (!current) return null;
-      return searchApi(current, info.title, info, mediaType, season).then(function(apiHit) {
-        return apiHit || searchOne(current, info.title, info, mediaType, season);
-      }).catch(function() {
-        return searchOne(current, info.title, info, mediaType, season).catch(function() {
-          return null;
-        });
-      });
-    });
+  return discoverCurrentBase().then(function(current) {
+    var bases = unique([current || PRIMARY_BASE, PRIMARY_BASE].concat(FALLBACK_BASES));
+    var base = bases[0];
+    function tryApi(i) {
+      if (i >= queries.length) return Promise.resolve(null);
+      return searchApi(base, queries[i], info, mediaType, season).then(function(hit) {
+        return hit || tryApi(i + 1);
+      }).catch(function() { return tryApi(i + 1); });
+    }
+    function trySite(i) {
+      if (i >= bases.length) return Promise.resolve(null);
+      return searchOne(bases[i], info.title, info, mediaType, season).then(function(hit) {
+        return hit || trySite(i + 1);
+      }).catch(function() { return trySite(i + 1); });
+    }
+    return tryApi(0).then(function(hit) { return hit || trySite(0); });
   });
 }
 
@@ -2396,7 +2394,7 @@ function verifyHls(url, referer, extraHeaders, fallbackQuality) {
     var body = String(x.text || "");
     var ct = headerGet({ headers: x.headers }, "content-type").toLowerCase();
     var finalUrl = String(x.url || url);
-    var ok = /#EXTM3U/i.test(body) || /mpegurl/i.test(ct);
+    var ok = /^\s*#EXTM3U(?:\s|$)/i.test(body);
     if (!ok) {
       console.log("[HDHub4u] HLS reject host=" + hostOf(finalUrl) + " ct=" + (ct || "?"));
       return null;
@@ -2411,9 +2409,11 @@ function verifyHls(url, referer, extraHeaders, fallbackQuality) {
       " q=" + qualities
     );
 
-    var best = variants[0];
-    best.variants = variants;
-    return best;
+    if (/#EXT-X-STREAM-INF:/i.test(body)) {
+      return { url: finalUrl, referer: referer || "", headers: headers, isHls: true,
+        isMaster: true, quality: 0 };
+    }
+    return variants[0];
   }).catch(function() {
     return null;
   });
@@ -2609,6 +2609,18 @@ function resolveHubstream(url, referer) {
         var text = dec.toString(CryptoJS.enc.Utf8);
         var m = text && text.match(/"source"\s*:\s*"([^"]+)"/i);
         var source = m ? normalizeEscapedUrl(m[1]) : "";
+        var subtitles = [];
+        try {
+          var payload = JSON.parse(text);
+          var entries = payload.subtitle || payload.subtitles || {};
+          Object.keys(entries).forEach(function(language) {
+            var value = entries[language];
+            var raw = typeof value === 'string' ? value : value && (value.url || value.file);
+            var subtitleUrl = raw && absoluteUrl(base + '/', normalizeEscapedUrl(raw).split('#')[0]);
+            if (/^https?:\/\//i.test(subtitleUrl || '')) subtitles.push({ language: language, url: subtitleUrl,
+              headers: { "User-Agent": UA, "Referer": rawUrl, "Origin": base } });
+          });
+        } catch (_) {}
         if (!source) return decryptAt(i + 1);
 
         var tries = [source];
@@ -2622,6 +2634,7 @@ function resolveHubstream(url, referer) {
           }).then(function(hit) {
             if (hit) {
               hit.label = "PLAYER-2";
+              hit.subtitles = subtitles;
               if (!hit.quality) hit.quality = 1080;
               if (Array.isArray(hit.variants)) {
                 hit.variants.forEach(function(v) {
@@ -2761,7 +2774,7 @@ function resolveHubCdn(url, referer) {
 function resolveHblinks(url, referer) {
   return fetchText(url, { headers: { "Referer": referer || "" } }, 1800).then(function(x) {
     var links = collectAnchors(x.text, x.url).filter(function(a) {
-      return /hubcloud|hubdrive|hubcdn|pixeldrain|workers\.dev|streamtape/i.test(a.url);
+      return /hubcloud|hubdrive|hubcdn|hubstream|vidstack|hdstream4u|pixeldrain|workers\.dev|streamtape/i.test(a.url);
     }).sort(function(a, b) { return serverScore(b.url, b.label) - serverScore(a.url, a.label); });
     return resolveCandidates(links.slice(0, 4), x.url);
   }).catch(function() { return null; });
@@ -2992,6 +3005,7 @@ function expandResolvedHit(hit, fallbackQuality) {
     if (!out.label) out.label = hit.label || "";
     if (!out.referer) out.referer = hit.referer || "";
     if (!out.headers) out.headers = hit.headers || {};
+    if (!out.subtitles) out.subtitles = hit.subtitles || [];
     if (typeof out.isHls !== "boolean") out.isHls = !!hit.isHls;
     return out;
   });
@@ -3019,33 +3033,17 @@ function preferredMovieBlock(blocks, quality) {
 }
 
 function dedupeMovieHits(hits) {
-  var target = [2160, 1080, 720];
-  var byQuality = Object.create(null);
-
+  var seen = Object.create(null), out = [];
   (hits || []).forEach(function(hit) {
-    if (!hit || !hit.url) return;
-
-    var q = Number(hit.quality || 0);
-    if (q >= 2000) q = 2160;
-    else if (q >= 1000) q = 1080;
-    else if (q >= 650) q = 720;
-    else return;
-
-    hit.quality = q;
-
-    var old = byQuality[q];
-    if (!old) {
-      byQuality[q] = hit;
-      return;
-    }
-
-    /* Prefer HLS, then a non-weak direct source. */
-    var oldScore = (old.isHls ? 100 : 0) + (!old.weakSeek ? 10 : 0);
-    var newScore = (hit.isHls ? 100 : 0) + (!hit.weakSeek ? 10 : 0);
-    if (newScore > oldScore) byQuality[q] = hit;
+    if (!hit || !/^https?:\/\//i.test(hit.url || '')) return;
+    var key = JSON.stringify([hit.url, hit.headers || {}, hit.subtitles || []]);
+    if (seen[key]) return;
+    seen[key] = true; out.push(hit);
   });
-
-  return target.map(function(q) { return byQuality[q]; }).filter(Boolean);
+  return out.sort(function(a, b) {
+    if (!!a.isMaster !== !!b.isMaster) return a.isMaster ? -1 : 1;
+    return Number(b.quality || 0) - Number(a.quality || 0);
+  });
 }
 
 function resolveMoviePage(html, detailUrl) {
@@ -3191,25 +3189,26 @@ function toStream(hit, info, mediaType, season, episode) {
 
   return {
     name: PROVIDER,
-    title: info.title + suffix + " • " + qualityLabel(hit.quality) + " • " + (hit.label || hostOf(hit.url)),
+    title: info.title + suffix + " • " + (hit.isMaster ? "Auto" : qualityLabel(hit.quality)) + " • " + (hit.label || hostOf(hit.url)),
     url: hit.url,
-    quality: qualityLabel(hit.quality),
+    quality: hit.isMaster ? "Auto" : qualityLabel(hit.quality),
     type: "direct",
-    headers: headers
+    headers: headers,
+    subtitles: hit.subtitles || []
   };
 }
 
 function getStreams(tmdbId, mediaType, season, episode) {
   var started = Date.now();
   var type = mediaType === "tv" ? "tv" : "movie";
-  var s = Math.max(1, Number(season || 1));
+  var s = season == null ? 1 : Math.max(0, Number(season));
   var e = Math.max(1, Number(episode || 1));
   var info;
 
   console.log("[HDHub4u] v" + VERSION + " TMDB=" + tmdbId + " type=" + type + (type === "tv" ? " S" + s + "E" + e : ""));
 
-  var work = tmdbInfo(tmdbId, type).then(function(meta) {
-    info = meta;
+  var work = Promise.all([tmdbInfo(tmdbId, type), discoverCurrentBase()]).then(function(values) {
+    info = values[0];
     console.log("[HDHub4u] title='" + info.title + "' year=" + (info.year || "?"));
     if (!info.title) return null;
     return findDetail(info, type, s);
@@ -3244,6 +3243,7 @@ function getStreams(tmdbId, mediaType, season, episode) {
     });
 
     streams.sort(function(a, b) {
+      if ((a.quality === "Auto") !== (b.quality === "Auto")) return a.quality === "Auto" ? -1 : 1;
       return qualityNumber(b.quality) - qualityNumber(a.quality);
     });
 

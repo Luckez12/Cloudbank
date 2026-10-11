@@ -108,10 +108,13 @@ test('Yoruix flags and variant numbering remain independent', () => {
   assert.equal(get('videasy').enabled, true);
   assert.deepEqual(get('netmirror-v2').disabledPlatforms, ['ios']);
   assert.equal(get('netmirror-v2').supportsExternalPlayer, false);
-  for (const base of ['4khdhub','hdhub4u','moviebox']) {
+  for (const base of ['4khdhub','moviebox']) {
     for (const id of [base, `${base}-v2`, `${base}-v3`]) assert.ok(get(id));
     assert.equal(get(`${base}-v3`).sourceRepository, secondReport.repository);
   }
+  assert.ok(get('hdhub4u'));
+  assert.equal(get('hdhub4u-v2'), undefined);
+  assert.equal(get('hdhub4u-v3'), undefined);
   for (const record of secondReport.providers.filter(p => get(p.id))) assert.equal(get(record.id).enabled, record.enabled);
 });
 

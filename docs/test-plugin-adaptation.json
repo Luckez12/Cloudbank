@@ -13,8 +13,9 @@
       "sourceSha256": "1f7effdf15ffbf24a88ad5b9652284ee5d6f20c6ef00194c4423d2c6051c5455",
       "referenceSnapshot": "17e99d41a378fff21fdc1ef8e9cc0036e6a4bfca",
       "mode": "additional primary engine with bounded existing-engine fallback",
-      "adaptedSourceSha256": "93b88df92a807db8891a46d1015dd4ed3fd3e88b91b0a98c8a05ee28008b384c",
-      "localCorrection": "Reject explicit wrong season before extraction"
+      "adaptedSourceSha256": "e710bca4f7832be711c9db51a92e9af677431da976148b58946e20cb72fa02c1",
+      "localCorrection": "Reject explicit wrong season before extraction",
+      "localPatch": "HDHub4u/V2/V3 consolidation: imported domain fallbacks and subtitle handling, scoped server identity, master HLS preservation, bounded body reads, season zero."
     },
     {
       "id": "cinemode",
