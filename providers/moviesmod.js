@@ -75,16 +75,78 @@ function buildTitleProfile(tmdb) {
 }
 
 
-/* CLOUDBANK_MOVIESMOD_SIBLING_COMPAT_V1 */
+/* CLOUDBANK_MOVIESMOD_SIBLING_COMPAT_V2 */
+function cloudbankMoviesModTextHref($, selection, label) {
+  var href = '';
+  selection.each(function(_, element) {
+    if (href) return;
+    var anchor = $(element), text = anchor.text().replace(/\s+/g, ' ').trim();
+    var pattern = label === 'Download' ? /\bdownload\b/i : new RegExp('\\b' + label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '(?!\\d)', 'i');
+    if (pattern.test(text)) href = anchor.attr('href') || '';
+  });
+  return href;
+}
 function cloudbankMoviesModFollowingHref($, entry, label) {
-  // VUEO's HTML bridge supports next(), but does not expose Cheerio nextAll().
   var sibling = $(entry).next();
   for (var count = 0; sibling.length && count < 128; count++) {
-    var href = sibling.find("a:contains('" + label + "')").first().attr("href");
+    var href = cloudbankMoviesModTextHref($, sibling.find('a[href]'), label);
     if (href) return href;
     sibling = sibling.next();
   }
-  return "";
+  return '';
+}
+async function cloudbankMoviesModLanding(url, fetchFn, cheerio, headers) {
+  var current = url, body = null, cookies = Object.create(null), seen = Object.create(null);
+  function decoded(value) { try { return JSON.parse(value); } catch (_) { return ''; } }
+  for (var hop = 0; hop < 6; hop++) {
+    var parsed = new URL(current), origin = parsed.origin;
+    var key = current + '|' + (body || '');
+    if (seen[key]) throw new Error('MoviesMod landing redirect loop');
+    seen[key] = true;
+    var requestHeaders = Object.assign({}, headers, { Referer: url });
+    if (cookies[origin]) requestHeaders.Cookie = cookies[origin];
+    if (body != null) requestHeaders['Content-Type'] = 'application/x-www-form-urlencoded';
+    var response = await fetchFn(current, { method: body == null ? 'GET' : 'POST', headers: requestHeaders, body: body == null ? undefined : body });
+    if (response.ok === false) throw new Error('MoviesMod landing HTTP ' + response.status);
+    current = response.url || current;
+    var html = await response.text(), $ = cheerio.load(html);
+    // Only submit the download landing forms, never the site's search forms.
+    var form = $('#lp-land, #lp-s1-form').first();
+    if (form.length) {
+      var fields = [];
+      form.find('input[name]').each(function(_, element) {
+        var input = $(element);
+        fields.push(encodeURIComponent(input.attr('name')) + '=' + encodeURIComponent(input.attr('value') || ''));
+      });
+      current = new URL(form.attr('action') || current, current).href;
+      body = fields.join('&');
+      console.log('[MoviesMod] Landing form step ' + (hop + 1));
+      continue;
+    }
+    var cookie = /\bsc\(\s*("(?:[^"\\]|\\.)*")\s*,\s*("(?:[^"\\]|\\.)*")\s*,\s*\d+\s*\)/.exec(html);
+    var go = /setAttribute\(\s*['"]href['"]\s*,\s*("(?:[^"\\]|\\.)*")\s*\)/.exec(html);
+    if (cookie && go) {
+      var name = decoded(cookie[1]), value = decoded(cookie[2]), target = decoded(go[1]);
+      if (!/^lp-[a-z0-9]+$/i.test(name) || !value || !target) throw new Error('MoviesMod invalid landing token');
+      cookies[new URL(current).origin] = name + '=' + value;
+      current = new URL(target, current).href;
+      body = null;
+      console.log('[MoviesMod] Landing download token resolved');
+      continue;
+    }
+    // lp_go redirects to the download host (or supplies a meta/JS redirect).
+    if (!/(^|\.)thenaukriadda\.in$/i.test(new URL(current).hostname)) return current;
+    var refresh = $('meta[http-equiv="refresh"]').attr('content') || '';
+    var target = /url\s*=\s*(.+)$/i.exec(refresh);
+    var script = /(?:location\.replace|location\.assign)\(\s*("(?:[^"\\]|\\.)*")\s*\)/.exec(html);
+    var next = target ? target[1].trim().replace(/^['"]|['"]$/g, '') : script ? decoded(script[1]) : '';
+    if (!next) throw new Error('MoviesMod landing destination not found');
+    current = new URL(next, current).href;
+    if (!/^https?:/i.test(current)) throw new Error('MoviesMod invalid redirect URL');
+    if (/\/report-broken-links(?:[/?#]|$)/i.test(current)) throw new Error('MoviesMod upstream reports a broken download link');
+    body = null;
+  }
+  throw new Error('MoviesMod landing step limit reached');
 }
 
 /* CLOUDBANK_NUVIO_ADAPTER_V1 */
@@ -601,6 +663,7 @@ function getStreams(tmdbId, mediaType, seasonNum = 1, episodeNum = 1) {
           nextHref = nextHref.substring(nextHref.indexOf("=") + 1);
         }
         if (nextHref) {
+          console.log('[MoviesMod] Download button found: ' + quality);
           const streams = yield processModLink(nextHref, targetUrl, quality, mediaType, episodeNum);
           allStreams.push(...streams);
         }
@@ -618,15 +681,18 @@ function processModLink(url, referer, quality, mediaType, episodeNum) {
       const res = yield fetch(url, { headers: __spreadProps(__spreadValues({}, HEADERS), { Referer: referer }) });
       const html = yield res.text();
       const $ = import_cheerio_without_node_native2.default.load(html);
-      const selector = mediaType === "movie" ? "p a.maxbutton, a:contains('Download')" : `h3 a:contains('Episode ${episodeNum}'), a:contains('Episode ${episodeNum}'), a.maxbutton`;
-      let source = $(selector).first().attr("href");
+      let source = cloudbankMoviesModTextHref($, $('a[href]'), mediaType === 'movie' ? 'Download' : 'Episode ' + episodeNum);
+      if (!source && mediaType === 'movie') source = $('a.maxbutton').first().attr('href');
       if (!source) {
         source = $('a[href*="driveseed.org"], a[href*="tech.unblockedgames.world"], a[href*="video-seed"]').first().attr("href");
       }
       if (!source)
         return [];
+      source = fixUrl(source, getBaseUrl(url));
       let finalLink = source;
-      if (source.includes("unblockedgames") || source.includes("tech.") || source.includes("href.li")) {
+      if (/^https?:\/\/(?:[a-z0-9-]+\.)*thenaukriadda\.in(?:[/:?#]|$)/i.test(source)) {
+        finalLink = yield cloudbankMoviesModLanding(source, fetch, import_cheerio_without_node_native2.default, HEADERS);
+      } else if (source.includes("unblockedgames") || source.includes("tech.") || source.includes("href.li")) {
         finalLink = yield bypassHrefli(source);
       }
       const results = [];
@@ -652,6 +718,7 @@ function processModLink(url, referer, quality, mediaType, episodeNum) {
       }
       return results;
     } catch (e) {
+      console.error('[MoviesMod] Download extraction failed: ' + e.message);
       return [];
     }
   });
@@ -1132,6 +1199,7 @@ function getStreams(tmdbId, mediaType, seasonNum = 1, episodeNum = 1) {
         const quality = getIndexQuality($(entry).text());
         const nextHref = cloudbankMoviesModFollowingHref($, entry, aTag);
         if (nextHref) {
+          console.log('[MoviesMod] Download button found: ' + quality);
           const streams = yield processModLink(nextHref, targetUrl, quality);
           allStreams.push(...streams);
         }
@@ -1150,13 +1218,15 @@ function processModLink(url, referer, quality) {
       const html = yield res.text();
       const $ = import_cheerio_without_node_native2.default.load(html);
       const links = [];
-      $('a[href*="driveseed.org"], a[href*="tech.unblockedgames.world"]').each((i, el) => {
+      $('a[href*="driveseed.org"], a[href*="tech.unblockedgames.world"], a[href*="thenaukriadda.in"]').each((i, el) => {
         links.push($(el).attr("href"));
       });
       const results = [];
       for (const link of [...new Set(links)]) {
         let finalLink = link;
-        if (link.includes("unblockedgames")) {
+        if (/^https?:\/\/(?:[a-z0-9-]+\.)*thenaukriadda\.in(?:[/:?#]|$)/i.test(link)) {
+          finalLink = yield cloudbankMoviesModLanding(link, fetch, import_cheerio_without_node_native2.default, HEADERS);
+        } else if (link.includes("unblockedgames")) {
           finalLink = yield bypassHrefli(link);
         }
         if (finalLink && finalLink.includes("driveseed")) {
@@ -1171,6 +1241,7 @@ function processModLink(url, referer, quality) {
       }
       return results;
     } catch (e) {
+      console.error('[MoviesMod] Download extraction failed: ' + e.message);
       return [];
     }
   });
