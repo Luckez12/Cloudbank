@@ -1,6 +1,6 @@
 {
   "name": "Cloudbank",
-  "version": "1.20.13",
+  "version": "1.20.15",
   "scrapers": [
     {
       "id": "kisskh",
@@ -681,41 +681,6 @@
       "runtimeModules": []
     },
     {
-      "id": "einthusan",
-      "name": "Einthustan",
-      "description": "1080p Movies in Multi-Lang",
-      "version": "1.0.4",
-      "author": "✮☆[D3ADLY]☆✮",
-      "supportedTypes": [
-        "movie",
-        "tv"
-      ],
-      "filename": "providers/einthusan.js",
-      "enabled": true,
-      "hasSettings": true,
-      "formats": [
-        "mp4",
-        "m3u8"
-      ],
-      "logo": "https://i.postimg.cc/QCFYLyRR/einthusan.png",
-      "contentLanguage": [
-        "hi",
-        "ta",
-        "te",
-        "ba"
-      ],
-      "runtimeTimeoutMs": 20000,
-      "upstreamSupportedTypes": [
-        "movie",
-        "tv"
-      ],
-      "upstreamVersion": "1.0.0",
-      "notes": "Imported from D3adlyRocket/All-in-One-Nuvio at 3f09a6ff4360498895e622877af7a32212f75038. Cloudbank adapter preserves upstream extraction/settings, uses shared TMDB detail metadata when available, caps async result wait at 19s, and returns valid stream arrays. Playback and host settings support require app testing.",
-      "sourceRepository": "https://github.com/D3adlyRocket/All-in-One-Nuvio",
-      "sourceCommit": "3f09a6ff4360498895e622877af7a32212f75038",
-      "runtimeModules": []
-    },
-    {
       "id": "fibwatch",
       "name": "FibWatch",
       "description": "FibWatch movie and TV streams with episode selection",
@@ -1020,39 +985,6 @@
       "runtimeModules": []
     },
     {
-      "id": "nakios",
-      "name": "Nakios",
-      "description": "Mainly French, Some English & 4K Quality",
-      "version": "3.8.6",
-      "author": "Wooodyhood",
-      "supportedTypes": [
-        "movie",
-        "tv"
-      ],
-      "filename": "providers/nakios.js",
-      "enabled": true,
-      "hasSettings": true,
-      "formats": [
-        "mp4",
-        "m3u8"
-      ],
-      "logo": "https://i.postimg.cc/nLwY1pJB/nakios.png",
-      "contentLanguage": [
-        "fr",
-        "en"
-      ],
-      "runtimeTimeoutMs": 20000,
-      "upstreamSupportedTypes": [
-        "movie",
-        "tv"
-      ],
-      "upstreamVersion": "3.8.2",
-      "notes": "Imported from D3adlyRocket/All-in-One-Nuvio at 3f09a6ff4360498895e622877af7a32212f75038. Cloudbank adapter preserves upstream extraction/settings, uses shared TMDB detail metadata when available, caps async result wait at 19s, and returns valid stream arrays. Playback and host settings support require app testing.",
-      "sourceRepository": "https://github.com/D3adlyRocket/All-in-One-Nuvio",
-      "sourceCommit": "3f09a6ff4360498895e622877af7a32212f75038",
-      "runtimeModules": []
-    },
-    {
       "id": "netmirror",
       "name": "NetMirror",
       "description": "Streaming links from netmirror.",
@@ -1077,39 +1009,6 @@
       ],
       "upstreamVersion": "1.0.10",
       "notes": "Imported from D3adlyRocket/All-in-One-Nuvio at 3f09a6ff4360498895e622877af7a32212f75038. Cloudbank adapter preserves upstream extraction/settings, uses shared TMDB detail metadata when available, caps async result wait at 19s, and returns valid stream arrays. Playback and host settings support require app testing. Version consolidation: alternate cores embedded as bounded delayed/failed-primary fallbacks; provider identity, playback metadata and settings preserved. Source disabled/platform flags retained per engine. Playback requires app testing.",
-      "sourceRepository": "https://github.com/D3adlyRocket/All-in-One-Nuvio",
-      "sourceCommit": "3f09a6ff4360498895e622877af7a32212f75038",
-      "runtimeModules": []
-    },
-    {
-      "id": "persianstremio",
-      "name": "PersianStremio",
-      "description": "Persian Stremio plugin for movies, series,and Persian media content in Iranian & English.",
-      "version": "1.4.4",
-      "author": "Nuvio Team",
-      "supportedTypes": [
-        "movie",
-        "tv"
-      ],
-      "filename": "providers/persianstremio.js",
-      "enabled": true,
-      "hasSettings": false,
-      "formats": [
-        "mp4",
-        "m3u8"
-      ],
-      "logo": "https://i.postimg.cc/qq6V2fTL/persian.png",
-      "contentLanguage": [
-        "en",
-        "pe"
-      ],
-      "runtimeTimeoutMs": 20000,
-      "upstreamSupportedTypes": [
-        "movie",
-        "tv"
-      ],
-      "upstreamVersion": "1.4.0",
-      "notes": "Imported from D3adlyRocket/All-in-One-Nuvio at 3f09a6ff4360498895e622877af7a32212f75038. Cloudbank adapter preserves upstream extraction/settings, uses shared TMDB detail metadata when available, caps async result wait at 19s, and returns valid stream arrays. Playback and host settings support require app testing.",
       "sourceRepository": "https://github.com/D3adlyRocket/All-in-One-Nuvio",
       "sourceCommit": "3f09a6ff4360498895e622877af7a32212f75038",
       "runtimeModules": []
@@ -1183,73 +1082,6 @@
       "sourceRepository": "https://github.com/D3adlyRocket/All-in-One-Nuvio",
       "sourceCommit": "3f09a6ff4360498895e622877af7a32212f75038",
       "runtimeModules": []
-    },
-    {
-      "id": "purstream",
-      "name": "Purstream",
-      "description": "Films and series in French (VF) / subtitled French (VOSTFR) / multi-language (MULTI) from purstream.art.",
-      "version": "3.0.5",
-      "author": "wooodyhood",
-      "supportedTypes": [
-        "movie",
-        "tv"
-      ],
-      "filename": "providers/purstream.js",
-      "enabled": true,
-      "hasSettings": true,
-      "formats": [
-        "mp4",
-        "m3u8"
-      ],
-      "logo": "https://i.postimg.cc/7L5shxmC/purstream.png",
-      "contentLanguage": [
-        "en",
-        "fr"
-      ],
-      "runtimeTimeoutMs": 20000,
-      "upstreamSupportedTypes": [
-        "movie",
-        "tv"
-      ],
-      "upstreamVersion": "3.0.0",
-      "notes": "Imported from D3adlyRocket/All-in-One-Nuvio at 3f09a6ff4360498895e622877af7a32212f75038. Cloudbank adapter preserves upstream extraction/settings, uses shared TMDB detail metadata when available, caps async result wait at 19s, and returns valid stream arrays. Playback and host settings support require app testing.",
-      "sourceRepository": "https://github.com/D3adlyRocket/All-in-One-Nuvio",
-      "sourceCommit": "3f09a6ff4360498895e622877af7a32212f75038",
-      "runtimeModules": []
-    },
-    {
-      "id": "topcartoons",
-      "name": "TopCartoons",
-      "description": "Popular cartoons streaming",
-      "version": "1.0.4",
-      "author": "Phisher",
-      "supportedTypes": [
-        "movie",
-        "tv"
-      ],
-      "filename": "providers/topcartoons.js",
-      "enabled": true,
-      "hasSettings": true,
-      "formats": [
-        "mp4",
-        "m3u8"
-      ],
-      "logo": "https://i.postimg.cc/3xVsbwp8/topcartoons.png",
-      "contentLanguage": [
-        "en"
-      ],
-      "runtimeTimeoutMs": 20000,
-      "upstreamSupportedTypes": [
-        "movie",
-        "tv"
-      ],
-      "upstreamVersion": "1.0.0",
-      "notes": "Imported from D3adlyRocket/All-in-One-Nuvio at 3f09a6ff4360498895e622877af7a32212f75038. Cloudbank adapter preserves upstream extraction/settings, uses shared TMDB detail metadata when available, caps async result wait at 19s, and returns valid stream arrays. Playback and host settings support require app testing.",
-      "sourceRepository": "https://github.com/D3adlyRocket/All-in-One-Nuvio",
-      "sourceCommit": "3f09a6ff4360498895e622877af7a32212f75038",
-      "runtimeModules": [
-        "cheerio-without-node-native"
-      ]
     },
     {
       "id": "torrentio",
@@ -1753,40 +1585,6 @@
       "notes": "Independent Yoruix import at ed38d1aee0024f56479369c9423fefb278e0b62a. Existing provider versions remain intact. Uses the Cloudbank adapter; upstream enabled/settings/platform flags preserved. Playback is not verified. Native WebSocket is preferred for TV; without it, upstream HTTP fallback remains. Node ws is not required by the adapter."
     },
     {
-      "id": "dvdplay",
-      "name": "DVDPlay",
-      "description": "DVDPlay direct download links with HubCloud extraction",
-      "version": "1.0.3",
-      "author": "Nuvio Team",
-      "supportedTypes": [
-        "movie",
-        "tv"
-      ],
-      "filename": "providers/dvdplay.js",
-      "enabled": true,
-      "formats": [
-        "mkv"
-      ],
-      "logo": "https://www.google.com/s2/favicons?domain=dvdplay.com&sz=128",
-      "contentLanguage": [
-        "mal",
-        "tam",
-        "hin"
-      ],
-      "runtimeTimeoutMs": 20000,
-      "sourceRepository": "https://github.com/yoruix/nuvio-providers",
-      "sourceCommit": "ed38d1aee0024f56479369c9423fefb278e0b62a",
-      "upstreamVersion": "1.0.2",
-      "upstreamSupportedTypes": [
-        "movie",
-        "tv"
-      ],
-      "runtimeModules": [
-        "cheerio-without-node-native"
-      ],
-      "notes": "Independent Yoruix import at ed38d1aee0024f56479369c9423fefb278e0b62a. Existing provider versions remain intact. Uses the Cloudbank adapter; upstream enabled/settings/platform flags preserved. Playback is not verified."
-    },
-    {
       "id": "yflix",
       "name": "YFlix",
       "description": "YFlix streaming",
@@ -1816,41 +1614,6 @@
         "tv"
       ],
       "runtimeModules": [],
-      "notes": "Independent Yoruix import at ed38d1aee0024f56479369c9423fefb278e0b62a. Existing provider versions remain intact. Uses the Cloudbank adapter; upstream enabled/settings/platform flags preserved. Playback is not verified."
-    },
-    {
-      "id": "mallumv",
-      "name": "MalluMV",
-      "description": "MalluMV direct links with support for Tamil, Telugu, Hindi, Malayalam, and Kannada movies",
-      "version": "1.0.3",
-      "author": "Nuvio Team",
-      "supportedTypes": [
-        "movie"
-      ],
-      "filename": "providers/mallumv.js",
-      "enabled": true,
-      "formats": [
-        "mkv",
-        "mp4"
-      ],
-      "logo": "https://mallumv.life/favicon.ico",
-      "contentLanguage": [
-        "ta",
-        "te",
-        "hi",
-        "ml",
-        "kn"
-      ],
-      "runtimeTimeoutMs": 20000,
-      "sourceRepository": "https://github.com/yoruix/nuvio-providers",
-      "sourceCommit": "ed38d1aee0024f56479369c9423fefb278e0b62a",
-      "upstreamVersion": "1.0.1",
-      "upstreamSupportedTypes": [
-        "movie"
-      ],
-      "runtimeModules": [
-        "cheerio-without-node-native"
-      ],
       "notes": "Independent Yoruix import at ed38d1aee0024f56479369c9423fefb278e0b62a. Existing provider versions remain intact. Uses the Cloudbank adapter; upstream enabled/settings/platform flags preserved. Playback is not verified."
     },
     {
@@ -1911,40 +1674,6 @@
         "movie"
       ],
       "runtimeModules": [],
-      "notes": "Independent Yoruix import at ed38d1aee0024f56479369c9423fefb278e0b62a. Existing provider versions remain intact. Uses the Cloudbank adapter; upstream enabled/settings/platform flags preserved. Playback is not verified."
-    },
-    {
-      "id": "mycima",
-      "name": "MyCima",
-      "description": "Arabic streaming provider with movies, series and anime",
-      "version": "1.0.3",
-      "author": "Nuvio Team",
-      "supportedTypes": [
-        "movie",
-        "tv"
-      ],
-      "filename": "providers/mycima.js",
-      "enabled": true,
-      "formats": [
-        "mp4",
-        "m3u8"
-      ],
-      "logo": "https://www.google.com/s2/favicons?domain=wecima.show&sz=128",
-      "contentLanguage": [
-        "ar"
-      ],
-      "runtimeTimeoutMs": 20000,
-      "sourceRepository": "https://github.com/yoruix/nuvio-providers",
-      "sourceCommit": "ed38d1aee0024f56479369c9423fefb278e0b62a",
-      "upstreamVersion": "1.0.0",
-      "upstreamSupportedTypes": [
-        "movie",
-        "tv"
-      ],
-      "runtimeModules": [
-        "cheerio-without-node-native",
-        "crypto-js"
-      ],
       "notes": "Independent Yoruix import at ed38d1aee0024f56479369c9423fefb278e0b62a. Existing provider versions remain intact. Uses the Cloudbank adapter; upstream enabled/settings/platform flags preserved. Playback is not verified."
     }
   ]
