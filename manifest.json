@@ -1,6 +1,6 @@
 {
   "name": "Cloudbank",
-  "version": "1.20.18",
+  "version": "1.20.19",
   "scrapers": [
     {
       "id": "kisskh",
@@ -380,7 +380,7 @@
       "id": "castle",
       "name": "Castle",
       "description": "Multi Lang provider",
-      "version": "2.1.0",
+      "version": "2.2.0",
       "author": "Nuvio Team",
       "supportedTypes": [
         "movie",
@@ -403,7 +403,7 @@
         "tv"
       ],
       "upstreamVersion": "2.0.0",
-      "notes": "Imported from D3adlyRocket/All-in-One-Nuvio at 3f09a6ff4360498895e622877af7a32212f75038. Cloudbank adapter preserves upstream extraction/settings, uses shared TMDB detail metadata when available, caps async result wait at 19s, and returns valid stream arrays. Playback and host settings support require app testing. Castle V2 consolidated into Castle: equivalent upstream backend retained; readable core, bounded concurrent audio extraction, shared fallback, numeric quality and season handling fixes. Existing AES/JNI, playback headers and subtitles retained. Device playback requires user validation.",
+      "notes": "Castle 2.2.0 verified pipeline: exact normalized TMDB title/original/alias matching, movie/TV validation, revalidated detail IDs, season-1 release-year validation and explicit requested season/episode routing. Large integer IDs preserved as strings before JSON parsing. Current api.hlowb.com security/search/detail/getVideo2 routes and local AES/JNI retained. One 17.5s scan budget covers metadata, key, search, details, decryption and bounded parallel video requests. Shared plus individual audio supported; valid completed sources retained. Preview/denied/blacklisted/expired responses rejected; one videoUrl is emitted once at requested/returned quality, distinct quality URLs preserved. Playback headers and merged video/episode subtitles retained. Android playback unverified.",
       "sourceRepository": "https://github.com/D3adlyRocket/All-in-One-Nuvio",
       "sourceCommit": "3f09a6ff4360498895e622877af7a32212f75038",
       "runtimeModules": []
