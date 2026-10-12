@@ -1,6 +1,6 @@
 {
   "name": "Cloudbank",
-  "version": "1.20.15",
+  "version": "1.20.16",
   "scrapers": [
     {
       "id": "kisskh",
@@ -858,7 +858,7 @@
       "id": "moviesmod",
       "name": "MoviesMod",
       "description": "Movie and TV show streams from MoviesMod with multiple quality options",
-      "version": "1.0.6",
+      "version": "1.0.7",
       "author": "Nuvio Team",
       "supportedTypes": [
         "movie",

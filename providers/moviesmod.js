@@ -75,6 +75,18 @@ function buildTitleProfile(tmdb) {
 }
 
 
+/* CLOUDBANK_MOVIESMOD_SIBLING_COMPAT_V1 */
+function cloudbankMoviesModFollowingHref($, entry, label) {
+  // VUEO's HTML bridge supports next(), but does not expose Cheerio nextAll().
+  var sibling = $(entry).next();
+  for (var count = 0; sibling.length && count < 128; count++) {
+    var href = sibling.find("a:contains('" + label + "')").first().attr("href");
+    if (href) return href;
+    sibling = sibling.next();
+  }
+  return "";
+}
+
 /* CLOUDBANK_NUVIO_ADAPTER_V1 */
 function cloudbankWrapProvider(provider, providerId, supportedTypes) {
   var upstream = provider.getStreams;
@@ -584,11 +596,7 @@ function getStreams(tmdbId, mediaType, seasonNum = 1, episodeNum = 1) {
       });
       for (const entry of entries.get()) {
         const quality = getIndexQuality($(entry).text());
-        let linkEl = $(entry).next().find(`a:contains('${aTag}')`).first();
-        if (!linkEl.length) {
-          linkEl = $(entry).nextAll("p, div").find(`a:contains('${aTag}')`).first();
-        }
-        let nextHref = linkEl.attr("href");
+        let nextHref = cloudbankMoviesModFollowingHref($, entry, aTag);
         if (nextHref && nextHref.includes("=")) {
           nextHref = nextHref.substring(nextHref.indexOf("=") + 1);
         }
@@ -1122,8 +1130,7 @@ function getStreams(tmdbId, mediaType, seasonNum = 1, episodeNum = 1) {
       });
       for (const entry of entries.get()) {
         const quality = getIndexQuality($(entry).text());
-        const linkEl = $(entry).nextAll("p, div").find(`a:contains('${aTag}')`).first();
-        const nextHref = linkEl.attr("href");
+        const nextHref = cloudbankMoviesModFollowingHref($, entry, aTag);
         if (nextHref) {
           const streams = yield processModLink(nextHref, targetUrl, quality);
           allStreams.push(...streams);
