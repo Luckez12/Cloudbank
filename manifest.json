@@ -1,6 +1,6 @@
 {
   "name": "Cloudbank",
-  "version": "1.20.19",
+  "version": "1.20.20",
   "scrapers": [
     {
       "id": "kisskh",
@@ -411,7 +411,7 @@
     {
       "id": "cineby",
       "name": "Cineby",
-      "description": "Multi-server movie and TV streaming — 4K/1080p/720p from Videasy network without subtitles",
+      "description": "Multi-server movie and TV streaming \u2014 4K/1080p/720p from Videasy network without subtitles",
       "version": "1.9.6",
       "author": "Nuvio Team",
       "supportedTypes": [
@@ -753,7 +753,7 @@
       "name": "HindMoviez",
       "description": "HindMoviez - Hindi & English Movies and Series (480p / 720p / 1080p / 4K)",
       "version": "1.0.5",
-      "author": "Sanchit (@S4NCHITT) — Murph's Streams",
+      "author": "Sanchit (@S4NCHITT) \u2014 Murph's Streams",
       "supportedTypes": [
         "movie",
         "tv"
@@ -981,7 +981,7 @@
     {
       "id": "peachify",
       "name": "Peachify",
-      "description": "Streams from peachify.top — 3 server sources (MovieBox/Holly/Air) via Cloudflare Workers with AES-256-GCM decryption",
+      "description": "Streams from peachify.top \u2014 3 server sources (MovieBox/Holly/Air) via Cloudflare Workers with AES-256-GCM decryption",
       "version": "1.0.4",
       "author": "piratezoro9",
       "supportedTypes": [
@@ -1051,7 +1051,7 @@
     {
       "id": "torrentio",
       "name": "Torrentio",
-      "description": "Torrentio – Torrent streaming. Supports optional debrid services.",
+      "description": "Torrentio \u2013 Torrent streaming. Supports optional debrid services.",
       "version": "1.0.4",
       "author": "Nuvio Team",
       "supportedTypes": [
@@ -1640,6 +1640,31 @@
       ],
       "runtimeModules": [],
       "notes": "Independent Yoruix import at ed38d1aee0024f56479369c9423fefb278e0b62a. Existing provider versions remain intact. Uses the Cloudbank adapter; upstream enabled/settings/platform flags preserved. Playback is not verified."
+    },
+    {
+      "id": "kshow123",
+      "name": "KShow123",
+      "description": "Korean variety shows with air-date verified episode mapping",
+      "version": "1.0.0",
+      "author": "kurato-svg",
+      "supportedTypes": [
+        "tv"
+      ],
+      "filename": "providers/kshow123.js",
+      "enabled": true,
+      "limited": true,
+      "formats": [
+        "m3u8",
+        "mp4"
+      ],
+      "logo": "https://kshow123.tv/favicon.ico",
+      "contentLanguage": [
+        "ko"
+      ],
+      "disabledPlatforms": [],
+      "supportsExternalPlayer": true,
+      "runtimeTimeoutMs": 20000,
+      "notes": "Site-native search, exact TMDB alias and season matching, continuous episode mapping with air-date verification (one day tolerance for timezone labels), current encrypted AJAX HLS extraction. Placeholder intro.vtt is excluded. Strict mapping may omit shows with inconsistent air dates. Playback must be tested in VUEO."
     }
   ]
 }
