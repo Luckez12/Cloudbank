@@ -1,6 +1,6 @@
 {
   "name": "Cloudbank",
-  "version": "1.20.22",
+  "version": "1.20.23",
   "scrapers": [
     {
       "id": "kisskh",
@@ -1665,6 +1665,32 @@
       "supportsExternalPlayer": true,
       "runtimeTimeoutMs": 20000,
       "notes": "v1.0.2: Isolated provider-owned CryptoJS AES/OpenSSL decoder avoids runtime crypto-module compatibility. Parser accepts reordered/quoted player file properties. Diagnostics distinguish unmatched response, iframe embed, AES failure and decoded URL without exposing tokens. Existing exact title/episode mapping retained. Android playback requires verification."
+    },
+    {
+      "id": "vidzee",
+      "name": "VidZee",
+      "description": "Movie and TV streams via direct TMDB routes; playlist-based resolution detection",
+      "version": "1.0.0",
+      "author": "kurato-svg",
+      "supportedTypes": [
+        "movie",
+        "tv"
+      ],
+      "filename": "providers/vidzee.js",
+      "enabled": true,
+      "limited": true,
+      "formats": [
+        "m3u8",
+        "mp4"
+      ],
+      "logo": "https://vidzee.wtf/favicon.svg",
+      "contentLanguage": [
+        "multi"
+      ],
+      "disabledPlatforms": [],
+      "supportsExternalPlayer": true,
+      "runtimeTimeoutMs": 20000,
+      "notes": "Audited current player endpoints. Dcloud, up to four API-discovered Acme languages, TCloud, IPcloud, Hindi and English, in website order. Plain API response encoding e=0 avoids WebAssembly requirements. Keeps returned HLS master; quality comes from RESOLUTION tags only. External subtitles preserve upstream URLs. Direct TMDB addressing does not independently prove content identity. 4K availability and Android playback require verification."
     }
   ]
 }
