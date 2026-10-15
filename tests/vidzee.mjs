@@ -1,7 +1,7 @@
 import fs from 'node:fs';import vm from 'node:vm';import assert from 'node:assert/strict';
 const src=fs.readFileSync('providers/vidzee.js','utf8');
 const calls=[],logs=[];let mode='normal';
-const sandbox={module:{exports:{}},URL,Promise,setTimeout,clearTimeout,console:{log:s=>logs.push(s)},VUEO_DISCOVERY_CONTEXT:{title:'Test Title',mediaType:'tv',tmdbId:1396},fetch:async(url,options)=>{
+const sandbox={module:{exports:{}},URL,Promise,setTimeout,clearTimeout,console:{log:s=>logs.push(s)},VUEO_DISCOVERY_CONTEXT:{tmdb:{name:'Test Title',id:1396,original_language:'en'}},fetch:async(url,options)=>{
  calls.push({url,options});let body;
  if(url.includes('/subs/'))body=JSON.stringify([{label:'Malay',file:'https://subs.example/ms.vtt'},{label:'English',file:'https://subs.example/en.vtt'},{label:'Indonesian',file:'https://subs.example/id.vtt'},{label:'English',file:'https://subs.example/en.vtt'}]);
  else if(url.includes('/streams/languages/'))body=JSON.stringify({languages:['English']});

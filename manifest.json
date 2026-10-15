@@ -1,6 +1,6 @@
 {
   "name": "Cloudbank",
-  "version": "1.20.23",
+  "version": "1.20.24",
   "scrapers": [
     {
       "id": "kisskh",
@@ -1670,7 +1670,7 @@
       "id": "vidzee",
       "name": "VidZee",
       "description": "Movie and TV streams via direct TMDB routes; playlist-based resolution detection",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "author": "kurato-svg",
       "supportedTypes": [
         "movie",
@@ -1690,7 +1690,7 @@
       "disabledPlatforms": [],
       "supportsExternalPlayer": true,
       "runtimeTimeoutMs": 20000,
-      "notes": "Audited current player endpoints. Dcloud, up to four API-discovered Acme languages, TCloud, IPcloud, Hindi and English, in website order. Plain API response encoding e=0 avoids WebAssembly requirements. Keeps returned HLS master; quality comes from RESOLUTION tags only. External subtitles preserve upstream URLs. Direct TMDB addressing does not independently prove content identity. 4K availability and Android playback require verification."
+      "notes": "v1.0.1: Requests forced-language/Acme sources only in TMDB original language; rejects explicit non-original audio. Default Auto servers retained with unverified-audio diagnostics. Reads resolution from master RESOLUTION or an optional bounded 64KiB codec-header sample for unencrypted media playlists. No guessed 4K or changed stream URL. API/codec failures leave unknown quality Auto. Existing subtitle identity and source order preserved."
     }
   ]
 }
