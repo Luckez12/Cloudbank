@@ -147,7 +147,7 @@ async function extract(html, page, title, season, episode, state) {
       var fields = {streamUrlHash:v[0], imageCover:variable(html,'imageCover'), eToken:variable(html,'eToken')};
       if (v[1]) fields.subtitlesUrlHash = v[1];
       var body = Object.keys(fields).map(function(k) { return encodeURIComponent(k) + '=' + encodeURIComponent(fields[k]); }).join('&');
-      var response = await request('https://api.kshow123.tv/ajax/', {method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded; charset=UTF-8', Referer:page, Origin:BASE}, body:body}, state);
+      var response = await request('https://api.kshow123.tv/ajax/', {method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded; charset=UTF-8', 'X-Requested-With':'XMLHttpRequest', Referer:page, Origin:BASE}, body:body}, state);
       // Only inspect media fields; never execute scripts received from the site.
       var tracks = [], tm;
       var trackRe = /\{\s*file\s*:\s*decodeLink\(\s*["']([^"']+)["']\s*,\s*8080\s*\)\s*,\s*label\s*:\s*["']([^"']+)["']\s*,\s*kind\s*:\s*["'](?:captions|subtitles)["']/g;
@@ -176,10 +176,15 @@ async function getStreams(tmdbId, mediaType, season, episode) {
     var metadataUrl = TMDB+'/tv/'+encodeURIComponent(tmdbId)+'?api_key='+KEY+'&append_to_response=alternative_titles';
     var pair = await Promise.all([
       vueoSharedTmdb(metadataUrl, function() { return json(metadataUrl,state); }),
-      json(TMDB+'/tv/'+encodeURIComponent(tmdbId)+'/season/'+season+'/episode/'+episode+'?api_key='+KEY,state)
+      json(TMDB+'/tv/'+encodeURIComponent(tmdbId)+'/season/'+season+'/episode/'+episode+'?api_key='+KEY,state).catch(function(e) { log('EPISODE_METADATA', e.message+'; checking exact site numbering'); return null; })
     ]);
     var meta = pair[0], ep = pair[1], profile = buildTitleProfile(meta);
-    if (!ep || !ep.air_date) { log('MAPPING','No verified TMDB episode air date'); return []; }
+    // VUEO may supply a non-episode metadata payload for a TMDB request.
+    // Trust air_date only when the response identifies the requested episode.
+    var validEpisode = ep && Number(ep.episode_number) === episode && Number(ep.season_number) === season;
+    var expectedDate = validEpisode && /^\d{4}-\d{2}-\d{2}$/.test(String(ep.air_date || '')) ? ep.air_date : '';
+    if (expectedDate) log('EPISODE_METADATA', 'TMDB S'+season+' E'+episode+' air date '+expectedDate);
+    else log('EPISODE_METADATA', 'Requested episode date unavailable or payload is not an episode; continuing with exact site title/number checks');
     var aliases = profile.aliases, candidates = [];
     var english = aliases.filter(function(a) { return /[a-z]/i.test(a); }).slice(0,2);
     if (!english.length) english=aliases.slice(0,1);
@@ -202,16 +207,17 @@ async function getStreams(tmdbId, mediaType, season, episode) {
     if (!candidates.length) { log('MATCH','No exact title/season candidate'); return []; }
     for (var c=0;c<Math.min(candidates.length,2);c++) {
       var candidate=candidates[c];
-      var numbers=[episode];
+      var numbers=(season===1 || candidate.explicit)?[episode]:[];
       if (season>1 && !candidate.explicit) {
         // Continuous variety-show numbering: sum known preceding regular seasons.
         var full=Array.isArray(meta.seasons)?meta:await json(metadataUrl,state);
         var previous=(full.seasons||[]).filter(function(s){return s.season_number>0 && s.season_number<season;});
         if (previous.length===season-1 && previous.every(function(s){return s.episode_count>0;})) {
           var absoluteEpisode=previous.reduce(function(n,s){return n+s.episode_count;},episode);
-          if (absoluteEpisode!==episode) numbers.unshift(absoluteEpisode);
+          numbers=[absoluteEpisode];
         }
       }
+      if (!numbers.length) { log('MAPPING','Cannot verify season-to-continuous episode numbering'); continue; }
       for (var n=0;n<numbers.length;n++) {
         var page=candidate.url.replace(/\/$/,'')+'/episode-'+numbers[n]+'.html';
         var html;
@@ -219,11 +225,13 @@ async function getStreams(tmdbId, mediaType, season, episode) {
         var canonical=cheerio.load(html)('link[rel="canonical"]').attr('href');
         if (canonical && absolute(canonical)!==page) { log('MAPPING','Unexpected episode redirect'); continue; }
         var actualDate=airDate(html);
-        if (!datesMatch(actualDate,ep.air_date)) { log('MAPPING','Rejected site episode '+numbers[n]+': air date '+(actualDate||'missing')+' differs from TMDB '+ep.air_date); continue; }
+        if (expectedDate && actualDate && !datesMatch(actualDate,expectedDate)) { log('MAPPING','Rejected site episode '+numbers[n]+': air date '+actualDate+' differs from TMDB '+expectedDate); continue; }
         var epTitle=cheerio.load(html)('title').text();
         var match=epTitle.match(/^(.*?)\s+Episode\s+(\d+)/i);
         if (!match || norm(match[1])!==norm(candidate.title) || Number(match[2])!==numbers[n]) { log('MAPPING','Episode title/number mismatch'); continue; }
-        log('MATCH',candidate.title+'; TMDB S'+season+' E'+episode+' → site episode '+numbers[n]+'; air-date verified '+actualDate);
+        log('TITLE_MATCH', 'Exact TMDB alias: '+candidate.title);
+        log('EPISODE_MATCH', 'TMDB S'+season+' E'+episode+' → site episode '+numbers[n]+'; exact page title/number; '+((expectedDate && actualDate)?'air-date verified '+actualDate:'air-date comparison unavailable'));
+        log('MATCH', candidate.title+'; site episode '+numbers[n]);
         var result=await extract(html,page,profile.title,season,episode,state);
         log('RESULT',result.length+' source(s); playback requires player verification');
         return result;
