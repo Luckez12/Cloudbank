@@ -125,98 +125,6 @@ function vzSubtitles(raw){
   function rank(x){return x.lang==='en'?0:x.lang==='ms'?1:x.lang==='id'?2:3;}
   return out.map(function(x,i){return {x:x,i:i};}).sort(function(a,b){return rank(a.x)-rank(b.x)||a.i-b.i;}).map(function(x){return x.x;});
 }
-// Read codec dimensions from a bounded initialization/header sample only.
-function vzBits(bytes){
- var pos=0;
- function read(n){if(n<0||n>32||pos+n>bytes.length*8)throw new Error('bitstream bounds');var v=0;while(n--){v=v*2+((bytes[pos>>3]>>(7-(pos&7)))&1);pos++;}return v;}
- return {read:read,ue:function(){var z=0;while(read(1)===0){if(++z>30)throw new Error('invalid golomb');}return Math.pow(2,z)-1+(z?read(z):0);},skip:function(n){if(n<0||pos+n>bytes.length*8)throw new Error('bitstream bounds');pos+=n;}};
-}
-function vzRBSP(bytes){var out=[];for(var i=0;i<bytes.length;i++){if(i>1&&bytes[i]===3&&bytes[i-1]===0&&bytes[i-2]===0)continue;out.push(bytes[i]);}return out;}
-function vzH264Size(nal){
- try{
-  var b=vzBits(vzRBSP(nal.slice(1))),profile=b.read(8);b.skip(16);b.ue();var chroma=1,separate=0;
-  if([100,110,122,244,44,83,86,118,128,138,139,134,135].indexOf(profile)>=0){
-   chroma=b.ue();if(chroma>3)return null;if(chroma===3)separate=b.read(1);b.ue();b.ue();b.skip(1);
-   if(b.read(1)){for(var i=0;i<(chroma===3?12:8);i++){if(b.read(1)){var last=8,next=8;for(var j=0;j<(i<6?16:64);j++){if(next){var q=b.ue();var delta=(q&1)?(q+1)/2:-q/2;next=(last+delta+256)%256;}last=next||last;}}}}
-  }
-  b.ue();var poc=b.ue();if(poc===0)b.ue();else if(poc===1){b.skip(1);b.ue();b.ue();var cycles=b.ue();if(cycles>256)return null;while(cycles--)b.ue();}
-  b.ue();b.skip(1);var width=(b.ue()+1)*16,height=(b.ue()+1)*16;var frame=b.read(1);if(!frame)b.skip(1);height*=2-frame;b.skip(1);
-  var left=0,right=0,top=0,bottom=0;if(b.read(1)){left=b.ue();right=b.ue();top=b.ue();bottom=b.ue();}
-  var cat=separate?0:chroma,cropX=cat===0||cat===3?1:2,cropY=(cat===0?1:cat===1?2:1)*(2-frame);
-  width-=(left+right)*cropX;height-=(top+bottom)*cropY;
-  return vzValidSize(width,height)?{width:width,height:height}:null;
- }catch(_){return null;}
-}
-function vzH265Size(nal){
- try{
-  var b=vzBits(vzRBSP(nal.slice(2)));b.skip(4);var layers=b.read(3);b.skip(1);b.skip(96);var profiles=[],levels=[];
-  for(var i=0;i<layers;i++){profiles.push(b.read(1));levels.push(b.read(1));}if(layers)b.skip((8-layers)*2);
-  for(i=0;i<layers;i++){if(profiles[i])b.skip(88);if(levels[i])b.skip(8);}
-  b.ue();var chroma=b.ue();if(chroma>3)return null;var separate=chroma===3?b.read(1):0;var width=b.ue(),height=b.ue();
-  if(b.read(1)){var x=(separate||chroma===0||chroma===3)?1:2,y=(!separate&&chroma===1)?2:1;width-=(b.ue()+b.ue())*x;height-=(b.ue()+b.ue())*y;}
-  return vzValidSize(width,height)?{width:width,height:height}:null;
- }catch(_){return null;}
-}
-function vzValidSize(w,h){return Number.isInteger(w)&&Number.isInteger(h)&&w>=64&&h>=64&&w<=16384&&h<=16384;}
-function vzNALSize(bytes){
- for(var i=0;i+5<bytes.length;i++){
-  if(bytes[i]!==0||bytes[i+1]!==0||bytes[i+2]!==1)continue;var start=i+3,end=start+1;
-  while(end+3<bytes.length && !(bytes[end]===0&&bytes[end+1]===0&&bytes[end+2]===1))end++;
-  if(end+3>=bytes.length)end=bytes.length;
-  var nal=bytes.slice(start,end),size=null;
-  if((nal[0]&31)===7)size=vzH264Size(nal);
-  else if(((nal[0]>>1)&63)===33)size=vzH265Size(nal);
-  if(size)return size;
- }
- return null;
-}
-function vzVideoPayload(bytes){
- var out=[],pid=-1,offset=0;
- while(offset+376<bytes.length && !(bytes[offset]===71&&bytes[offset+188]===71))offset++;
- if(offset+376>=bytes.length)return bytes;
- for(var i=offset;i+188<=bytes.length;i+=188){
-  if(bytes[i]!==71)break;var p=((bytes[i+1]&31)<<8)|bytes[i+2],start=(bytes[i+1]&64)!==0,afc=(bytes[i+3]>>4)&3;
-  if(afc===0||afc===2)continue;var a=i+4;if(afc===3)a+=1+bytes[a];if(a>=i+188)continue;
-  if(start&&a+9<i+188&&bytes[a]===0&&bytes[a+1]===0&&bytes[a+2]===1){
-   var id=bytes[a+3];if(id>=224&&id<=239){pid=p;a+=9+bytes[a+8];}else continue;
-  }
-  if(p===pid)for(;a<i+188;a++)out.push(bytes[a]);
- }
- return out.length?out:bytes;
-}
-function vzMP4Size(bytes){
- // Track header width/height are the last two 16.16 fixed-point fields.
- for(var i=4;i+12<bytes.length;i++){
-  if(bytes[i]!==116||bytes[i+1]!==107||bytes[i+2]!==104||bytes[i+3]!==100)continue;
-  var start=i-4,len=bytes[start]*16777216+(bytes[start+1]<<16)+(bytes[start+2]<<8)+bytes[start+3],end=start+len;
-  if(len<84||end>bytes.length)continue;
-  var width=bytes[end-8]*256+bytes[end-7],height=bytes[end-4]*256+bytes[end-3];
-  if(vzValidSize(width,height))return {width:width,height:height};
- }
- return null;
-}
-function vzCodecSize(bytes){return vzMP4Size(bytes)||vzNALSize(vzVideoPayload(bytes));}
-function vzProbeTarget(body,playlist){
- if(/#EXT-X-KEY:(?![^\r\n]*METHOD=NONE)/.test(body))return '';
- var init=body.match(/#EXT-X-MAP:[^\r\n]*URI="([^"]+)"/);var line=init?init[1]:body.split(/\r?\n/).filter(function(x){return x.trim()&&x.trim()[0]!=='#';})[0];
- if(!line)return '';try{return new URL(line.trim(),playlist).href;}catch(_){return '';}
-}
-async function vzProbeSize(body,url,headers,state){
- var target=vzProbeTarget(body,url);if(!target || state.deadline-Date.now()<2200)return null;
- var h=vzHeaders(headers);h.Range='bytes=0-65535';var timer;
- try{return await Promise.race([
-  Promise.resolve().then(function(){return fetch(target,{headers:h});}).then(async function(r){
-   if(!r.ok||typeof r.arrayBuffer!=='function')return null;
-   var get=r.headers&&typeof r.headers.get==='function'?function(k){return r.headers.get(k);}:function(){return null;};
-   var length=Number(get('content-length')),range=String(get('content-range')||''),part=range.match(/^bytes\s+(\d+)-(\d+)\//i);
-   // Refuse a full large segment when the upstream ignores Range.
-   if(!(length>0&&length<=65536) && !(r.status===206&&part&&Number(part[1])===0&&Number(part[2])<=65535))return null;
-   var buffer=await r.arrayBuffer(),bytes=new Uint8Array(buffer);if(bytes.length>65536)return null;
-   return vzCodecSize(Array.prototype.slice.call(bytes));
-  }),new Promise(function(_,reject){timer=setTimeout(function(){reject(new Error('probe timeout'));},1800);})
- ]);}catch(_){return null;}finally{clearTimeout(timer);}
-}
-
 function vzPlaylistInfo(body){
   if(!/^\s*#EXTM3U\b/.test(body))return {valid:false};
   var heights=[],m,re=/#EXT-X-STREAM-INF:([^\r\n]+)/g;
@@ -231,22 +139,17 @@ async function vzResolve(server,path,state){
     if(!raw || raw.error || raw.ok===false){vzLog('SERVER',server.name+': upstream returned no source');return null;}
     var url=vzURL(raw.url);
     if(!url){vzLog('SERVER',server.name+': no valid HTTP media URL');return null;}
-    var headers=vzHeaders(raw.headers),format=/\.mp4(?:[?#]|$)/i.test(url)?'mp4':'m3u8',height=0,qualitySource='unknown';
+    var headers=vzHeaders(raw.headers),format=/\.mp4(?:[?#]|$)/i.test(url)?'mp4':'m3u8',height=0;
     if(format==='m3u8'){
       try{
         var body=await vzRequest(url,{headers:headers},state,3000),info=vzPlaylistInfo(body);
         if(!info.valid){vzLog('HLS_INVALID',server.name+': response is not an HLS playlist');return null;}
-        height=info.height;if(height)qualitySource='master';
-        if(!height&&!info.master){
-          var dimensions=await vzProbeSize(body,url,headers,state);
-          if(dimensions){height=dimensions.height;qualitySource='codec';vzLog('RESOLUTION',server.name+': '+dimensions.width+'x'+dimensions.height+' from bounded codec header sample');}
-          else vzLog('RESOLUTION',server.name+': dimensions unavailable; keeping Auto');
-        }
+        height=info.height;
         vzLog('HLS',server.name+': '+(info.master?'master':'media playlist')+'; '+(height?'maximum '+height+'p':'resolution unknown')+'; playback not verified');
       }catch(_){vzLog('HLS_UNVERIFIED',server.name+': playlist request failed; retaining discovered URL with unknown quality');}
     }
     vzLog('SERVER',server.name+': source discovered in '+(Date.now()-started)+'ms');
-    return {server:server.name,url:url,headers:headers,format:format,height:height,qualitySource:qualitySource,language:String(!raw.language||/^auto$/i.test(String(raw.language))?(server.language||'Auto'):raw.language)};
+    return {server:server.name,url:url,headers:headers,format:format,height:height,language:String(!raw.language||/^auto$/i.test(String(raw.language))?(server.language||'Auto'):raw.language)};
   }catch(e){vzLog('SERVER_ERROR',server.name+': '+(String(e.message).match(/HTTP \d+|request timeout|budget exhausted|response too large/)||['request/JSON failure'])[0]);return null;}
 }
 
@@ -314,7 +217,7 @@ async function getStreams(tmdbId,mediaType,season,episode){
     streams.push({name:'VidZee • '+item.server,title:title+(mediaType==='tv'?' • S'+Number(season)+' E'+Number(episode):'')+' • '+item.language,url:item.url,quality:item.height?String(item.height)+'p':'auto',type:item.format,headers:item.headers,subtitles:subtitles});
   });
   vzLog('SUBTITLE',subtitles.length+' upstream tracks; cues/rendering not verified during discovery');
-  vzLog('RESULT',streams.length+' source(s); '+streams.filter(function(x){return parseInt(x.quality,10)>=2160;}).length+' with 2160p+ measured from master/codec headers; playback not verified');
+  vzLog('RESULT',streams.length+' source(s); '+streams.filter(function(x){return parseInt(x.quality,10)>=2160;}).length+' with 2160p+ advertised in their HLS master; playback not verified');
   return streams;
 }
 module.exports={getStreams:getStreams};

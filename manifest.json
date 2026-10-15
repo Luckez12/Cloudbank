@@ -1,6 +1,6 @@
 {
   "name": "Cloudbank",
-  "version": "1.20.24",
+  "version": "1.20.25",
   "scrapers": [
     {
       "id": "kisskh",
@@ -1670,7 +1670,7 @@
       "id": "vidzee",
       "name": "VidZee",
       "description": "Movie and TV streams via direct TMDB routes; playlist-based resolution detection",
-      "version": "1.0.1",
+      "version": "1.0.2",
       "author": "kurato-svg",
       "supportedTypes": [
         "movie",
@@ -1690,7 +1690,7 @@
       "disabledPlatforms": [],
       "supportsExternalPlayer": true,
       "runtimeTimeoutMs": 20000,
-      "notes": "v1.0.1: Requests forced-language/Acme sources only in TMDB original language; rejects explicit non-original audio. Default Auto servers retained with unverified-audio diagnostics. Reads resolution from master RESOLUTION or an optional bounded 64KiB codec-header sample for unencrypted media playlists. No guessed 4K or changed stream URL. API/codec failures leave unknown quality Auto. Existing subtitle identity and source order preserved."
+      "notes": "v1.0.2: Removes all pre-playback segment/init-file binary probing and Range requests introduced in 1.0.1. Restores 1.0.0 API -> playlist -> returned-source flow; original-language/dub filtering retained. Quality comes only from master RESOLUTION; media playlists remain Auto. No guessed quality. Android playback regression requires retest."
     }
   ]
 }
