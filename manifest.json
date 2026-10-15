@@ -1,6 +1,6 @@
 {
   "name": "Cloudbank",
-  "version": "1.20.21",
+  "version": "1.20.22",
   "scrapers": [
     {
       "id": "kisskh",
@@ -1645,7 +1645,7 @@
       "id": "kshow123",
       "name": "KShow123",
       "description": "Korean variety shows with exact title and episode mapping",
-      "version": "1.0.1",
+      "version": "1.0.2",
       "author": "kurato-svg",
       "supportedTypes": [
         "tv"
@@ -1664,7 +1664,7 @@
       "disabledPlatforms": [],
       "supportsExternalPlayer": true,
       "runtimeTimeoutMs": 20000,
-      "notes": "v1.0.1: Missing/invalid TMDB episode payload no longer blocks site discovery. Exact title and page episode number required; air dates are cross-checked when available. S1 and explicit site seasons use exact numbering; multi-season continuous numbering requires complete preceding-season counts. Current encrypted AJAX extraction; placeholder intro.vtt excluded. Android playback unverified."
+      "notes": "v1.0.2: Isolated provider-owned CryptoJS AES/OpenSSL decoder avoids runtime crypto-module compatibility. Parser accepts reordered/quoted player file properties. Diagnostics distinguish unmatched response, iframe embed, AES failure and decoded URL without exposing tokens. Existing exact title/episode mapping retained. Android playback requires verification."
     }
   ]
 }
