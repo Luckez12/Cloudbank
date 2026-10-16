@@ -1,6 +1,6 @@
 {
   "name": "Cloudbank",
-  "version": "1.20.25",
+  "version": "1.20.26",
   "scrapers": [
     {
       "id": "kisskh",
@@ -1670,7 +1670,7 @@
       "id": "vidzee",
       "name": "VidZee",
       "description": "Movie and TV streams via direct TMDB routes; playlist-based resolution detection",
-      "version": "1.0.2",
+      "version": "1.0.3",
       "author": "kurato-svg",
       "supportedTypes": [
         "movie",
@@ -1690,7 +1690,7 @@
       "disabledPlatforms": [],
       "supportsExternalPlayer": true,
       "runtimeTimeoutMs": 20000,
-      "notes": "v1.0.2: Removes all pre-playback segment/init-file binary probing and Range requests introduced in 1.0.1. Restores 1.0.0 API -> playlist -> returned-source flow; original-language/dub filtering retained. Quality comes only from master RESOLUTION; media playlists remain Auto. No guessed quality. Android playback regression requires retest."
+      "notes": "v1.0.3: Auto only for verified multi-variant HLS masters; known single-variant resolution uses Np; media-only, MP4 and unreadable playlists use Unknown. Maximum advertised master resolution in source title/log. Preserves v1.0.2 URLs, headers, no-dub policy and no segment probes. App-side current playback dimensions require separate VUEO changes."
     }
   ]
 }

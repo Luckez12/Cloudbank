@@ -127,9 +127,9 @@ function vzSubtitles(raw){
 }
 function vzPlaylistInfo(body){
   if(!/^\s*#EXTM3U\b/.test(body))return {valid:false};
-  var heights=[],m,re=/#EXT-X-STREAM-INF:([^\r\n]+)/g;
-  while((m=re.exec(body))){var size=m[1].match(/(?:^|,)\s*RESOLUTION\s*=\s*\d+x(\d+)/i);if(size)heights.push(Number(size[1]));}
-  return {valid:true,master:/#EXT-X-STREAM-INF:/.test(body),height:heights.length?Math.max.apply(null,heights):0,variants:heights.length};
+  var heights=[],variants=0,m,re=/#EXT-X-STREAM-INF:([^\r\n]+)/g;
+  while((m=re.exec(body))){variants++;var size=m[1].match(/(?:^|,)\s*RESOLUTION\s*=\s*\d+x(\d+)/i);if(size)heights.push(Number(size[1]));}
+  return {valid:true,master:/#EXT-X-STREAM-INF:/.test(body),height:heights.length?Math.max.apply(null,heights):0,variants:variants};
 }
 async function vzResolve(server,path,state){
   var started=Date.now();
@@ -139,17 +139,17 @@ async function vzResolve(server,path,state){
     if(!raw || raw.error || raw.ok===false){vzLog('SERVER',server.name+': upstream returned no source');return null;}
     var url=vzURL(raw.url);
     if(!url){vzLog('SERVER',server.name+': no valid HTTP media URL');return null;}
-    var headers=vzHeaders(raw.headers),format=/\.mp4(?:[?#]|$)/i.test(url)?'mp4':'m3u8',height=0;
+    var headers=vzHeaders(raw.headers),format=/\.mp4(?:[?#]|$)/i.test(url)?'mp4':'m3u8',height=0,adaptive=false;
     if(format==='m3u8'){
       try{
         var body=await vzRequest(url,{headers:headers},state,3000),info=vzPlaylistInfo(body);
         if(!info.valid){vzLog('HLS_INVALID',server.name+': response is not an HLS playlist');return null;}
-        height=info.height;
+        height=info.height;adaptive=info.master&&info.variants>1;
         vzLog('HLS',server.name+': '+(info.master?'master':'media playlist')+'; '+(height?'maximum '+height+'p':'resolution unknown')+'; playback not verified');
       }catch(_){vzLog('HLS_UNVERIFIED',server.name+': playlist request failed; retaining discovered URL with unknown quality');}
     }
     vzLog('SERVER',server.name+': source discovered in '+(Date.now()-started)+'ms');
-    return {server:server.name,url:url,headers:headers,format:format,height:height,language:String(!raw.language||/^auto$/i.test(String(raw.language))?(server.language||'Auto'):raw.language)};
+    return {server:server.name,url:url,headers:headers,format:format,height:height,adaptive:adaptive,language:String(!raw.language||/^auto$/i.test(String(raw.language))?(server.language||'Auto'):raw.language)};
   }catch(e){vzLog('SERVER_ERROR',server.name+': '+(String(e.message).match(/HTTP \d+|request timeout|budget exhausted|response too large/)||['request/JSON failure'])[0]);return null;}
 }
 
@@ -214,10 +214,11 @@ async function getStreams(tmdbId,mediaType,season,episode){
     if(!language)vzLog('AUDIO_UNVERIFIED',item.server+': upstream reports Auto; original audio is not independently confirmed');
     // Keep separate server/audio entries when they share the same media URL.
     var key=JSON.stringify([item.url,item.server,item.language,item.headers]);if(seen[key])return;seen[key]=true;
-    streams.push({name:'VidZee • '+item.server,title:title+(mediaType==='tv'?' • S'+Number(season)+' E'+Number(episode):'')+' • '+item.language,url:item.url,quality:item.height?String(item.height)+'p':'auto',type:item.format,headers:item.headers,subtitles:subtitles});
+    vzLog('QUALITY',item.server+': '+(item.adaptive?'Auto; verified multi-variant master'+(item.height?'; maximum '+item.height+'p':''):item.height?item.height+'p; master metadata':'Unknown; resolution unavailable'));
+    streams.push({name:'VidZee • '+item.server,title:title+(mediaType==='tv'?' • S'+Number(season)+' E'+Number(episode):'')+' • '+item.language+(item.adaptive&&item.height?' • Auto (up to '+item.height+'p)':''),url:item.url,quality:item.adaptive?'auto':item.height?String(item.height)+'p':'Unknown',type:item.format,headers:item.headers,subtitles:subtitles});
   });
   vzLog('SUBTITLE',subtitles.length+' upstream tracks; cues/rendering not verified during discovery');
-  vzLog('RESULT',streams.length+' source(s); '+streams.filter(function(x){return parseInt(x.quality,10)>=2160;}).length+' with 2160p+ advertised in their HLS master; playback not verified');
+  vzLog('RESULT',streams.length+' source(s); '+all[2].filter(function(x){return x&&x.height>=2160&&streams.some(function(y){return y.name==='VidZee • '+x.server&&y.url===x.url;});}).length+' with 2160p+ advertised in their HLS master; playback not verified');
   return streams;
 }
 module.exports={getStreams:getStreams};
