@@ -1,6 +1,6 @@
 {
   "name": "Cloudbank",
-  "version": "1.20.26",
+  "version": "1.20.27",
   "scrapers": [
     {
       "id": "kisskh",
@@ -1116,8 +1116,8 @@
     {
       "id": "uhdmovies",
       "name": "UHDMovies",
-      "description": "UHD Movies streaming with multiple resolution",
-      "version": "1.2.6",
+      "description": "UHDMovies movie/episode releases with exact title/year and season mapping; current short-link and Driveseed resolution",
+      "version": "1.3.0",
       "author": "Nuvio Team",
       "supportedTypes": [
         "movie",
@@ -1126,9 +1126,12 @@
       "filename": "providers/uhdmovies.js",
       "enabled": true,
       "formats": [
-        "mkv"
+        "mkv",
+        "mp4",
+        "m3u8",
+        "dash"
       ],
-      "logo": "https://www.google.com/s2/favicons?domain=uhdmovies.pink&sz=128",
+      "logo": "https://www.google.com/s2/favicons?domain=uhdmovies.my&sz=128",
       "contentLanguage": [
         "en"
       ],
@@ -1138,12 +1141,13 @@
         "tv"
       ],
       "upstreamVersion": "1.2.1",
-      "notes": "Imported from D3adlyRocket/All-in-One-Nuvio at 3f09a6ff4360498895e622877af7a32212f75038. Cloudbank adapter preserves upstream extraction/settings, uses shared TMDB detail metadata when available, caps async result wait at 19s, and returns valid stream arrays. Playback and host settings support require app testing. Version consolidation: alternate cores embedded as bounded delayed/failed-primary fallbacks; provider identity, playback metadata and settings preserved. Source disabled/platform flags retained per engine. Playback requires app testing.",
+      "notes": "v1.3.0: replaces duplicated legacy engines with one bounded provider. Exact normalized title/year matching, h2-h5 season-aware episode parsing, release-level quality/audio labels, current lp-land/lp-s1-form and lp_go cookie flow, Driveseed redirects/cloud multipart action, VideoSeed API, no unresolved HTML as video. Live audit reaches Driveseed file page; sampled video-seed.dev is unavailable and Resume Cloud returns Unknown error. Final media extraction and Android playback not confirmed. Multi-audio releases may include original and dubbed tracks.",
       "sourceRepository": "https://github.com/D3adlyRocket/All-in-One-Nuvio",
       "sourceCommit": "3f09a6ff4360498895e622877af7a32212f75038",
       "runtimeModules": [
         "cheerio-without-node-native"
-      ]
+      ],
+      "limited": true
     },
     {
       "id": "vegamovies",
