@@ -1,4 +1,4 @@
-/* VidLink 1.0.10 — API + WebView session handoff, local public-ID token.
+/* VidLink 1.1.0 — single browser session; captured API route verification and native media check.
  * VUEO_SHARED_DISCOVERY_CONTEXT_V1: display metadata only; no detail fetch.
  * VUEO_TITLE_PROFILE_V1: exact TMDB route; no fuzzy search or episode fallback.
  * Embedded TweetNaCl.js 1.0.3 (public domain / Unlicense); see docs/TWEETNACL-LICENSE.txt.
@@ -15,7 +15,6 @@ return module.exports;})();
   var SITE_PROXY = 'https://flood.sourcerrr.online';
   var UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36';
   var KEY_HEX = 'c75136c5668bbfe65a7ecad431a745db68b5f381555b38d8f6c699449cf11fcd';
-  var API_MS = 4000;
   function log(s) { console.log('[VidLink] ' + s); }
   function trace(stage, obj) { try { if (typeof globalThis.vueoTrace === 'function') globalThis.vueoTrace(stage, obj); } catch (_) {} }
   function object(v) { return !!v && typeof v==='object' && !Array.isArray(v); }
@@ -37,16 +36,28 @@ return module.exports;})();
     }
     return out;
   }
-  function token(id) {
-    var key=new Uint8Array(32),nonce=new Uint8Array(24),body=new Uint8Array(id.length+8);
-    for(var i=0;i<32;i++)key[i]=parseInt(KEY_HEX.slice(i*2,i*2+2),16);
-    for(var j=0;j<id.length;j++)body[j]=id.charCodeAt(j);
-    // Mirror the public site's token protocol; encodes only public ID/time.
-    // The fixed nonce is protocol compatibility, not an encryption API for app secrets.
-    var seconds=Math.floor(Date.now()/1000)+480;
-    for(var k=7;k>=0;k--) {body[id.length+k]=seconds%256;seconds=Math.floor(seconds/256);}
-    var box=nacl.secretbox(body,nonce,key),out=new Uint8Array(24+box.length);
-    out.set(nonce);out.set(box,24);return base64url(out);
+  function decodeRoute(url,id,type,season,episode) {
+    try {
+      var u=new URL(url);
+      if(u.origin!==BASE||u.username||u.password||u.hash)return false;
+      var parts=u.pathname.split('/').filter(Boolean);
+      if(parts[0]!=='api'||parts[1]!=='b'||parts[2]!==type||parts.length!==(type==='tv'?6:4))return false;
+      if(type==='tv'&&(String(season)!==parts[4]||String(episode)!==parts[5]))return false;
+      var encoded=parts[3],alphabet='ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';
+      if(!/^[A-Za-z0-9_-]{50,1024}$/.test(encoded))return false;
+      var bytes=[],bits=0,value=0;
+      for(var i=0;i<encoded.length;i++){value=(value<<6)|alphabet.indexOf(encoded[i]);bits+=6;if(bits>=8){bits-=8;bytes.push((value>>>bits)&255);}}
+      bytes=new Uint8Array(bytes);
+      var key=new Uint8Array(32);for(var k=0;k<32;k++)key[k]=parseInt(KEY_HEX.slice(k*2,k*2+2),16);
+      var plain=nacl.secretbox.open(bytes.subarray(24),bytes.subarray(0,24),key);
+      if(!plain||plain.length!==id.length+8)return false;
+      for(var j=0;j<id.length;j++)if(plain[j]!==id.charCodeAt(j))return false;
+      return true;
+    }catch(_){return false;}
+  }
+  function utf8(text) {
+    var parts=encodeURIComponent(text).match(/%[0-9a-f]{2}|./gi)||[];
+    return new Uint8Array(parts.map(function(p){return p[0]==='%'?parseInt(p.slice(1),16):p.charCodeAt(0);}));
   }
   function cleanHeaders(raw) {
     var out={};
@@ -91,6 +102,13 @@ return module.exports;})();
     if(!ALLOW_SITE_PROXY || !row.requiresProxy)return row.url;
     var u=new URL(row.url),raw=object(row.headers)?row.headers:{},ordered={};
     Object.keys(raw).sort(function(a,b){return a.localeCompare(b);}).forEach(function(k){ordered[k]=raw[k];});
+    if(row.kind==='dash') {
+      var cookieKey=Object.keys(raw).find(function(k){return k.toLowerCase()==='cookie';});
+      if(!cookieKey||typeof raw[cookieKey]!=='string'||!raw[cookieKey])return null;
+      if(Array.from(u.searchParams.keys()).some(function(k){return /^(headers|host|sc)$/i.test(k);}))return null;
+      var query=u.search.slice(1);if(query)query+='&';
+      return SITE_PROXY+'/sacdn'+u.pathname+'?'+query+'host='+encodeURIComponent(u.origin)+'&sc='+base64url(utf8(raw[cookieKey]));
+    }
     var path=row.kind==='mp4'?'mp':'proxy';
     var kept=u.search.slice(1).split('&').filter(function(part){
       if(!part)return false;var key=decodeURIComponent(part.split('=')[0]).toLowerCase();
@@ -108,7 +126,7 @@ return module.exports;})();
     groups.forEach(function(group){
       var st=group.stream;if(!object(st)||mismatch(st,id,type,s,e))return;
       var rows=[];
-      if(http(st.playlist)&&st.deliveryType!=='dash'&&st.type!=='dash')rows.push({url:st.playlist,kind:'hls',headers:st.playlistHeaders||st.headers,requiresProxy:st.requiresProxy,quality:'Auto'});
+      if(http(st.playlist))rows.push({url:st.playlist,kind:st.deliveryType==='dash'||st.type==='dash'?'dash':'hls',headers:st.playlistHeaders||st.headers,requiresProxy:st.requiresProxy,quality:'Auto'});
       if(object(st.qualities)) {
         Object.keys(st.qualities).sort(function(a,b){return Number(b)-Number(a);}).forEach(function(q){
           var row=st.qualities[q];if(!object(row)||!http(row.url)||row.type!=='mp4'||mismatch(row,id,type,s,e))return;
@@ -124,103 +142,87 @@ return module.exports;})();
     if(!/^[1-9]\d*$/.test(id)||['movie','tv'].indexOf(type)<0)return [];
     if(type==='tv'&&(season===null||season===''||typeof season==='undefined'||!Number.isInteger(Number(season))||Number(season)<0||episode===null||episode===''||typeof episode==='undefined'||!Number.isInteger(Number(episode))||Number(episode)<1))return [];
     var s=Number(season),e=Number(episode),title=sharedTitle(id,type,s,e);
-    log('ROUTE: TMDB='+id+' '+type+(type==='tv'?' S'+s+'E'+e:'')+'; local token; exact ID');
-    trace('CANDIDATE',{provider:'vidlink',tmdbId:id,mediaType:type,season:type==='tv'?s:null,episode:type==='tv'?e:null,method:'exact-tmdb-local-token'});
-    var route=BASE+'/api/b/'+type+'/'+token(id)+(type==='tv'?'/'+s+'/'+e:'')+'?multiLang=0';
-    var data=await bounded(async function(){
-      var response=await fetch(route,{headers:{'User-Agent':UA,Referer:BASE+'/',Origin:BASE,'X-Playback-Environment':'hls'}});
-      if(!response.ok){log('API: HTTP '+response.status);return null;}return response.json();
-    },API_MS);
-    var groups=candidates(data,id,type,s,e),out=[],seen=Object.create(null),proxied=0;
-    groups.forEach(function(group){
-      // One supplied HLS playlist per server; otherwise retain supplied MP4 quality options.
-      var rows=group.rows.some(function(r){return r.kind==='hls';})?group.rows.filter(function(r){return r.kind==='hls';}).slice(0,1):group.rows;
-      rows.forEach(function(row){
-        var url;
-        try {url=proxyUrl(row);}catch(_){return;}
-        if(!http(url)||seen[url])return;seen[url]=true;
-        var viaProxy=url!==row.url;
-        if(viaProxy)proxied++;
-        var h=cleanHeaders(viaProxy?{Referer:BASE+'/',Origin:BASE}:row.headers);
-        out.push({name:'VidLink',title:title||'VidLink',serverName:group.key,url:url,headers:h,quality:row.quality,
-          type:row.kind==='hls'?'hls':'mp4',size:row.size,subtitles:group.captions,provider:'vidlink'});
-      });
-    });
-    if (!out.length) return [];
-    if (typeof globalThis.webviewResolve !== 'function') {log('SESSION: native WebView bridge unavailable');return [];}
-    function identity(url) {
-      try {var u=new URL(url);return u.origin+u.pathname+'|'+(u.searchParams.get('host')||'');}catch(_){return '';}
-    }
-    var expected=Object.create(null),hosts=[],matchers=[];
-    out.forEach(function(row){
-      expected[identity(row.url)]=row;
-      var u=new URL(row.url),host=u.hostname;
-      if(hosts.indexOf(host)<0)hosts.push(host);
-      var matcher=u.origin+u.pathname,upstream=u.searchParams.get('host');
-      if(upstream)matcher+='?host='+encodeURIComponent(upstream);
-      if(matchers.indexOf(matcher)<0)matchers.push(matcher);
-    });
+    log('ROUTE: TMDB='+id+' '+type+(type==='tv'?' S'+s+'E'+e:'')+'; exact browser route; captured API token decoded for ID verification');
+    if(typeof globalThis.webviewResolve!=='function'){log('RESULT: WebView bridge unavailable');return [];}
+    trace('CANDIDATE',{provider:'vidlink',tmdbId:id,mediaType:type,method:'original-page-captured-api'});
     var player=BASE+'/'+type+'/'+id+(type==='tv'?'/'+s+'/'+e:'');
-    log('SESSION: API sources='+out.length+'; one original-page WebView; stop on matching observed media request; subtitle fetches=0');
+    log('SESSION: one original page; same-session API and media; separate API calls=0; subtitle fetches=0');
     var session=await bounded(function(){return globalThis.webviewResolve(player,{
       directLoad:true,referer:BASE+'/',timeoutMs:12000,finishAfterFirstMs:250,
-      waitForMediaReady:true,allowBlobMediaReady:true,mediaHosts:hosts,mediaRequestMatchers:matchers,injectAbyssHook:false,captureSubtitles:false,
-      suppressPopups:true,lockMainFrameHost:true,blockMatchedRequests:false,
-      viewportWidth:1080,viewportHeight:1080,clickX:540,clickY:540,
+      waitForMediaReady:true,allowBlobMediaReady:false,
+      mediaHosts:[new URL(SITE_PROXY).hostname],mediaRequestMatchers:[],
+      captureSessionResponses:true,jsonResponsePrefixes:[BASE+'/api/b/'+type+'/'],
+      injectAbyssHook:false,captureSubtitles:false,suppressPopups:true,lockMainFrameHost:true,
+      blockMatchedRequests:false,viewportWidth:1080,viewportHeight:1080,clickX:540,clickY:540,
       interactionTexts:['play','watch now','continue'],clickDelaysMs:[650,1300,2200,3400,5000,7000,9500],
-      match:['.mp4','.m3u8'],blocked:['doubleclick','googlesyndication','googleadservices','adsterra','popads','popcash']
+      match:['.mp4','.m3u8','.mpd'],blocked:['doubleclick','googlesyndication','googleadservices','adsterra','popads','popcash']
     });},12500);
-    if (!session || session.sessionHandoffVersion!==1) {log('SESSION: requires companion VUEO session-handoff patch');return [];}
-    log('SESSION: finish='+String(session.finishReason||'unknown')+'; mediaReady='+(session.mediaReady===true)+'; captured='+Number(session.capturedCount||0));
-    if (session.sessionDiagnosticsVersion===1 && object(session.diagnostics)) {
-      var d=session.diagnostics,v=object(d.video)?d.video:{};
-      function number(o,k,min,max) {var n=o[k];return typeof n==='number'&&Number.isFinite(n)?Math.max(min,Math.min(max,Math.trunc(n))):'unknown';}
-      function state(k,allowed) {return allowed.indexOf(v[k])>=0?v[k]:'unknown';}
-      log('WEBVIEW_STATE: hook='+String(d.hookSeen===true)+' pageFinished='+String(d.pageFinished===true)+
-        ' pageHTTP='+number(d,'pageHttpStatus',0,599)+' mediaHTTP='+number(d,'mediaHttpStatus',0,599)+
-        ' pageNetError='+number(d,'pageNetworkError',-100,0)+' mediaNetError='+number(d,'mediaNetworkError',-100,0)+
-        ' mseObserved='+String(d.mseObserved===true)+' blobObserved='+String(d.blobObserved===true));
-      log('VIDEO_STATE: count='+number(v,'count',0,16)+' readyState='+number(v,'readyState',-1,4)+
-        ' networkState='+number(v,'networkState',-1,3)+' errorCode='+number(v,'errorCode',0,4)+
-        ' paused='+String(v.paused!==false)+' sourceKind='+state('sourceKind',['http','https','blob','none','other'])+
-        ' pageSignal='+state('pageSignal',['none','sandbox_required','human_verification','access_denied','unavailable'])+
-        ' visibility='+state('visibility',['visible','hidden','prerender']));
-    } else log('WEBVIEW_STATE: diagnostic companion app update required; session behavior unchanged');
-    log('READINESS: blobSupport='+(session.blobHandoffVersion===1)+' basis='+(['none','direct-http','blob-single-network'].indexOf(session.readinessBasis)>=0?session.readinessBasis:'unknown'));
+    if(!session||session.sessionResponseVersion!==1){log('RESULT: consolidated session-response companion app required; no unverified fallback');return [];}
+    log('SESSION: finish='+(['timeout','load-error','media-ready','response-media','network-candidate'].indexOf(session.finishReason)>=0?session.finishReason:'unknown')+
+      ' browserReady='+(session.mediaReady===true)+' captured='+Number(session.capturedCount||0));
+    var d=object(session.diagnostics)?session.diagnostics:{},video=object(d.video)?d.video:{};
+    function scalar(o,k,min,max){var value=o[k];return typeof value==='number'&&Number.isFinite(value)?Math.max(min,Math.min(max,Math.trunc(value))):'unknown';}
+    log('WEBVIEW_STATE: documentStart='+(session.documentStartHook===true)+' hook='+(d.hookSeen===true)+' pageFinished='+(d.pageFinished===true)+
+      ' videoCount='+scalar(video,'count',0,16)+' readyState='+scalar(video,'readyState',-1,4)+
+      ' networkState='+scalar(video,'networkState',-1,3)+' errorCode='+scalar(video,'errorCode',0,4));
+    var responses=Array.isArray(session.responses)?session.responses:[],expected=Object.create(null),verified=0;
+    function identity(url){try{var u=new URL(url);if(!/^https?:$/.test(u.protocol)||u.username||u.password)return '';return u.origin+u.pathname+'|'+(u.searchParams.get('host')||'');}catch(_){return '';}}
+    responses.slice(0,4).forEach(function(record){
+      if(!record||record.status<200||record.status>299||!decodeRoute(record.url,id,type,s,e))return;
+      verified++;
+      candidates(record.body,id,type,s,e).forEach(function(group){
+        group.rows.forEach(function(row){
+          try {
+            var url=proxyUrl(row);if(!http(url))return;
+            var viaProxy=url!==row.url;
+            expected[identity(url)]={name:'VidLink',title:title||'VidLink',serverName:group.key,url:url,
+              headers:cleanHeaders(viaProxy?{Referer:BASE+'/',Origin:BASE}:row.headers),quality:row.quality,
+              type:row.kind,size:row.size,subtitles:group.captions,provider:'vidlink'};
+          }catch(_){}
+        });
+      });
+    });
     var rows=Array.isArray(session.streams)?session.streams:[];
-    var network=rows.filter(function(row){return row&&row.networkObserved===true;});
-    var matching=network.filter(function(row){return expected[identity(row.url)];});
-    log('CANDIDATES: nativeObserved='+network.length+' apiMatched='+matching.length+
-      ' earlyStopSupport='+(session.networkHandoffVersion===1));
-    var observed=matching.find(function(row){return row.mediaReady===true;})||matching[0];
-    if (!observed) {log('RESULT: no observed network request matching API media; checks=0');return [];}
-    var original=expected[identity(observed.url)],h=cleanHeaders(observed.headers);
-    log('HANDOFF_CHECK: transport='+original.type+' browserReady='+(session.mediaReady===true)+
-      '; one HTTP check with observed session headers');
+    var observedRows=rows.filter(function(row){return row&&(row.networkObserved===true||row.responseObserved===true);});
+    var matching=observedRows.filter(function(row){return expected[identity(row.url)];});
+    var kinds={mp4:0,hls:0,dash:0,other:0};
+    rows.forEach(function(row){try{var path=new URL(row.url).pathname;var kind=/\.mpd$/i.test(path)?'dash':/\.m3u8$/i.test(path)?'hls':/\.mp4$/i.test(path)?'mp4':'other';kinds[kind]++;}catch(_){}});
+    log('API_CAPTURE: responses='+responses.length+' verifiedRoutes='+verified+' mediaOptions='+Object.keys(expected).length);
+    log('CANDIDATES: nativeObserved='+rows.filter(function(r){return r&&r.networkObserved===true;}).length+
+      ' responseObserved='+rows.filter(function(r){return r&&r.responseObserved===true;}).length+
+      ' apiMatched='+matching.length+' mp4='+kinds.mp4+' hls='+kinds.hls+' dash='+kinds.dash+' other='+kinds.other);
+    if(!matching.length){log('RESULT: no response/request matching verified same-session API media; checks=0');return [];}
+    var observed=matching.find(function(r){return expected[identity(r.url)].type==='dash';})||
+      matching.find(function(r){return expected[identity(r.url)].type==='hls';})||matching[0];
+    var original=expected[identity(observed.url)],h=cleanHeaders(Object.assign({},original.headers,observed.headers));
+    log('HANDOFF_CHECK: transport='+original.type+'; one HTTP check; observed URL from verified API route');
     var checked=await bounded(async function(){
       var probe=Object.assign({},h);if(original.type==='mp4')probe.Range='bytes=0-1023';
       var response=await fetch(observed.url,{method:'GET',headers:probe,redirect:'follow'});
       var ct=String(response.headers.get('content-type')||'').toLowerCase();
-      var contentKind=/text\/html/.test(ct)?'html':/application\/json/.test(ct)?'json':/^video\/mp4/.test(ct)?'mp4':/mpegurl/.test(ct)?'hls':'other';
+      var contentKind=/text\/html/.test(ct)?'html':/application\/json/.test(ct)?'json':/^video\/mp4/.test(ct)?'mp4':/mpegurl/.test(ct)?'hls':/dash\+xml/.test(ct)?'dash':'other';
       log('HANDOFF_HTTP: status='+Number(response.status)+' content='+contentKind);
-      if (!response.ok) {log('HANDOFF_CHECK: HTTP '+Number(response.status)+'; native HTTP access rejected');return null;}
-      if (/text\/html|application\/json/.test(ct)) {log('HANDOFF_REJECT: non-media response');return null;}
-      if(original.type==='mp4') {
+      if(!response.ok||/text\/html|application\/json/.test(ct))return null;
+      if(original.type==='mp4'){
         var range=String(response.headers.get('content-range')||''),total=/\/(\d+)\s*$/.exec(range);
         var size=total?Number(total[1]):Number(response.headers.get('content-length')||0);
-        if(response.status!==200&&response.status!==206){log('HANDOFF_REJECT: unsupported MP4 status');return null;}
-        if(response.status===206&&!/^bytes\s+0-\d+\//i.test(range)){log('HANDOFF_REJECT: invalid initial byte range');return null;}
-        if(!/^video\/mp4/.test(ct)||size<524288){log('HANDOFF_REJECT: MP4 content type or file size');return null;}
-      } else {
+        if((response.status!==200&&response.status!==206)||!/^video\/mp4/.test(ct)||size<524288||
+          (response.status===206&&!/^bytes\s+0-\d+\//i.test(range)))return null;
+      }else{
         var text=String(await response.text()).replace(/^\uFEFF/,'').trim();
-        if(text.indexOf('#EXTM3U')!==0||!/#EXT-X-STREAM-INF:|#EXTINF:/.test(text)){log('HANDOFF_REJECT: invalid HLS playlist');return null;}
+        if(original.type==='hls'){
+          if(text.indexOf('#EXTM3U')!==0||!/#EXT-X-STREAM-INF:|#EXTINF:/.test(text))return null;
+        }else{
+          if(response.status!==200||/<!DOCTYPE|<!ENTITY/i.test(text)||!/<(?:[\w.-]+:)?MPD\b/.test(text)||
+            !/<(?:[\w.-]+:)?Period\b/.test(text)||!/<(?:[\w.-]+:)?AdaptationSet\b/.test(text)||
+            !/<(?:[\w.-]+:)?Representation\b/.test(text)||!/(?:SegmentTemplate|SegmentList|SegmentBase|BaseURL)\b/.test(text))return null;
+        }
       }
       return response.url||observed.url;
     },1800);
-    if(!checked){log('RESULT: media handoff failed validation or timed out; checks=1');return [];}
-    log('HANDOFF_CHECK: accessible with session headers; stop; native player playback still to be confirmed');
+    if(!checked){log('RESULT: media HTTP validation failed or timed out; checks=1');return [];}
+    log('HANDOFF_CHECK: manifest/file accessible; native segments and playback still require device confirmation');
     return [Object.assign({},original,{url:checked,headers:h})];
-
   }
   module.exports={getStreams:getStreams};
   globalThis.getStreams=getStreams;

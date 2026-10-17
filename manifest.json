@@ -1,6 +1,6 @@
 {
   "name": "Cloudbank",
-  "version": "1.20.42",
+  "version": "1.20.43",
   "scrapers": [
     {
       "id": "kisskh",
@@ -1188,7 +1188,7 @@
       "id": "vidlink",
       "name": "VidLink",
       "description": "Vidlink streaming with encrypted TMDB ID support for movies and TV shows",
-      "version": "1.0.10",
+      "version": "1.1.0",
       "author": "Nuvio Team",
       "supportedTypes": [
         "movie",
@@ -1199,7 +1199,8 @@
       "hasSettings": true,
       "formats": [
         "mp4",
-        "m3u8"
+        "m3u8",
+        "mpd"
       ],
       "logo": "https://i.postimg.cc/RZRHQd75/vidlink.png",
       "contentLanguage": [
@@ -1211,7 +1212,7 @@
         "tv"
       ],
       "upstreamVersion": "1.0.0",
-      "notes": "Stops one original-page WebView on an API-matching native-observed media request with generic v4 companion support. Browser-ready no longer gates final HTTP validation. Exact ID/API route and upstream-host checks retained. One bounded HTTP probe; no retries/subtitle fetches. Logs candidate counts, status and content classification without URL/cookie values. HTTP 428/HTML remain rejected. Device playback unverified.",
+      "notes": "Consolidated same-session API/media extraction. No separate API request or forced playback environment. Captured API token decoded to verify requested TMDB and TV route; explicit metadata conflicts rejected. MPD/DASH, HLS and MP4 supported with actual request or successful response observation, then one bounded native HTTP check. Requires consolidated v5 companion sessionResponseVersion=1. No subtitle fetch, retries, domain/provider/movie constants in native app. Native playback and segment access still require device verification.",
       "sourceRepository": "https://github.com/D3adlyRocket/All-in-One-Nuvio",
       "sourceCommit": "3f09a6ff4360498895e622877af7a32212f75038",
       "runtimeModules": []

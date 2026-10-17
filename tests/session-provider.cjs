@@ -1,26 +1,43 @@
-const fs=require('fs'),vm=require('vm'),assert=require('assert');
-const source=fs.readFileSync(require('path').join(__dirname,'../providers/vidlink.js'),'utf8');
-const raw='https://cdn.test/resource/film.mp4?sign=api',observed='https://flood.sourcerrr.online/mp/resource/film.mp4?sign=browser&headers=%7B%7D&host=https%3A%2F%2Fcdn.test';
+const fs=require('fs'),vm=require('vm'),assert=require('assert'),path=require('path');
+const source=fs.readFileSync(path.join(__dirname,'../providers/vidlink.js'),'utf8');
+const movieToken='AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAniDNpX62ejkySQVTTZ8vDcGBAMZ9dm8Z2cRK4nXgGg';
+const tvToken='rEbHhHU3B_qN4IoZsD3WohImNOHtAjQmz_gW86q1A4ob0XDN56eSQItMzj0KfJevj37EQw';
+const raw='https://cdn.test/film/master.mpd?sign=api';
+const observed='https://flood.sourcerrr.online/sacdn/film/master.mpd?sign=browser&host=https%3A%2F%2Fcdn.test&sc=c2VjcmV0';
+const mpd='<MPD xmlns="urn:mpeg:dash:schema:mpd:2011"><Period><AdaptationSet><Representation><SegmentTemplate media="segment-$Number$.m4s"/></Representation></AdaptationSet></Period></MPD>';
 function load(mode='ok'){
  const calls=[],sessions=[],logs=[];
- const s={module:{exports:{}},URL,setTimeout,clearTimeout,console:{log:x=>logs.push(x),warn(){},error(){}},webviewResolve:async(url,opts)=>{
-  sessions.push({url,opts});assert.equal(calls.length,1);
-  if(mode==='oldapp')return {streams:[]};
-  const row={url:mode==='wrongfile'?observed.replace('film.mp4','other.mp4'):mode==='wronghost'?observed.replace('cdn.test','other.test'):mode==='bloburl'?'blob:https://vidlink.pro/id':observed,mediaReady:!['timeout','timeout428','unsupported','js-first'].includes(mode),networkObserved:mode!=='notnetwork',headers:{Cookie:'session=private',Origin:'https://vidlink.pro',Referer:'https://vidlink.pro/movie/1288069','User-Agent':'native-ua'}};
-  return {networkHandoffVersion:mode==='unsupported'?undefined:1,blobHandoffVersion:1,readinessBasis:mode==='blob'?'blob-single-network':'direct-http',sessionHandoffVersion:1,mediaReady:!['timeout','timeout428','unsupported','js-first'].includes(mode),finishReason:['timeout','timeout428','unsupported'].includes(mode)?'timeout':mode==='js-first'?'network-candidate':'media-ready',capturedCount:1,sessionDiagnosticsVersion:1,diagnostics:{hookSeen:true,pageFinished:true,pageHttpStatus:0,mediaHttpStatus:mode==='timeout'?428:0,pageNetworkError:0,mediaNetworkError:0,mseObserved:false,blobObserved:false,video:{count:1,readyState:mode==='timeout'?0:2,networkState:2,errorCode:0,paused:true,sourceKind:'https',pageSignal:'none',visibility:'hidden'},secret:'do-not-log',cookie:'do-not-log'},streams:mode==='empty'?[]:mode==='js-first'?[Object.assign({},row,{url:row.url.replace('film.mp4','other.mp4'),networkObserved:false}),row]:[row]};
+ const sandbox={module:{exports:{}},URL,setTimeout,clearTimeout,console:{log:v=>logs.push(v),warn(){},error(){}},webviewResolve:async(url,opts)=>{
+  sessions.push({url,opts});assert.equal(calls.length,0,'no separate API call');
+  if(mode==='oldapp')return {sessionHandoffVersion:1};
+  const tv=url.includes('/tv/');
+  let api='https://vidlink.pro/api/b/'+(tv?'tv/'+tvToken+'/1/2':'movie/'+movieToken);
+  if(mode==='wrongid')api='https://vidlink.pro/api/b/movie/'+tvToken;
+  if(mode==='tampered')api=api.replace(movieToken,movieToken.slice(0,-5)+'AAAAA');
+  if(mode==='wrongorigin')api=api.replace('vidlink.pro','wrong.test');
+  if(mode==='wrongepisode')api=api.replace('/1/2','/1/3');
+  let stream={deliveryType:'dash',playlist:raw,playlistHeaders:{Cookie:'upstream=secret'},requiresProxy:true,captions:[{url:'https://subs.test/en.vtt',lang:'en',type:'vtt'}]};
+  if(mode==='mp4')stream={qualities:{1080:{url:'https://cdn.test/film/movie.mp4?sign=api',type:'mp4',requiresProxy:true}}};
+  if(mode==='hls')stream={playlist:'https://cdn.test/film/master.m3u8?sign=api',requiresProxy:true};
+  let media=mode==='mp4'?observed.replace('/sacdn/film/master.mpd','/mp/film/movie.mp4'):mode==='hls'?observed.replace('/sacdn/film/master.mpd','/proxy/film/master.m3u8'):observed;
+  if(mode==='wrongfile')media=media.replace('master.mpd','other.mpd');
+  if(mode==='wronghost')media=media.replace('cdn.test','other.test');
+  const row={url:media,networkObserved:mode==='native',responseObserved:mode!=='unobserved',headers:{Cookie:'session=secret','User-Agent':'observed-ua',Referer:'https://vidlink.pro/movie/1288069'}};
+  return {sessionResponseVersion:1,finishReason:'response-media',mediaReady:false,capturedCount:1,
+   responses:mode==='noapi'?[]:[{url:api,status:mode==='apifail'?403:200,body:{sourceId:'same-session',stream,metadata:mode==='mismatch'?{tmdbId:999}:undefined}}],streams:[row]};
  },fetch:async(url,opts)=>{
-  calls.push({url,opts});
-  if(url.startsWith('https://vidlink.pro/api/b/'))return {ok:true,status:200,json:async()=>({sourceId:'Primary',stream:{qualities:{720:{url:raw,type:'mp4',requiresProxy:true}},captions:[]}})};
-  assert.equal(sessions.length,1);return {ok:!['428','timeout428'].includes(mode),status:['428','timeout428'].includes(mode)?428:206,url,headers:{get:k=>({'content-type':mode==='html'?'text/html':'video/mp4','content-range':'bytes 0-1023/5000000','content-length':'1024'})[k]||null},text:async()=>''};
+  calls.push({url,opts});assert(!url.includes('/api/'));assert.equal(sessions.length,1);
+  const mp4=mode==='mp4',hls=mode==='hls';
+  return {ok:mode!=='428',status:mode==='428'?428:mp4?206:200,url,headers:{get:key=>({'content-type':mode==='html'?'text/html':mp4?'video/mp4':hls?'application/vnd.apple.mpegurl':'application/dash+xml','content-range':'bytes 0-1023/5000000','content-length':'1024'})[key]||null},text:async()=>mode==='badxml'?'<html>fake MPD</html>':mode==='entity'?'<!DOCTYPE MPD SYSTEM "private">'+mpd:hls?'#EXTM3U\n#EXTINF:8,\nsegment.ts':mpd};
  }};
- vm.runInNewContext(source,s);return {get:s.module.exports.getStreams,calls,sessions,logs};
+ vm.runInNewContext(source,sandbox);return {get:sandbox.module.exports.getStreams,calls,sessions,logs};
 }
 (async()=>{
- let x=load(),out=await x.get(1288069,'movie');assert.equal(out.length,1);assert.equal(x.calls.length,2);assert.equal(x.sessions.length,1);assert.equal(x.sessions[0].url,'https://vidlink.pro/movie/1288069');assert.equal(x.sessions[0].opts.waitForMediaReady,true);assert.equal(x.sessions[0].opts.allowBlobMediaReady,true);assert.deepStrictEqual(Array.from(x.sessions[0].opts.mediaHosts),['flood.sourcerrr.online']);assert.deepStrictEqual(Array.from(x.sessions[0].opts.mediaRequestMatchers),['https://flood.sourcerrr.online/mp/resource/film.mp4?host=https%3A%2F%2Fcdn.test']);assert.equal(out[0].url,observed);assert.equal(out[0].headers.Cookie,'session=private');assert.equal(out[0].headers['User-Agent'],'native-ua');assert(!out[0].headers.Range);assert.equal(x.calls[1].opts.headers.Range,'bytes=0-1023');assert(!x.logs.join('').includes('private'));
- for(const mode of ['oldapp','wrongfile','wronghost','notnetwork','empty','bloburl']){x=load(mode);assert.equal((await x.get(1288069,'movie')).length,0,mode);assert.equal(x.calls.length,1,mode);}
- for(const mode of ['428','html','timeout428']){x=load(mode);assert.equal((await x.get(1288069,'movie')).length,0,mode);assert.equal(x.calls.length,2,mode);assert(x.logs.some(l=>l.includes('HANDOFF_HTTP: status=')));}
- for(const mode of ['timeout','unsupported','js-first']){x=load(mode);assert.equal((await x.get(1288069,'movie')).length,1,mode);assert.equal(x.calls.length,2,mode);assert.equal(x.sessions.length,1);assert(x.logs.some(l=>l.includes('browserReady=false')));assert(x.logs.some(l=>l.includes('apiMatched=1')));assert(!x.logs.join('').includes('do-not-log'));}
- x=load('blob');assert.equal((await x.get(1288069,'movie')).length,1);assert.equal(x.calls.length,2);assert(x.logs.some(l=>l.includes('basis=blob-single-network')));
- x=load();await x.get(80539,'tv',1,2);assert.equal(x.sessions[0].url,'https://vidlink.pro/tv/80539/1/2');
- console.log('PASS: one API/session/probe; expected route/upstream matchers; ready=false and timeout reach HTTP; native-observed + API identity required; JS-only/unmatched/blob rejection; 428/HTML rejection; old companion compatibility; session header handoff; scalar-only logs');
+ let x=load(),out=await x.get(1288069,'movie');assert.equal(out.length,1);assert.equal(out[0].type,'dash');assert.equal(out[0].url,observed);assert.equal(out[0].headers.Cookie,'session=secret');assert.equal(out[0].headers['User-Agent'],'observed-ua');assert.equal(out[0].subtitles.length,1);assert.equal(x.calls.length,1);assert.equal(x.sessions[0].opts.captureSessionResponses,true);assert(x.logs.some(l=>l.includes('verifiedRoutes=1')));assert(!x.logs.join('').includes('secret'));assert(!x.calls[0].opts.headers.Range);
+ for(const mode of ['oldapp','wrongid','tampered','wrongorigin','wrongfile','wronghost','unobserved','noapi','apifail','mismatch']){x=load(mode);assert.equal((await x.get(1288069,'movie')).length,0,mode);assert.equal(x.calls.length,0,mode);}
+ for(const mode of ['428','html','badxml','entity']){x=load(mode);assert.equal((await x.get(1288069,'movie')).length,0,mode);assert.equal(x.calls.length,1,mode);}
+ for(const mode of ['native','hls','mp4']){x=load(mode);out=await x.get(1288069,'movie');assert.equal(out.length,1,mode);assert.equal(x.calls.length,1);assert.equal(x.sessions.length,1);if(mode==='mp4')assert.equal(x.calls[0].opts.headers.Range,'bytes=0-1023');}
+ x=load();assert.equal((await x.get(1399,'tv',1,2)).length,1);assert.equal(x.sessions[0].url,'https://vidlink.pro/tv/1399/1/2');
+ x=load('wrongepisode');assert.equal((await x.get(1399,'tv',1,2)).length,0);assert.equal(x.calls.length,0);
+ console.log('PASS: captured real public token fixtures decode to exact movie/TV ID; wrong route/episode/tampered token/metadata rejected; MPD/HLS/MP4 probes; completed-response fallback with nativeObserved=0; native request path; 428/HTML/invalid XML reject; one session + one probe, no separate API/subtitle request; cookie/token values omitted from logs');
 })().catch(e=>{console.error(e);process.exit(1)});
