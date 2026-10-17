@@ -1,4 +1,4 @@
-/* VidLink 1.0.6 — direct HTTP, local public-ID token.
+/* VidLink 1.0.7 — direct HTTP, local public-ID token.
  * VUEO_SHARED_DISCOVERY_CONTEXT_V1: display metadata only; no detail fetch.
  * VUEO_TITLE_PROFILE_V1: exact TMDB route; no fuzzy search or episode fallback.
  * Embedded TweetNaCl.js 1.0.3 (public domain / Unlicense); see docs/TWEETNACL-LICENSE.txt.
@@ -15,7 +15,7 @@ return module.exports;})();
   var SITE_PROXY = 'https://flood.sourcerrr.online';
   var UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36';
   var KEY_HEX = 'c75136c5668bbfe65a7ecad431a745db68b5f381555b38d8f6c699449cf11fcd';
-  var API_MS = 12000;
+  var API_MS = 4000;
   function log(s) { console.log('[VidLink] ' + s); }
   function trace(stage, obj) { try { if (typeof globalThis.vueoTrace === 'function') globalThis.vueoTrace(stage, obj); } catch (_) {} }
   function object(v) { return !!v && typeof v==='object' && !Array.isArray(v); }
@@ -146,9 +146,52 @@ return module.exports;})();
           type:row.kind==='hls'?'hls':'mp4',size:row.size,subtitles:group.captions,provider:'vidlink'});
       });
     });
-    log('HANDOFF: '+out.length+' API sources; site proxy applied='+proxied+'; source headers preserved');
-    log('MODE: one API request; no WebView, encryption service, media probes or subtitle fetches; playback checked by player');
-    return out;
+    if (!out.length) return [];
+    if (typeof globalThis.webviewResolve !== 'function') {log('SESSION: native WebView bridge unavailable');return [];}
+    function identity(url) {
+      try {var u=new URL(url);return u.origin+u.pathname+'|'+(u.searchParams.get('host')||'');}catch(_){return '';}
+    }
+    var expected=Object.create(null),hosts=[];
+    out.forEach(function(row){expected[identity(row.url)]=row;var host=new URL(row.url).hostname;if(hosts.indexOf(host)<0)hosts.push(host);});
+    var player=BASE+'/'+type+'/'+id+(type==='tv'?'/'+s+'/'+e:'');
+    log('SESSION: API sources='+out.length+'; one original-page WebView; wait for media ready; subtitle fetches=0');
+    var session=await bounded(function(){return globalThis.webviewResolve(player,{
+      directLoad:true,referer:BASE+'/',timeoutMs:12000,finishAfterFirstMs:250,
+      waitForMediaReady:true,mediaHosts:hosts,injectAbyssHook:false,captureSubtitles:false,
+      suppressPopups:true,lockMainFrameHost:true,blockMatchedRequests:false,
+      viewportWidth:1080,viewportHeight:1080,clickX:540,clickY:540,
+      interactionTexts:['play','watch now','continue'],clickDelaysMs:[650,1300,2200,3400,5000,7000,9500],
+      match:['.mp4','.m3u8'],blocked:['doubleclick','googlesyndication','googleadservices','adsterra','popads','popcash']
+    });},12500);
+    if (!session || session.sessionHandoffVersion!==1) {log('SESSION: requires companion VUEO session-handoff patch');return [];}
+    log('SESSION: finish='+String(session.finishReason||'unknown')+'; mediaReady='+(session.mediaReady===true)+'; captured='+Number(session.capturedCount||0));
+    if (session.mediaReady!==true) {log('RESULT: browser media not ready before deadline; no native link returned');return [];}
+    var rows=Array.isArray(session.streams)?session.streams:[];
+    var observed=rows.find(function(row){return row&&row.mediaReady===true&&row.networkObserved===true&&expected[identity(row.url)];});
+    if (!observed) {log('RESULT: no ready network request matching API media; no native link returned');return [];}
+    var original=expected[identity(observed.url)],h=cleanHeaders(observed.headers);
+    var checked=await bounded(async function(){
+      var probe=Object.assign({},h);if(original.type==='mp4')probe.Range='bytes=0-1023';
+      var response=await fetch(observed.url,{method:'GET',headers:probe,redirect:'follow'});
+      if (!response.ok) {log('HANDOFF_CHECK: HTTP '+response.status+'; browser session not reusable by native HTTP');return null;}
+      var ct=String(response.headers.get('content-type')||'').toLowerCase();
+      if (/text\/html|application\/json/.test(ct)) return null;
+      if(original.type==='mp4') {
+        var range=String(response.headers.get('content-range')||''),total=/\/(\d+)\s*$/.exec(range);
+        var size=total?Number(total[1]):Number(response.headers.get('content-length')||0);
+        if(response.status!==200&&response.status!==206)return null;
+        if(response.status===206&&!/^bytes\s+0-\d+\//i.test(range))return null;
+        if(!/^video\/mp4/.test(ct)||size<524288)return null;
+      } else {
+        var text=String(await response.text()).replace(/^\uFEFF/,'').trim();
+        if(text.indexOf('#EXTM3U')!==0||!/#EXT-X-STREAM-INF:|#EXTINF:/.test(text))return null;
+      }
+      return response.url||observed.url;
+    },1800);
+    if(!checked){log('RESULT: media handoff failed validation');return [];}
+    log('HANDOFF_CHECK: accessible with session headers; stop; native player playback still to be confirmed');
+    return [Object.assign({},original,{url:checked,headers:h})];
+
   }
   module.exports={getStreams:getStreams};
   globalThis.getStreams=getStreams;
