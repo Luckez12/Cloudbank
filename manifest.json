@@ -1,6 +1,6 @@
 {
   "name": "Cloudbank",
-  "version": "1.20.30",
+  "version": "1.20.31",
   "scrapers": [
     {
       "id": "kisskh",
@@ -1700,7 +1700,7 @@
       "id": "vidsrc-to",
       "name": "VidSrc.to",
       "description": "Exact TMDB movie/episode embed with native WebView session and HLS validation",
-      "version": "1.0.1",
+      "version": "1.0.2",
       "author": "Kurato",
       "supportedTypes": [
         "movie",
@@ -1716,7 +1716,7 @@
       "disabledPlatforms": [],
       "supportsExternalPlayer": true,
       "runtimeTimeoutMs": 20000,
-      "notes": "Requires companion VUEO native subtitle-capture patch for sidecars. Unwrap only an observed vsembed.ru iframe with exact movie/season/episode path, otherwise retain original embed. One WebView session; optional structured track capture; at most 8 sidecars checked concurrently for timed VTT/SRT cues. HTML, empty files and thumbnail sprites rejected. Preserves sidecar playback headers. Existing HLS extraction and old-bridge video fallback retained. Live subtitle discovery/playback unverified; no Cloudflare bypass guarantee."
+      "notes": "Recovery: restores the v1.0.0 VidSrc.to WebView entry, Yumeflix Referer and 500ms finish grace. Removes v1.0.1 iframe unwrapping/HTML preflight. Optional subtitle payload validation retained; does not navigate directly to vsembed.ru. Native subtitle capture requires companion app support; standalone subtitle completeness and live recovery require device verification."
     }
   ]
 }

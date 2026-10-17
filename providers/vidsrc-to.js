@@ -1,4 +1,4 @@
-/* VidSrc.to 1.0.1 — direct TMDB embed route, existing VUEO WebView.
+/* VidSrc.to 1.0.2 — direct TMDB embed route, existing VUEO WebView.
  * VUEO_SHARED_DISCOVERY_CONTEXT_V1: metadata is for display only.
  * VUEO_TITLE_PROFILE_V1: exact TMDB route; no fuzzy title search.
  * Confirmed docs: https://vidsrc.to/ ; movie + episode HTML fetched 2026-10-17.
@@ -83,22 +83,6 @@
     log('SUBTITLE: validated=' + out.length + '; cue text checked');
     return out;
   }
-  async function playerRoute(embed, id, type, season, episode) {
-    var found = await bounded(async function() {
-      var response = await fetch(embed, {headers:{Referer:'https://yumeflix.site/'}});
-      if (!response.ok) return null;
-      var html = await response.text();
-      var matches = html.match(/<iframe\b[^>]*\bsrc=["']([^"']+)["']/i);
-      if (!matches) return null;
-      var url = new URL(matches[1].replace(/&amp;/g,'&'), embed);
-      var wanted = type==='movie'?'/embed/movie/'+id:'/embed/tv/'+id+'/'+season+'-'+episode;
-      // Only unwrap the actual, observed VidSrc.to player and preserve exact identity.
-      if (url.protocol!=='https:' || url.hostname!=='vsembed.ru' || url.pathname.replace(/\/$/,'')!==wanted) return null;
-      return url.href;
-    }, 1600);
-    log('PLAYER: ' + (found?'observed exact-ID iframe; track hooks on player document':'original embed fallback'));
-    return found || embed;
-  }
   async function getStreams(tmdbId, mediaType, season, episode) {
     var id = String(tmdbId || ''), type = mediaType === 'series' ? 'tv' : mediaType;
     if (!/^[1-9]\d*$/.test(id) || (type !== 'movie' && type !== 'tv')) return [];
@@ -112,12 +96,13 @@
     if (typeof globalThis.webviewResolve !== 'function') {
       log('UNAVAILABLE: native webviewResolve bridge required'); return [];
     }
-    var player = await playerRoute(embed, id, type, season, episode);
+    var player = embed;
+    log('PLAYER: original VidSrc.to entry; preserve iframe context');
     log('WEBVIEW: one session; native JavaScript/cookies; no HTTP preflight');
     var result = await bounded(function () {
       return globalThis.webviewResolve(player, {
-        referer: embed, directLoad: true, captureSubtitles: true, timeoutMs: 12000,
-        finishAfterFirstMs: 700, suppressPopups: true, lockMainFrameHost: false,
+        referer: 'https://yumeflix.site/', directLoad: true, captureSubtitles: true, timeoutMs: 12000,
+        finishAfterFirstMs: 500, suppressPopups: true, lockMainFrameHost: false,
         interactionTexts: ['play', 'watch now', 'continue'], viewportWidth: 1080, viewportHeight: 1080,
         clickX: 540, clickY: 600, clickDelaysMs: [650, 1300, 2200, 3400, 5000, 7000, 9500],
         match: ['.m3u8'], blocked: BLOCKED
