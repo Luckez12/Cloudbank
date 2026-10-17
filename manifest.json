@@ -1,6 +1,6 @@
 {
   "name": "Cloudbank",
-  "version": "1.20.28",
+  "version": "1.20.29",
   "scrapers": [
     {
       "id": "kisskh",
@@ -1695,6 +1695,28 @@
       "supportsExternalPlayer": true,
       "runtimeTimeoutMs": 20000,
       "notes": "v1.0.3: Auto only for verified multi-variant HLS masters; known single-variant resolution uses Np; media-only, MP4 and unreadable playlists use Unknown. Maximum advertised master resolution in source title/log. Preserves v1.0.2 URLs, headers, no-dub policy and no segment probes. App-side current playback dimensions require separate VUEO changes."
+    },
+    {
+      "id": "vidsrc-to",
+      "name": "VidSrc.to",
+      "description": "Exact TMDB movie/episode embed with native WebView session and HLS validation",
+      "version": "1.0.0",
+      "author": "Kurato",
+      "supportedTypes": [
+        "movie",
+        "tv"
+      ],
+      "filename": "providers/vidsrc-to.js",
+      "enabled": true,
+      "limited": false,
+      "formats": [
+        "m3u8"
+      ],
+      "logo": "https://www.google.com/s2/favicons?domain=vidsrc.to&sz=128",
+      "disabledPlatforms": [],
+      "supportsExternalPlayer": true,
+      "runtimeTimeoutMs": 20000,
+      "notes": "Separate from existing VidSrc (whisperingauroras.com/vidsrc.me). Requires VUEO webviewResolve. One exact TMDB embed route; native JavaScript and cookie session. No title search, metadata HTTP, guessed API or cross-provider fallback. Captured HLS validated with original playback headers. Cloudflare may still block WebView; no CAPTCHA interaction/solver. Live Android playback and audiovisual identity unverified. HLS-only first release."
     }
   ]
 }
