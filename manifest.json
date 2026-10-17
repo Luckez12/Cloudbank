@@ -1,6 +1,6 @@
 {
   "name": "Cloudbank",
-  "version": "1.20.43",
+  "version": "1.20.44",
   "scrapers": [
     {
       "id": "kisskh",
@@ -1018,7 +1018,7 @@
       "id": "playimdb",
       "name": "PlayIMDb",
       "description": "High-Speed Direct Streaming for Movies (IMDb ID Extract)",
-      "version": "2.0.3",
+      "version": "2.0.4",
       "author": "PirateZoro9",
       "supportedTypes": [
         "movie",
