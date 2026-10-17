@@ -1,6 +1,6 @@
 {
   "name": "Cloudbank",
-  "version": "1.20.44",
+  "version": "1.20.45",
   "scrapers": [
     {
       "id": "kisskh",
@@ -919,8 +919,8 @@
     {
       "id": "movix",
       "name": "Movix VF",
-      "description": "Movies and TV series in English & French (dubbed/subtitled)",
-      "version": "1.0.4",
+      "description": "Original-audio Movies and TV: VOSTFR/VO, verified original-language multi-audio; foreign dubs excluded",
+      "version": "1.1.0",
       "author": "wooodyhood",
       "supportedTypes": [
         "movie",
@@ -944,7 +944,7 @@
         "tv"
       ],
       "upstreamVersion": "1.0.0",
-      "notes": "Imported from D3adlyRocket/All-in-One-Nuvio at 3f09a6ff4360498895e622877af7a32212f75038. Cloudbank adapter preserves upstream extraction/settings, uses shared TMDB detail metadata when available, caps async result wait at 19s, and returns valid stream arrays. Playback and host settings support require app testing.",
+      "notes": "Imported from D3adlyRocket/All-in-One-Nuvio at 3f09a6ff4360498895e622877af7a32212f75038. Cloudbank adapter preserves upstream extraction/settings, uses shared TMDB detail metadata when available, caps async result wait at 19s, and returns valid stream arrays. Playback and host settings support require app testing. Cloudbank 1.1.0 original-audio policy filters foreign VF dubs before resolution, verifies original audio in ambiguous MULTI HLS masters, and falls back on empty original-only results.",
       "sourceRepository": "https://github.com/D3adlyRocket/All-in-One-Nuvio",
       "sourceCommit": "3f09a6ff4360498895e622877af7a32212f75038",
       "runtimeModules": []
