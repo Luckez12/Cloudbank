@@ -1,6 +1,6 @@
 {
   "name": "Cloudbank",
-  "version": "1.20.36",
+  "version": "1.20.37",
   "scrapers": [
     {
       "id": "kisskh",
@@ -1717,27 +1717,6 @@
       "supportsExternalPlayer": true,
       "runtimeTimeoutMs": 20000,
       "notes": "Recovery: restores the v1.0.0 VidSrc.to WebView entry, Yumeflix Referer and 500ms finish grace. Removes v1.0.1 iframe unwrapping/HTML preflight. Optional subtitle payload validation retained; does not navigate directly to vsembed.ru. Native subtitle capture requires companion app support; standalone subtitle completeness and live recovery require device verification."
-    },
-    {
-      "id": "vidlink-http-test",
-      "name": "VidLink API Test",
-      "description": "Restored API route; site first-quality selection and bounded media validation",
-      "version": "0.3.0",
-      "author": "Kurato",
-      "supportedTypes": [
-        "movie",
-        "tv"
-      ],
-      "filename": "providers/vidlink-http-test.js",
-      "enabled": true,
-      "limited": false,
-      "formats": [
-        "m3u8",
-        "mp4"
-      ],
-      "runtimeTimeoutMs": 20000,
-      "runtimeModules": [],
-      "notes": "Restores working API discovery after WebView-only regression. One API request, at most two media GET checks. Starts with first numeric quality as observed in original player, then one alternative; stops after first valid source. No WebView, no subtitle fetches, no app changes. Returned identity conflicts rejected. Upstream content identity and on-device playback remain unverified; this is a limited test, not a confirmed 428 fix."
     }
   ]
 }
