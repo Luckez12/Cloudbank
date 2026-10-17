@@ -1,6 +1,6 @@
 {
   "name": "Cloudbank",
-  "version": "1.20.41",
+  "version": "1.20.42",
   "scrapers": [
     {
       "id": "kisskh",
@@ -1188,7 +1188,7 @@
       "id": "vidlink",
       "name": "VidLink",
       "description": "Vidlink streaming with encrypted TMDB ID support for movies and TV shows",
-      "version": "1.0.9",
+      "version": "1.0.10",
       "author": "Nuvio Team",
       "supportedTypes": [
         "movie",
@@ -1211,7 +1211,7 @@
         "tv"
       ],
       "upstreamVersion": "1.0.0",
-      "notes": "Enables generic companion-app MSE/blob readiness (v3 app patch required for blob path). One healthy observed MSE video plus one eligible native-observed media URL; API identity/upstream-host and final HTTP checks retained. No added request, timeout, retry or subtitle fetch. Blob correlation is not byte provenance; native HTTP 428 still rejects the source. Playback not yet verified.",
+      "notes": "Stops one original-page WebView on an API-matching native-observed media request with generic v4 companion support. Browser-ready no longer gates final HTTP validation. Exact ID/API route and upstream-host checks retained. One bounded HTTP probe; no retries/subtitle fetches. Logs candidate counts, status and content classification without URL/cookie values. HTTP 428/HTML remain rejected. Device playback unverified.",
       "sourceRepository": "https://github.com/D3adlyRocket/All-in-One-Nuvio",
       "sourceCommit": "3f09a6ff4360498895e622877af7a32212f75038",
       "runtimeModules": []

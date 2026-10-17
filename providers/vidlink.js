@@ -1,4 +1,4 @@
-/* VidLink 1.0.9 — API + WebView session handoff, local public-ID token.
+/* VidLink 1.0.10 — API + WebView session handoff, local public-ID token.
  * VUEO_SHARED_DISCOVERY_CONTEXT_V1: display metadata only; no detail fetch.
  * VUEO_TITLE_PROFILE_V1: exact TMDB route; no fuzzy search or episode fallback.
  * Embedded TweetNaCl.js 1.0.3 (public domain / Unlicense); see docs/TWEETNACL-LICENSE.txt.
@@ -151,13 +151,20 @@ return module.exports;})();
     function identity(url) {
       try {var u=new URL(url);return u.origin+u.pathname+'|'+(u.searchParams.get('host')||'');}catch(_){return '';}
     }
-    var expected=Object.create(null),hosts=[];
-    out.forEach(function(row){expected[identity(row.url)]=row;var host=new URL(row.url).hostname;if(hosts.indexOf(host)<0)hosts.push(host);});
+    var expected=Object.create(null),hosts=[],matchers=[];
+    out.forEach(function(row){
+      expected[identity(row.url)]=row;
+      var u=new URL(row.url),host=u.hostname;
+      if(hosts.indexOf(host)<0)hosts.push(host);
+      var matcher=u.origin+u.pathname,upstream=u.searchParams.get('host');
+      if(upstream)matcher+='?host='+encodeURIComponent(upstream);
+      if(matchers.indexOf(matcher)<0)matchers.push(matcher);
+    });
     var player=BASE+'/'+type+'/'+id+(type==='tv'?'/'+s+'/'+e:'');
-    log('SESSION: API sources='+out.length+'; one original-page WebView; wait for media ready; subtitle fetches=0');
+    log('SESSION: API sources='+out.length+'; one original-page WebView; stop on matching observed media request; subtitle fetches=0');
     var session=await bounded(function(){return globalThis.webviewResolve(player,{
       directLoad:true,referer:BASE+'/',timeoutMs:12000,finishAfterFirstMs:250,
-      waitForMediaReady:true,allowBlobMediaReady:true,mediaHosts:hosts,injectAbyssHook:false,captureSubtitles:false,
+      waitForMediaReady:true,allowBlobMediaReady:true,mediaHosts:hosts,mediaRequestMatchers:matchers,injectAbyssHook:false,captureSubtitles:false,
       suppressPopups:true,lockMainFrameHost:true,blockMatchedRequests:false,
       viewportWidth:1080,viewportHeight:1080,clickX:540,clickY:540,
       interactionTexts:['play','watch now','continue'],clickDelaysMs:[650,1300,2200,3400,5000,7000,9500],
@@ -180,30 +187,37 @@ return module.exports;})();
         ' visibility='+state('visibility',['visible','hidden','prerender']));
     } else log('WEBVIEW_STATE: diagnostic companion app update required; session behavior unchanged');
     log('READINESS: blobSupport='+(session.blobHandoffVersion===1)+' basis='+(['none','direct-http','blob-single-network'].indexOf(session.readinessBasis)>=0?session.readinessBasis:'unknown'));
-    if (session.mediaReady!==true) {log('RESULT: browser media not ready before deadline; no native link returned');return [];}
     var rows=Array.isArray(session.streams)?session.streams:[];
-    var observed=rows.find(function(row){return row&&row.mediaReady===true&&row.networkObserved===true&&expected[identity(row.url)];});
-    if (!observed) {log('RESULT: no ready network request matching API media; no native link returned');return [];}
+    var network=rows.filter(function(row){return row&&row.networkObserved===true;});
+    var matching=network.filter(function(row){return expected[identity(row.url)];});
+    log('CANDIDATES: nativeObserved='+network.length+' apiMatched='+matching.length+
+      ' earlyStopSupport='+(session.networkHandoffVersion===1));
+    var observed=matching.find(function(row){return row.mediaReady===true;})||matching[0];
+    if (!observed) {log('RESULT: no observed network request matching API media; checks=0');return [];}
     var original=expected[identity(observed.url)],h=cleanHeaders(observed.headers);
+    log('HANDOFF_CHECK: transport='+original.type+' browserReady='+(session.mediaReady===true)+
+      '; one HTTP check with observed session headers');
     var checked=await bounded(async function(){
       var probe=Object.assign({},h);if(original.type==='mp4')probe.Range='bytes=0-1023';
       var response=await fetch(observed.url,{method:'GET',headers:probe,redirect:'follow'});
-      if (!response.ok) {log('HANDOFF_CHECK: HTTP '+response.status+'; browser session not reusable by native HTTP');return null;}
       var ct=String(response.headers.get('content-type')||'').toLowerCase();
-      if (/text\/html|application\/json/.test(ct)) return null;
+      var contentKind=/text\/html/.test(ct)?'html':/application\/json/.test(ct)?'json':/^video\/mp4/.test(ct)?'mp4':/mpegurl/.test(ct)?'hls':'other';
+      log('HANDOFF_HTTP: status='+Number(response.status)+' content='+contentKind);
+      if (!response.ok) {log('HANDOFF_CHECK: HTTP '+Number(response.status)+'; native HTTP access rejected');return null;}
+      if (/text\/html|application\/json/.test(ct)) {log('HANDOFF_REJECT: non-media response');return null;}
       if(original.type==='mp4') {
         var range=String(response.headers.get('content-range')||''),total=/\/(\d+)\s*$/.exec(range);
         var size=total?Number(total[1]):Number(response.headers.get('content-length')||0);
-        if(response.status!==200&&response.status!==206)return null;
-        if(response.status===206&&!/^bytes\s+0-\d+\//i.test(range))return null;
-        if(!/^video\/mp4/.test(ct)||size<524288)return null;
+        if(response.status!==200&&response.status!==206){log('HANDOFF_REJECT: unsupported MP4 status');return null;}
+        if(response.status===206&&!/^bytes\s+0-\d+\//i.test(range)){log('HANDOFF_REJECT: invalid initial byte range');return null;}
+        if(!/^video\/mp4/.test(ct)||size<524288){log('HANDOFF_REJECT: MP4 content type or file size');return null;}
       } else {
         var text=String(await response.text()).replace(/^\uFEFF/,'').trim();
-        if(text.indexOf('#EXTM3U')!==0||!/#EXT-X-STREAM-INF:|#EXTINF:/.test(text))return null;
+        if(text.indexOf('#EXTM3U')!==0||!/#EXT-X-STREAM-INF:|#EXTINF:/.test(text)){log('HANDOFF_REJECT: invalid HLS playlist');return null;}
       }
       return response.url||observed.url;
     },1800);
-    if(!checked){log('RESULT: media handoff failed validation');return [];}
+    if(!checked){log('RESULT: media handoff failed validation or timed out; checks=1');return [];}
     log('HANDOFF_CHECK: accessible with session headers; stop; native player playback still to be confirmed');
     return [Object.assign({},original,{url:checked,headers:h})];
 
