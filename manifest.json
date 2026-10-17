@@ -1,6 +1,6 @@
 {
   "name": "Cloudbank",
-  "version": "1.20.40",
+  "version": "1.20.41",
   "scrapers": [
     {
       "id": "kisskh",
@@ -411,7 +411,7 @@
     {
       "id": "cineby",
       "name": "Cineby",
-      "description": "Multi-server movie and TV streaming \u2014 4K/1080p/720p from Videasy network without subtitles",
+      "description": "Multi-server movie and TV streaming — 4K/1080p/720p from Videasy network without subtitles",
       "version": "1.9.6",
       "author": "Nuvio Team",
       "supportedTypes": [
@@ -753,7 +753,7 @@
       "name": "HindMoviez",
       "description": "HindMoviez - Hindi & English Movies and Series (480p / 720p / 1080p / 4K)",
       "version": "1.0.5",
-      "author": "Sanchit (@S4NCHITT) \u2014 Murph's Streams",
+      "author": "Sanchit (@S4NCHITT) — Murph's Streams",
       "supportedTypes": [
         "movie",
         "tv"
@@ -981,7 +981,7 @@
     {
       "id": "peachify",
       "name": "Peachify",
-      "description": "Streams from peachify.top \u2014 3 server sources (MovieBox/Holly/Air) via Cloudflare Workers with AES-256-GCM decryption",
+      "description": "Streams from peachify.top — 3 server sources (MovieBox/Holly/Air) via Cloudflare Workers with AES-256-GCM decryption",
       "version": "1.0.4",
       "author": "piratezoro9",
       "supportedTypes": [
@@ -1051,7 +1051,7 @@
     {
       "id": "torrentio",
       "name": "Torrentio",
-      "description": "Torrentio \u2013 Torrent streaming. Supports optional debrid services.",
+      "description": "Torrentio – Torrent streaming. Supports optional debrid services.",
       "version": "1.0.4",
       "author": "Nuvio Team",
       "supportedTypes": [
@@ -1188,7 +1188,7 @@
       "id": "vidlink",
       "name": "VidLink",
       "description": "Vidlink streaming with encrypted TMDB ID support for movies and TV shows",
-      "version": "1.0.8",
+      "version": "1.0.9",
       "author": "Nuvio Team",
       "supportedTypes": [
         "movie",
@@ -1211,7 +1211,7 @@
         "tv"
       ],
       "upstreamVersion": "1.0.0",
-      "notes": "Diagnostic-only update for v1.0.7 timeout. Companion app adds bounded state from the existing WebView: ready/network/error codes, source scheme, known page-message classifications, existing HTTP error callbacks. No extra HTTP, timer, cookies/URL/body logging, retry or readiness-policy changes. Existing companion v1 remains compatible but lacks diagnostic fields. Playback recovery is not claimed.",
+      "notes": "Enables generic companion-app MSE/blob readiness (v3 app patch required for blob path). One healthy observed MSE video plus one eligible native-observed media URL; API identity/upstream-host and final HTTP checks retained. No added request, timeout, retry or subtitle fetch. Blob correlation is not byte provenance; native HTTP 428 still rejects the source. Playback not yet verified.",
       "sourceRepository": "https://github.com/D3adlyRocket/All-in-One-Nuvio",
       "sourceCommit": "3f09a6ff4360498895e622877af7a32212f75038",
       "runtimeModules": []

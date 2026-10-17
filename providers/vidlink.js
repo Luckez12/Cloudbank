@@ -1,4 +1,4 @@
-/* VidLink 1.0.8 — direct HTTP, local public-ID token.
+/* VidLink 1.0.9 — API + WebView session handoff, local public-ID token.
  * VUEO_SHARED_DISCOVERY_CONTEXT_V1: display metadata only; no detail fetch.
  * VUEO_TITLE_PROFILE_V1: exact TMDB route; no fuzzy search or episode fallback.
  * Embedded TweetNaCl.js 1.0.3 (public domain / Unlicense); see docs/TWEETNACL-LICENSE.txt.
@@ -157,7 +157,7 @@ return module.exports;})();
     log('SESSION: API sources='+out.length+'; one original-page WebView; wait for media ready; subtitle fetches=0');
     var session=await bounded(function(){return globalThis.webviewResolve(player,{
       directLoad:true,referer:BASE+'/',timeoutMs:12000,finishAfterFirstMs:250,
-      waitForMediaReady:true,mediaHosts:hosts,injectAbyssHook:false,captureSubtitles:false,
+      waitForMediaReady:true,allowBlobMediaReady:true,mediaHosts:hosts,injectAbyssHook:false,captureSubtitles:false,
       suppressPopups:true,lockMainFrameHost:true,blockMatchedRequests:false,
       viewportWidth:1080,viewportHeight:1080,clickX:540,clickY:540,
       interactionTexts:['play','watch now','continue'],clickDelaysMs:[650,1300,2200,3400,5000,7000,9500],
@@ -179,6 +179,7 @@ return module.exports;})();
         ' pageSignal='+state('pageSignal',['none','sandbox_required','human_verification','access_denied','unavailable'])+
         ' visibility='+state('visibility',['visible','hidden','prerender']));
     } else log('WEBVIEW_STATE: diagnostic companion app update required; session behavior unchanged');
+    log('READINESS: blobSupport='+(session.blobHandoffVersion===1)+' basis='+(['none','direct-http','blob-single-network'].indexOf(session.readinessBasis)>=0?session.readinessBasis:'unknown'));
     if (session.mediaReady!==true) {log('RESULT: browser media not ready before deadline; no native link returned');return [];}
     var rows=Array.isArray(session.streams)?session.streams:[];
     var observed=rows.find(function(row){return row&&row.mediaReady===true&&row.networkObserved===true&&expected[identity(row.url)];});
