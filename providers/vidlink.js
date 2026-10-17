@@ -1,4 +1,4 @@
-/* VidLink 1.0.7 — direct HTTP, local public-ID token.
+/* VidLink 1.0.8 — direct HTTP, local public-ID token.
  * VUEO_SHARED_DISCOVERY_CONTEXT_V1: display metadata only; no detail fetch.
  * VUEO_TITLE_PROFILE_V1: exact TMDB route; no fuzzy search or episode fallback.
  * Embedded TweetNaCl.js 1.0.3 (public domain / Unlicense); see docs/TWEETNACL-LICENSE.txt.
@@ -165,6 +165,20 @@ return module.exports;})();
     });},12500);
     if (!session || session.sessionHandoffVersion!==1) {log('SESSION: requires companion VUEO session-handoff patch');return [];}
     log('SESSION: finish='+String(session.finishReason||'unknown')+'; mediaReady='+(session.mediaReady===true)+'; captured='+Number(session.capturedCount||0));
+    if (session.sessionDiagnosticsVersion===1 && object(session.diagnostics)) {
+      var d=session.diagnostics,v=object(d.video)?d.video:{};
+      function number(o,k,min,max) {var n=o[k];return typeof n==='number'&&Number.isFinite(n)?Math.max(min,Math.min(max,Math.trunc(n))):'unknown';}
+      function state(k,allowed) {return allowed.indexOf(v[k])>=0?v[k]:'unknown';}
+      log('WEBVIEW_STATE: hook='+String(d.hookSeen===true)+' pageFinished='+String(d.pageFinished===true)+
+        ' pageHTTP='+number(d,'pageHttpStatus',0,599)+' mediaHTTP='+number(d,'mediaHttpStatus',0,599)+
+        ' pageNetError='+number(d,'pageNetworkError',-100,0)+' mediaNetError='+number(d,'mediaNetworkError',-100,0)+
+        ' mseObserved='+String(d.mseObserved===true)+' blobObserved='+String(d.blobObserved===true));
+      log('VIDEO_STATE: count='+number(v,'count',0,16)+' readyState='+number(v,'readyState',-1,4)+
+        ' networkState='+number(v,'networkState',-1,3)+' errorCode='+number(v,'errorCode',0,4)+
+        ' paused='+String(v.paused!==false)+' sourceKind='+state('sourceKind',['http','https','blob','none','other'])+
+        ' pageSignal='+state('pageSignal',['none','sandbox_required','human_verification','access_denied','unavailable'])+
+        ' visibility='+state('visibility',['visible','hidden','prerender']));
+    } else log('WEBVIEW_STATE: diagnostic companion app update required; session behavior unchanged');
     if (session.mediaReady!==true) {log('RESULT: browser media not ready before deadline; no native link returned');return [];}
     var rows=Array.isArray(session.streams)?session.streams:[];
     var observed=rows.find(function(row){return row&&row.mediaReady===true&&row.networkObserved===true&&expected[identity(row.url)];});

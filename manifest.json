@@ -1,6 +1,6 @@
 {
   "name": "Cloudbank",
-  "version": "1.20.39",
+  "version": "1.20.40",
   "scrapers": [
     {
       "id": "kisskh",
@@ -1188,7 +1188,7 @@
       "id": "vidlink",
       "name": "VidLink",
       "description": "Vidlink streaming with encrypted TMDB ID support for movies and TV shows",
-      "version": "1.0.7",
+      "version": "1.0.8",
       "author": "Nuvio Team",
       "supportedTypes": [
         "movie",
@@ -1211,7 +1211,7 @@
         "tv"
       ],
       "upstreamVersion": "1.0.0",
-      "notes": "Requires companion VUEO session-handoff v1 patch based on app repo 54. Exact API candidates -> one original-page WebView -> wait for actual video data -> matching observed network URL/headers/cookies -> one HTTP check outside WebView. No subtitle HTTP or added test provider. Default resolver behavior for other providers retained. Does not claim Cloudflare clearance, native playback recovery or upstream audiovisual identity.",
+      "notes": "Diagnostic-only update for v1.0.7 timeout. Companion app adds bounded state from the existing WebView: ready/network/error codes, source scheme, known page-message classifications, existing HTTP error callbacks. No extra HTTP, timer, cookies/URL/body logging, retry or readiness-policy changes. Existing companion v1 remains compatible but lacks diagnostic fields. Playback recovery is not claimed.",
       "sourceRepository": "https://github.com/D3adlyRocket/All-in-One-Nuvio",
       "sourceCommit": "3f09a6ff4360498895e622877af7a32212f75038",
       "runtimeModules": []
