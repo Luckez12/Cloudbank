@@ -1,6 +1,6 @@
 {
   "name": "Cloudbank",
-  "version": "1.20.37",
+  "version": "1.20.38",
   "scrapers": [
     {
       "id": "kisskh",
@@ -1188,7 +1188,7 @@
       "id": "vidlink",
       "name": "VidLink",
       "description": "Vidlink streaming with encrypted TMDB ID support for movies and TV shows",
-      "version": "1.0.5",
+      "version": "1.0.6",
       "author": "Nuvio Team",
       "supportedTypes": [
         "movie",
@@ -1205,13 +1205,13 @@
       "contentLanguage": [
         "en"
       ],
-      "runtimeTimeoutMs": 20000,
+      "runtimeTimeoutMs": 15000,
       "upstreamSupportedTypes": [
         "movie",
         "tv"
       ],
       "upstreamVersion": "1.0.0",
-      "notes": "Imported from D3adlyRocket/All-in-One-Nuvio at 3f09a6ff4360498895e622877af7a32212f75038. Cloudbank adapter preserves upstream extraction/settings, uses shared TMDB detail metadata when available, caps async result wait at 19s, and returns valid stream arrays. Playback and host settings support require app testing.",
+      "notes": "Repairs original VidLink API handoff: current requiresProxy mapping, per-source upstream header payload, separate proxy playback headers, explicit media types, exact route/conflict guards. Local public-ID token replaces enc-dec HTTP. Existing display formatter retained. One API request; no WebView/media probes/subtitle fetches. Playback recovery, upstream audiovisual identity and native proxy acceptance are not guaranteed; prior test proxy HTTP 428 remains unresolved until device playback confirms otherwise.",
       "sourceRepository": "https://github.com/D3adlyRocket/All-in-One-Nuvio",
       "sourceCommit": "3f09a6ff4360498895e622877af7a32212f75038",
       "runtimeModules": []
