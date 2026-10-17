@@ -1,6 +1,6 @@
 {
   "name": "Cloudbank",
-  "version": "1.20.34",
+  "version": "1.20.35",
   "scrapers": [
     {
       "id": "kisskh",
@@ -411,7 +411,7 @@
     {
       "id": "cineby",
       "name": "Cineby",
-      "description": "Multi-server movie and TV streaming — 4K/1080p/720p from Videasy network without subtitles",
+      "description": "Multi-server movie and TV streaming \u2014 4K/1080p/720p from Videasy network without subtitles",
       "version": "1.9.6",
       "author": "Nuvio Team",
       "supportedTypes": [
@@ -753,7 +753,7 @@
       "name": "HindMoviez",
       "description": "HindMoviez - Hindi & English Movies and Series (480p / 720p / 1080p / 4K)",
       "version": "1.0.5",
-      "author": "Sanchit (@S4NCHITT) — Murph's Streams",
+      "author": "Sanchit (@S4NCHITT) \u2014 Murph's Streams",
       "supportedTypes": [
         "movie",
         "tv"
@@ -981,7 +981,7 @@
     {
       "id": "peachify",
       "name": "Peachify",
-      "description": "Streams from peachify.top — 3 server sources (MovieBox/Holly/Air) via Cloudflare Workers with AES-256-GCM decryption",
+      "description": "Streams from peachify.top \u2014 3 server sources (MovieBox/Holly/Air) via Cloudflare Workers with AES-256-GCM decryption",
       "version": "1.0.4",
       "author": "piratezoro9",
       "supportedTypes": [
@@ -1051,7 +1051,7 @@
     {
       "id": "torrentio",
       "name": "Torrentio",
-      "description": "Torrentio – Torrent streaming. Supports optional debrid services.",
+      "description": "Torrentio \u2013 Torrent streaming. Supports optional debrid services.",
       "version": "1.0.4",
       "author": "Nuvio Team",
       "supportedTypes": [
@@ -1720,9 +1720,9 @@
     },
     {
       "id": "vidlink-http-test",
-      "name": "VidLink HTTP Test",
-      "description": "On-device HTTP test: local TMDB token and current site proxy",
-      "version": "0.1.2",
+      "name": "VidLink WebView Test",
+      "description": "One original VidLink page session; validate captured media with session headers",
+      "version": "0.2.0",
       "author": "Kurato",
       "supportedTypes": [
         "movie",
@@ -1737,7 +1737,7 @@
       ],
       "runtimeTimeoutMs": 20000,
       "runtimeModules": [],
-      "notes": "Targeted error-evidence update after on-device API success and both HEAD/GET media HTTP 428. Reads sanitized error body and selected headers from the existing failed response only. No added requests, no new endpoint, no WebView, no retries or app patch. Playback recovery is not claimed."
+      "notes": "Replaces HTTP Test in place with original-page WebView test. No HTTP preflight or token service. Existing native bridge only. Preserves captured cookies/headers, verifies HLS text or MP4 GET range, returns first valid transport. No subtitle requests. Captured URL and HTTP accessibility do not prove audiovisual identity. Device playback remains unverified."
     }
   ]
 }
