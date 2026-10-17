@@ -1,6 +1,6 @@
 {
   "name": "Cloudbank",
-  "version": "1.20.32",
+  "version": "1.20.33",
   "scrapers": [
     {
       "id": "kisskh",
@@ -1722,7 +1722,7 @@
       "id": "vidlink-http-test",
       "name": "VidLink HTTP Test",
       "description": "On-device HTTP test: local TMDB token and current site proxy",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "author": "Kurato",
       "supportedTypes": [
         "movie",
@@ -1737,7 +1737,7 @@
       ],
       "runtimeTimeoutMs": 20000,
       "runtimeModules": [],
-      "notes": "User-authorized on-device test of flood.sourcerrr.online with source URL tokens and headers, matching the VidLink site. Existing VidLink remains unchanged. Local public-ID token, exact requested route, source header handling and HLS preference. Captions forwarded from the same API response without subtitle HTTP. No VUEO patch or WebView. Proxy rejected development-network probes with 403; playback on user device remains unverified. Do not treat as a proven replacement."
+      "notes": "On-device test update: replaces MP4 HEAD check with GET Range bytes=0-1023 to match playback method. Accepts valid 206 Content-Range total, or 200 video/mp4 with adequate length. Probe Range is not forwarded into playback headers. No extra API, subtitle or WebView requests. Live GET recovery remains unverified. Existing VidLink preserved."
     }
   ]
 }

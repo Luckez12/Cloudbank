@@ -1,4 +1,4 @@
-/* VidLink HTTP Test 0.1.0 — direct HTTP, local public-ID token.
+/* VidLink HTTP Test 0.1.1 — direct HTTP, local public-ID token.
  * VUEO_SHARED_DISCOVERY_CONTEXT_V1: display metadata only; no detail fetch.
  * VUEO_TITLE_PROFILE_V1: exact TMDB route; no fuzzy search or episode fallback.
  * Embedded TweetNaCl.js 1.0.3 (public domain / Unlicense); see docs/TWEETNACL-LICENSE.txt.
@@ -122,11 +122,13 @@ return module.exports;})();
   async function verify(row) {
     var url=proxyUrl(row),h=cleanHeaders(url===row.url?row.headers:{Referer:BASE+'/',Origin:BASE});
     return bounded(async function(){
-      // HEAD avoids reading a multi-gigabyte MP4 if a server ignores Range.
-      var response=await fetch(url,{method:row.kind==='hls'?'GET':'HEAD',headers:h,redirect:'follow'});
-      if(!response.ok){row.accessDenied=[401,403,426,428,429].indexOf(response.status)>=0;log('CHECK: '+row.kind+' HTTP '+response.status+(row.requiresProxy&&!ALLOW_SITE_PROXY?'; site marks source as proxy-required':''));return null;}
+      // Use the same request method as media playback. Native VUEO skips video bodies.
+      var probe=Object.assign({},h);
+      if(row.kind==='mp4')probe.Range='bytes=0-1023';
+      var response=await fetch(url,{method:'GET',headers:probe,redirect:'follow'});
+      if(!response.ok){row.accessDenied=[401,403,426,428,429].indexOf(response.status)>=0;log('CHECK: GET '+row.kind+' HTTP '+response.status+(row.requiresProxy&&!ALLOW_SITE_PROXY?'; site marks source as proxy-required':''));return null;}
       var ct=String(response.headers.get('content-type')||'').toLowerCase();
-      log('CHECK: '+row.kind+' HTTP '+response.status+' type='+ct+' proxy='+(url!==row.url));
+      log('CHECK: GET '+row.kind+' HTTP '+response.status+' type='+ct+' proxy='+(url!==row.url));
       if(/text\/html|application\/json/.test(ct))return null;
       var master=false;
       if(row.kind==='hls') {
@@ -135,7 +137,10 @@ return module.exports;})();
         master=/#EXT-X-STREAM-INF:/.test(body);
         if(!master&&!/#EXTINF:/.test(body))return null;
       } else {
-        var bytes=Number(response.headers.get('content-length')||0);
+        var range=String(response.headers.get('content-range')||'');
+        var total=/\/(\d+)\s*$/.exec(range);
+        var bytes=total?Number(total[1]):Number(response.headers.get('content-length')||0);
+        if(response.status===206&&!/^bytes\s+0-\d+\//i.test(range))return null;
         if(!/^video\/mp4/.test(ct)||bytes<524288)return null;
       }
       return {url:response.url||url,headers:h,master:master};
