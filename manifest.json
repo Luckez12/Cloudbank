@@ -1,6 +1,6 @@
 {
   "name": "Cloudbank",
-  "version": "1.20.29",
+  "version": "1.20.30",
   "scrapers": [
     {
       "id": "kisskh",
@@ -1700,7 +1700,7 @@
       "id": "vidsrc-to",
       "name": "VidSrc.to",
       "description": "Exact TMDB movie/episode embed with native WebView session and HLS validation",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "author": "Kurato",
       "supportedTypes": [
         "movie",
@@ -1716,7 +1716,7 @@
       "disabledPlatforms": [],
       "supportsExternalPlayer": true,
       "runtimeTimeoutMs": 20000,
-      "notes": "Separate from existing VidSrc (whisperingauroras.com/vidsrc.me). Requires VUEO webviewResolve. One exact TMDB embed route; native JavaScript and cookie session. No title search, metadata HTTP, guessed API or cross-provider fallback. Captured HLS validated with original playback headers. Cloudflare may still block WebView; no CAPTCHA interaction/solver. Live Android playback and audiovisual identity unverified. HLS-only first release."
+      "notes": "Requires companion VUEO native subtitle-capture patch for sidecars. Unwrap only an observed vsembed.ru iframe with exact movie/season/episode path, otherwise retain original embed. One WebView session; optional structured track capture; at most 8 sidecars checked concurrently for timed VTT/SRT cues. HTML, empty files and thumbnail sprites rejected. Preserves sidecar playback headers. Existing HLS extraction and old-bridge video fallback retained. Live subtitle discovery/playback unverified; no Cloudflare bypass guarantee."
     }
   ]
 }
