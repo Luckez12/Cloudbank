@@ -1,6 +1,6 @@
 {
   "name": "Cloudbank",
-  "version": "1.20.33",
+  "version": "1.20.34",
   "scrapers": [
     {
       "id": "kisskh",
@@ -1722,7 +1722,7 @@
       "id": "vidlink-http-test",
       "name": "VidLink HTTP Test",
       "description": "On-device HTTP test: local TMDB token and current site proxy",
-      "version": "0.1.1",
+      "version": "0.1.2",
       "author": "Kurato",
       "supportedTypes": [
         "movie",
@@ -1737,7 +1737,7 @@
       ],
       "runtimeTimeoutMs": 20000,
       "runtimeModules": [],
-      "notes": "On-device test update: replaces MP4 HEAD check with GET Range bytes=0-1023 to match playback method. Accepts valid 206 Content-Range total, or 200 video/mp4 with adequate length. Probe Range is not forwarded into playback headers. No extra API, subtitle or WebView requests. Live GET recovery remains unverified. Existing VidLink preserved."
+      "notes": "Targeted error-evidence update after on-device API success and both HEAD/GET media HTTP 428. Reads sanitized error body and selected headers from the existing failed response only. No added requests, no new endpoint, no WebView, no retries or app patch. Playback recovery is not claimed."
     }
   ]
 }

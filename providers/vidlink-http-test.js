@@ -1,4 +1,4 @@
-/* VidLink HTTP Test 0.1.1 — direct HTTP, local public-ID token.
+/* VidLink HTTP Test 0.1.2 — direct HTTP, local public-ID token.
  * VUEO_SHARED_DISCOVERY_CONTEXT_V1: display metadata only; no detail fetch.
  * VUEO_TITLE_PROFILE_V1: exact TMDB route; no fuzzy search or episode fallback.
  * Embedded TweetNaCl.js 1.0.3 (public domain / Unlicense); see docs/TWEETNACL-LICENSE.txt.
@@ -119,6 +119,32 @@ return module.exports;})();
     });
     return result;
   }
+  function safeDiagnostic(value) {
+    return String(value||'')
+      .replace(/https?:\/\/[^\s<>"']+/gi,'[url]')
+      .replace(/(["']?(?:cookie|authorization|token|sign|signature|key|hash)["']?\s*[:=]\s*)["']?[^\s,;<>]+/gi,'$1[redacted]')
+      .replace(/\b(?:\d{1,3}\.){3}\d{1,3}\b/g,'[ip]')
+      .replace(/[A-Za-z0-9_+\/-]{32,}={0,2}/g,'[redacted]')
+      .replace(/\s+/g,' ').trim().slice(0,350);
+  }
+  async function failureEvidence(response,row,proxy) {
+    var fields=['content-type','server','cf-mitigated','x-error-code','x-proxy-error','x-upstream-status'];
+    var details=fields.map(function(k){var v=response.headers.get(k);return v?k+'='+safeDiagnostic(v):'';}).filter(Boolean);
+    log('HTTP_FAILURE: method=GET transport='+row.kind+' proxy='+proxy+' status='+response.status+' '+details.join(' '));
+    try {
+      var raw=String(await response.text()).slice(0,32768),message='';
+      try {
+        var json=JSON.parse(raw);
+        if(object(json))['error','message','code','detail'].forEach(function(k){if(typeof json[k]==='string'||typeof json[k]==='number')message+=(message?' | ':'')+k+': '+json[k];});
+      } catch(_) {}
+      if(!message) {
+        var title=/<title[^>]*>([\s\S]*?)<\/title>/i.exec(raw),h1=/<h1[^>]*>([\s\S]*?)<\/h1>/i.exec(raw);
+        if(title||h1)message=[title&&title[1],h1&&h1[1]].filter(Boolean).join(' | ').replace(/<[^>]+>/g,' ');
+        else if(!/<(?:html|script|body)\b/i.test(raw))message=raw;
+      }
+      log('HTTP_REASON: '+(safeDiagnostic(message)||'empty or unsupported response body'));
+    } catch(_) {log('HTTP_REASON: body unavailable');}
+  }
   async function verify(row) {
     var url=proxyUrl(row),h=cleanHeaders(url===row.url?row.headers:{Referer:BASE+'/',Origin:BASE});
     return bounded(async function(){
@@ -126,7 +152,7 @@ return module.exports;})();
       var probe=Object.assign({},h);
       if(row.kind==='mp4')probe.Range='bytes=0-1023';
       var response=await fetch(url,{method:'GET',headers:probe,redirect:'follow'});
-      if(!response.ok){row.accessDenied=[401,403,426,428,429].indexOf(response.status)>=0;log('CHECK: GET '+row.kind+' HTTP '+response.status+(row.requiresProxy&&!ALLOW_SITE_PROXY?'; site marks source as proxy-required':''));return null;}
+      if(!response.ok){row.accessDenied=[401,403,426,428,429].indexOf(response.status)>=0;await failureEvidence(response,row,url!==row.url);return null;}
       var ct=String(response.headers.get('content-type')||'').toLowerCase();
       log('CHECK: GET '+row.kind+' HTTP '+response.status+' type='+ct+' proxy='+(url!==row.url));
       if(/text\/html|application\/json/.test(ct))return null;
