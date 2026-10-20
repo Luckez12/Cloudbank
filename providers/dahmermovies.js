@@ -184,14 +184,28 @@ function cloudbankMetadataFetch(nativeFetch) {
   function getHeader(response,name) {
     return response&&response.headers&&typeof response.headers.get==='function'?String(response.headers.get(name)||''):'';
   }
-  function challenge(html) {
-    return /cf-chl-|challenge-platform|<title>\s*Just a moment|Performing security verification|Checking your browser/i.test(html||'');
+  function catalogueEvidence(html,response) {
+    // Cloudflare JSD is also injected into ordinary successful HTML pages.
+    // Script URLs, cf-chl CSS and the word challenge-platform alone are not gates.
+    var titleMatch=/<title\b[^>]*>([\s\S]*?)<\/title>/i.exec(html||'');
+    var title=plain(titleMatch?titleMatch[1]:'').replace(/\s+/g,' ').trim();
+    var visible=String(html||'').replace(/<!--[\s\S]*?-->/g,'').replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi,'').replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi,'');
+    var headings=[],re=/<h[12]\b[^>]*>([\s\S]*?)<\/h[12]>/gi,m;
+    while((m=re.exec(visible)))headings.push(plain(m[1]).replace(/\s+/g,' ').trim());
+    var mitigation=getHeader(response,'cf-mitigated').trim().toLowerCase();
+    var reason='';
+    if(mitigation==='challenge')reason='cf-mitigated-header';
+    else if(/^(?:just a moment[.!…]*|attention required[.!…]*|checking your browser[.!…]*)(?:\s*[|–-]\s*cloudflare)?$/i.test(title)&&/_cf_chl_opt|cf-chl-|challenge-platform/i.test(html||''))reason='challenge-title';
+    else if(headings.some(function(text){return /^(?:performing security verification|verify (?:that )?you are human|checking your browser|security verification)(?:[.!…]*)$/i.test(text);})&&/_cf_chl_opt|cf-chl-|challenge-platform|cloudflare/i.test(html||''))reason='verification-heading';
+    var links=visible.match(/<a\b[^>]*\bhref\s*=\s*(["'])[^"']*\.(?:mkv|mp4|avi|webm|m3u8)(?:[?#][^"']*)?\1/gi)||[];
+    return {blocked:!!reason,reason:reason,title:title,links:links.length,jsd:/challenge-platform\/[^"'<>\s]*jsd|challenge-platform\/scripts\/jsd/i.test(html||'')};
   }
   function mediaType(url) {
     var path='';try{path=decode(new URL(url).pathname);}catch(_){}
     return /\.m3u8$/i.test(path)?'application/x-mpegURL':/\.mp4$/i.test(path)?'video/mp4':/\.webm$/i.test(path)?'video/webm':/\.mkv$/i.test(path)?'video/x-matroska':/\.avi$/i.test(path)?'video/x-msvideo':'';
   }
   function parseListing(html,base,type,season,episode,year) {
+    html=String(html||'').replace(/<!--[\s\S]*?-->/g,'').replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi,'').replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi,'');
     var rows=[],seen=Object.create(null),re=/<a\b[^>]*\bhref\s*=\s*(["'])(.*?)\1[^>]*>([\s\S]*?)<\/a>/gi,m;
     while((m=re.exec(html))) {
       var url=publicUrl(m[2],base);if(!url||seen[url]||!mediaType(url))continue;
@@ -236,7 +250,9 @@ function cloudbankMetadataFetch(nativeFetch) {
       if(status===403||status===429){stopped=true;throw Error('Catalogue access denied HTTP '+status);}
       if(!response.ok)return [];
       var html=await text(response);
-      if(challenge(html)){stopped=true;throw Error('Catalogue security verification required');}
+      var evidence=catalogueEvidence(html,response);
+      log('CATALOGUE_PAGE','title='+JSON.stringify(evidence.title.slice(0,90))+'; bytes='+html.length+'; fileAnchors='+evidence.links+'; jsd='+evidence.jsd+'; gate='+(evidence.reason||'none'));
+      if(evidence.blocked){stopped=true;throw Error('Catalogue security verification required ('+evidence.reason+')');}
       // A redirect to the root/another catalogue must not be accepted as this title.
       var final=publicUrl(response.url||url,url);
       if(!final||decode(new URL(final).pathname)!==decode(new URL(url).pathname))throw Error('Catalogue redirected away from the requested title');

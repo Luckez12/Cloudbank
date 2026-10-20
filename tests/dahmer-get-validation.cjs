@@ -25,6 +25,38 @@ function setup(o={}) {
 function clock(){let now=0,next=0;const timers=new Map();return {now:()=>now,api:{setTimeout:(fn,ms)=>{const id=++next;timers.set(id,{at:now+ms,fn});return id},clearTimeout:id=>timers.delete(id)},async flush(){for(let i=0;i<35;i++)await Promise.resolve()},async tick(ms){await this.flush();const end=now+ms;while(true){const due=[...timers.entries()].filter(([,t])=>t.at<=end).sort((a,b)=>a[1].at-b[1].at)[0];if(!due)break;now=due[1].at;timers.delete(due[0]);due[1].fn();await this.flush()}now=end;await this.flush()}};}
 let total=0;async function test(name,fn){await fn();total++;console.log('PASS',name)}
 (async()=>{
+ const passiveScripts=[
+  '<script src="/cdn-cgi/challenge-platform/scripts/jsd/main.js"></script>',
+  '<script src="/cdn-cgi/challenge-platform/h/b/scripts/jsd/abc/main.js"></script>',
+  '<script src="/cdn-cgi/challenge-platform/scripts/jsd/api.js"></script>',
+  '<style>.cf-chl-widget{display:none}</style>',
+  '<script>var example="<h1>Performing security verification</h1>"; var platform="challenge-platform";</script>'
+ ];
+ for(let i=0;i<passiveScripts.length;i++)await test('Normal catalogue with passive Cloudflare markup '+i+' reaches validated media',async()=>{
+  const html='<title>Index of /movies/Masterplan (2026)/</title>'+table([['Masterplan.2026.1080p.mkv']])+passiveScripts[i];
+  // The previous detector falsely rejected this ordinary page.
+  assert(/cf-chl-|challenge-platform/.test(html));
+  const x=setup({html});assert.equal((await x.run()).length,1);assert(x.logs.some(s=>s.includes('gate=none')));assert(x.logs.some(s=>s.includes('MEDIA_ACCEPT')));
+ });
+ await test('Reported Tenzing request can parse a normal catalogue with JSD and validate its media',async()=>{
+  const context={tmdbId:1288069,mediaType:'movie',tmdb:{id:1288069,title:'Tenzing',release_date:'2026-01-01'}};
+  const x=setup({context,html:'<title>Index of /movies/Tenzing (2026)/</title>'+table([['Tenzing.2026.1080p.mkv']])+passiveScripts[0]});
+  assert.equal((await x.run('1288069','movie')).length,1);assert(x.calls[0].url.includes('/Tenzing%20(2026)/'));assert(x.logs.some(s=>s.includes('fileAnchors=1')));
+ });
+ await test('Actual challenge mitigation header is decisive even when a file anchor exists',async()=>{
+  const html=table([['Masterplan.2026.1080p.mkv']]);const x=setup({catalogue:u=>response(u,200,{'cf-mitigated':'challenge'},html)});assert.equal((await x.run()).length,0);assert(x.logs.some(s=>s.includes('cf-mitigated-header')));assert.equal(x.calls.length,1);
+ });
+ await test('Visible verification heading with security evidence is still blocked',async()=>{
+  const x=setup({html:'<h1>a.111477.xyz</h1><h2>Performing security verification</h2><p>Cloudflare</p>'});assert.equal((await x.run()).length,0);assert(x.logs.some(s=>s.includes('verification-heading')));
+ });
+ await test('Script/comment sample file links cannot be returned as media',async()=>{
+  const html='<title>Index</title><script>var sample=\'<a href="Fake.2026.2160p.mkv">Fake.2026.2160p.mkv</a>\';</script><!-- <a href="Fake.2026.1080p.mkv">Fake.2026.1080p.mkv</a> -->'+table([['Masterplan.2026.720p.mkv']]);
+  const x=setup({html});const r=await x.run();assert.equal(r.length,1);assert.equal(r[0].quality,'720p');assert(!x.calls.some(c=>c.url.includes('Fake.')));
+ });
+ await test('Passive JSD does not suppress a genuine downstream worker 403',async()=>{
+  const x=setup({html:table([['Masterplan.2026.1080p.mkv']])+passiveScripts[0],media:u=>u.startsWith('https://a.')?response(u,302,{Location:'https://p.111477.xyz/bulk?u=published'}):response(u,403,{'Content-Type':'text/html'},'Forbidden')});
+  assert.equal((await x.run()).length,0);assert(x.logs.some(s=>s.includes('gate=none')));assert(x.logs.some(s=>s.includes('HTTP 403 at p.111477.xyz')));
+ });
  await test('Known GET 403 after catalogue-to-worker redirect is rejected',async()=>{
   const x=setup({media:(url)=>url.startsWith('https://a.')?response(url,302,{Location:'https://p.111477.xyz/bulk?u=published'}):response(url,403,{'Content-Type':'text/html'},'Forbidden')});
   assert.equal((await x.run()).length,0);assert(x.logs.some(s=>s.includes('HTTP 403 at p.111477.xyz')));assert.equal(x.calls.filter(c=>c.options.method==='HEAD').length,0);assert.equal(x.calls.length,3);assert(!x.logs.some(s=>s.includes('MEDIA_ACCEPT')));

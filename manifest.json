@@ -1,6 +1,6 @@
 {
   "name": "Cloudbank",
-  "version": "1.20.47",
+  "version": "1.20.48",
   "scrapers": [
     {
       "id": "kisskh",
@@ -547,7 +547,7 @@
       "id": "dahmermovies",
       "name": "Dahmermovies",
       "description": "Dahmermovies movie and TV catalogue with GET-validated published media redirects and 4K priority",
-      "version": "1.2.0",
+      "version": "1.2.1",
       "author": "Nuvio Team",
       "supportedTypes": [
         "movie",
@@ -571,7 +571,7 @@
         "tv"
       ],
       "upstreamVersion": "1.0.0",
-      "notes": "Single Dahmermovies catalogue engine retaining padded/unpadded TV directories, exact episode boundaries, 4K priority and quality switches. Validates published media redirects using GET Range bytes=0-1; rejects non-success status, HTML/JSON, invalid ranges and unverifiable content types. Removes all fail-open HEAD/legacy fallbacks. No guessed worker/proxy or site-security bypass. Current live website audit is blocked by Cloudflare verification; catalogue structural currency and Android playback remain unverified. Prior All-Wish and standalone TV removals retained.",
+      "notes": "Single Dahmermovies catalogue engine retaining padded/unpadded TV directories, exact episode boundaries, 4K priority and quality switches. Validates published media redirects using GET Range bytes=0-1; rejects non-success status, HTML/JSON, invalid ranges and unverifiable content types. Removes all fail-open HEAD/legacy fallbacks. No guessed worker/proxy or site-security bypass. Current live website audit is blocked by Cloudflare verification; catalogue structural currency and Android playback remain unverified. Prior All-Wish and standalone TV removals retained. v1.2.1 fixes false Cloudflare detection: passive challenge-platform/JSD scripts no longer block ordinary catalogue pages. Actual challenge response header, interstitial title or explicit verification heading is required. Safe catalogue diagnostics expose classification evidence without media URL tokens. Full media GET validation and all prior failure rejection remain in force. Live user-client HTML/playback remain unverified.",
       "sourceRepository": "https://github.com/D3adlyRocket/All-in-One-Nuvio",
       "sourceCommit": "3f09a6ff4360498895e622877af7a32212f75038",
       "runtimeModules": []
