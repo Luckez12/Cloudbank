@@ -1,2 +1,4 @@
 providers/allwish.js
 providers/dahmermovies-4k.js
+tests/dahmer-consolidated.cjs
+tests/dahmer-get-validation.cjs

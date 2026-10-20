@@ -259,41 +259,36 @@ function cloudbankMetadataFetch(nativeFetch) {
       return html;
     }
     async function media(candidate) {
-      var current=candidate.url,visited=Object.create(null),hls=mediaType(candidate.url)==='application/x-mpegURL';
-      for(var hop=0;hop<=5&&active();hop++) {
-        if(visited[current]){log('MEDIA_REJECT','Redirect loop');return null;}visited[current]=true;
-        // GET follows the same request method as playback; HEAD alone is not acceptance evidence.
-        var response;
-        try {response=await request(current,{method:'GET',redirect:'manual',headers:hls?PLAY_HEADERS:Object.assign({},PLAY_HEADERS,{'Range':'bytes=0-1'})});}
-        catch(error){log('MEDIA_REJECT',error.message);return null;}
-        var status=Number(response.status),host=new URL(response.url||current).hostname;
-        if([301,302,303,307,308].indexOf(status)>=0) {
-          var next=publicUrl(getHeader(response,'location'),response.url||current);
-          if(!getHeader(response,'location')||!next){log('MEDIA_REJECT','Invalid redirect');return null;}
-          log('MEDIA_REDIRECT',host+' -> '+new URL(next).hostname);current=next;continue;
-        }
-        if(status!==200&&status!==206){log('MEDIA_REJECT','HTTP '+status+' at '+host);return null;}
-        var mime=getHeader(response,'content-type').split(';')[0].trim().toLowerCase();
-        var range=getHeader(response,'content-range'),length=Number(getHeader(response,'content-length')||0);
-        if(hls) {
-          if(mime==='text/html'||/json|xml|javascript/.test(mime)){log('MEDIA_REJECT','Non-playlist '+mime+' at '+host);return null;}
-          var body;try{body=await text(response);}catch(error){log('MEDIA_REJECT',error.message);return null;}
-          if(!/^\s*#EXTM3U\b/.test(body)){log('MEDIA_REJECT','Invalid HLS playlist at '+host);return null;}
-        }
-        if(!hls&&/^(?:text\/|application\/(?:json|xml|javascript|xhtml))/.test(mime)){log('MEDIA_REJECT','Non-media '+mime+' at '+host);return null;}
-        var binary=/^(?:application\/octet-stream|binary\/octet-stream|application\/x-matroska)$/.test(mime);
-        if(!hls&&!/^video\//.test(mime)&&!binary){log('MEDIA_REJECT','Unverified content type at '+host);return null;}
-        if(!hls&&status===206&&!/^bytes\s+0-1\/(?:\d+|\*)$/i.test(range)){log('MEDIA_REJECT','Unexpected partial range at '+host);return null;}
-        if(!hls&&status===206&&/\/\d+$/.test(range)&&Number(range.split('/').pop())<2){log('MEDIA_REJECT','Invalid total media size at '+host);return null;}
-        if(!hls&&status===206&&length&&length!==2){log('MEDIA_REJECT','Invalid partial length at '+host);return null;}
-        if(!hls&&status===200&&binary&&length<1024){log('MEDIA_REJECT','Unverified binary response at '+host);return null;}
-        if(!hls&&status===200&&getHeader(response,'content-length')&&length<2){log('MEDIA_REJECT','Empty media response at '+host);return null;}
-        var finalUrl=publicUrl(response.url||current,current);if(!finalUrl)return null;
-        // File links keep their original playback headers and exact signed query strings.
-        log('MEDIA_ACCEPT','GET '+status+' at '+host+'; '+mime+'; header check only');
-        return {name:'Dahmermovies',provider:'dahmermovies',serverName:'Dahmermovies',title:candidate.filename,filename:candidate.filename,url:finalUrl,quality:hls?'Auto':candidate.quality?candidate.quality+'p':'Unknown',type:hls?'hls':'direct',mimeType:hls?'application/x-mpegURL':/^video\//.test(mime)?mime:mediaType(candidate.url),headers:Object.assign({},PLAY_HEADERS),subtitles:[]};
+      if(typeof vueoDahmerResolve!=='function') {
+        stopped=true;log('APP_UPDATE_REQUIRED','Install the VUEO browser-session patch, then verify website access in Dahmermovies diagnostics');return null;
       }
-      log('MEDIA_REJECT','Redirect limit or discovery deadline');return null;
+      var sourceUrl=new URL(candidate.url);
+      if(sourceUrl.origin!==SITE||sourceUrl.search||sourceUrl.hash||sourceUrl.username||sourceUrl.password) {
+        log('MEDIA_REJECT','File is outside the published catalogue origin');return null;
+      }
+      var result;
+      try {result=JSON.parse(await bounded(function(){return vueoDahmerResolve(JSON.stringify({version:1,url:candidate.url}));},11000));}
+      catch(error){stopped=true;log('BROWSER_FAILED',error.message);return null;}
+      if(!result||result.version!==1){stopped=true;log('MEDIA_REJECT','Unsupported browser response');return null;}
+      if(result.status===428) {stopped=true;log('ACCESS_REQUIRED','Open Verify website access in Dahmermovies diagnostics, complete verification, return and run discovery again');return null;}
+      if(result.status===429) {stopped=true;log('RATE_LIMITED','HTTP 429; wait before trying again; no automatic retry');return null;}
+      if(result.status!==200||result.redirectObserved!==true) {stopped=true;log('BROWSER_FAILED','No published media redirect; status '+Number(result.status||0));return null;}
+      var finalUrl=publicUrl(result.url,candidate.url),cdn;
+      try {cdn=new URL(finalUrl);}catch(_){return null;}
+      var basename=function(url){return decode(url.pathname.split('/').pop());};
+      if(!finalUrl||!/^[a-z0-9-]+\.workers\.dev$/i.test(cdn.hostname)||
+         !/^\/d\/[a-zA-Z0-9_-]{8,128}\/[^/]+$/.test(decode(cdn.pathname))||
+         basename(cdn)!==basename(sourceUrl)||cdn.hash||(cdn.port&&cdn.port!=='443')) {
+        stopped=true;log('MEDIA_REJECT','Unexpected browser media redirect');return null;
+      }
+      var headers=result.headers||{},ua=String(headers['User-Agent']||'');
+      if(!ua||/[\r\n]/.test(ua)||ua.length>1024){stopped=true;log('MEDIA_REJECT','Missing browser user agent');return null;}
+      // The fresh website redirect is handed directly to playback. Never probe or cache it.
+      log('MEDIA_HANDOFF','Fresh website redirect; playback not preflighted');
+      var hls=mediaType(candidate.url)==='application/x-mpegURL';
+      return {name:'Dahmermovies',provider:'dahmermovies',serverName:'Dahmermovies',title:candidate.filename,filename:candidate.filename,
+        url:finalUrl,quality:hls?'Auto':candidate.quality?candidate.quality+'p':'Unknown',type:hls?'hls':'direct',mimeType:mediaType(candidate.url),
+        headers:{'User-Agent':ua,'Referer':SITE+'/','Accept':'*/*','Range':'bytes=0-'},subtitles:[]};
     }
     return {active:active,metadata:metadata,listing:listing,media:media,close:function(){closed=true;},calls:function(){return calls;},stopped:function(){return stopped;}};
   }
@@ -316,7 +311,7 @@ function cloudbankMetadataFetch(nativeFetch) {
         var urls=type==='movie'?[base]:[base+'Season%20'+(season<10?'0':'')+season+'/',base+'Season%20'+season+'/'];
         urls.forEach(function(url){if(!seen[url]){seen[url]=true;routes.push(url);}});
       });
-      log('ROUTE','single catalogue engine; GET media validation; no legacy success fallback');
+      log('ROUTE','website catalogue; verified browser session; fresh media handoff');
       var candidates=[],candidateSeen=Object.create(null);
       for(var r=0;r<routes.length&&scope.active()&&!scope.stopped();r++) {
         var html=await scope.listing(routes[r]);
@@ -326,7 +321,7 @@ function cloudbankMetadataFetch(nativeFetch) {
         if(rows.length)break;
       }
       // Resolve one published candidate at a time, bounded to avoid fetching a whole catalogue.
-      for(var i=0;i<Math.min(candidates.length,10)&&result.length<5&&scope.active();i++) {
+      for(var i=0;i<Math.min(candidates.length,10)&&result.length<1&&scope.active()&&!scope.stopped();i++) {
         var stream=await scope.media(candidates[i]);
         if(stream&&!result.some(function(old){return old.url===stream.url;}))result.push(stream);
       }
