@@ -1,0 +1,19 @@
+{
+  "site": "https://cinevibe.cc/",
+  "audit_date": "2026-10-20",
+  "provider_checks": 29,
+  "repository_provider_count": 48,
+  "movie_browser_media_ready": true,
+  "movie_browser_clock_advanced": true,
+  "movie_browser_seek_advanced": true,
+  "decoded_visual_first_frame_verified": false,
+  "native_range": {
+    "status": 206,
+    "contentType": "video/mp4",
+    "contentRange": "bytes 0-1/1278072360",
+    "contentLength": "2",
+    "bytesRead": 2
+  },
+  "android_playback_verified": false,
+  "vueo_files_changed": []
+}

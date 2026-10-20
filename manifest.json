@@ -1,6 +1,6 @@
 {
   "name": "Cloudbank",
-  "version": "1.20.50",
+  "version": "1.20.51",
   "scrapers": [
     {
       "id": "kisskh",
@@ -1450,11 +1450,12 @@
     {
       "id": "cinevibe",
       "name": "Cinevibe",
-      "description": "Cinevibe (Movies)",
-      "version": "1.0.3",
+      "description": "Cinevibe.cc website Server 1 \u2014 movies and exact TV episodes",
+      "version": "2.0.0",
       "author": "Nuvio Team",
       "supportedTypes": [
-        "movie"
+        "movie",
+        "tv"
       ],
       "filename": "providers/cinevibe.js",
       "enabled": true,
@@ -1462,7 +1463,7 @@
         "mp4",
         "m3u8"
       ],
-      "logo": "https://www.google.com/s2/favicons?domain=cinevibe.online&sz=128",
+      "logo": "https://www.google.com/s2/favicons?domain=cinevibe.cc&sz=128",
       "contentLanguage": [
         "en"
       ],
@@ -1474,7 +1475,7 @@
         "movie"
       ],
       "runtimeModules": [],
-      "notes": "Independent Yoruix import at ed38d1aee0024f56479369c9423fefb278e0b62a. Existing provider versions remain intact. Uses the Cloudbank adapter; upstream enabled/settings/platform flags preserved. Playback is not verified."
+      "notes": "Rebuilt for the user-specified cinevibe.cc site after inspecting its watch-player JavaScript and actual movie/TV iframe routes. Uses published Server 1 TMDB embed in the existing generic VUEO WebView with Cinevibe iframe context. Removes old .asia API, fixed fingerprint/session and token generator. Movie and exact TV season/episode supported. First validated MP4 ranged GET or HLS playlist wins; 403/429 stop. No VUEO source change. Android playback not yet verified."
     },
     {
       "id": "kshow123",
