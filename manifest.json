@@ -1,6 +1,6 @@
 {
   "name": "Cloudbank",
-  "version": "1.20.57",
+  "version": "1.20.58",
   "scrapers": [
     {
       "id": "kisskh",
@@ -407,7 +407,7 @@
       "id": "cinefreak",
       "name": "CineFreak",
       "description": "cinefreak.net; original audio, dual containing original, and unknown audio; minimum 720p",
-      "version": "2.0.1",
+      "version": "2.0.2",
       "author": "piratezoro9",
       "supportedTypes": [
         "movie",
@@ -430,7 +430,7 @@
         "tv"
       ],
       "upstreamVersion": "1.0.0",
-      "notes": "Accept single original language, dual/multi containing TMDB original_language, and unknown audio as requested. Reject explicit non-original language lists and dub-only labels. Audio labels preserved honestly. Exact title/year/episode, pack/hidden-link rejection, 720p minimum and bounded media validation retained. Moana actual-page parsing and fixture tests pass; live playback still unconfirmed.",
+      "notes": "Restores upstream extensionless storage-link extraction with mandatory HTTP Range and file-signature validation. Adds token-free host diagnostics for blocked/challenge/iframe pages and extraction/media probe counts. Original/dual-containing-original/unknown audio policy retained. Live host playback remains unconfirmed.",
       "sourceRepository": "https://github.com/D3adlyRocket/All-in-One-Nuvio",
       "sourceCommit": "3f09a6ff4360498895e622877af7a32212f75038",
       "runtimeModules": [

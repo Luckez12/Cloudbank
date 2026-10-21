@@ -1,4 +1,4 @@
-/* CineFreak 2.0.1: accept original, dual containing original, and unknown audio. */
+/* CineFreak 2.0.2: accept original, dual containing original, and unknown audio. */
 /* VUEO_SHARED_DISCOVERY_CONTEXT_V1 */
 function vueoSharedTmdb(url, fallback) {
   function trace(stage, details) {
@@ -163,10 +163,25 @@ function buildTitleProfile(tmdb) {
     $('a#fsl[href], a[href]').each(function(_, a) {
       if (!visible($,a)) return;
       var href = url($(a).attr('href'),base);
-      // Only explicit files or the original provider's named direct-file link.
-      if (href && ($(a).attr('id') === 'fsl' || /\.(?:mkv|mp4)(?:[?#]|$)/i.test(href)) && !/\.(?:zip|rar)(?:[?#]|$)/i.test(href) && out.indexOf(href)<0) out.push(href);
+      // Preserve upstream extensionless storage links as candidates; all still need a bounded media-signature check.
+      var storage = false;
+      if(href) { var parsed = new URL(href); storage = /(?:\.workers\.dev|\.r2\.dev|\.cloudflarestorage\.com|\.buzz)$/i.test(parsed.hostname) || /^pub-[a-z0-9.-]+$/i.test(parsed.hostname); }
+      if (href && ($(a).attr('id') === 'fsl' || storage || /\.(?:mkv|mp4)(?:[?#]|$)/i.test(href)) && !/\.(?:zip|rar)(?:[?#]|$)/i.test(href) && out.indexOf(href)<0) out.push(href);
     });
     return out.slice(0,2);
+  }
+  function hostSummary(html, base) {
+    var $=cheerio.load(html), hosts=[], links=0, hidden=0, frames=0;
+    $('a[href]').each(function(_,a){
+      if(!visible($,a)){hidden++;return;}
+      var href=url($(a).attr('href'),base);if(!href)return;
+      links++;var hostname=new URL(href).hostname;
+      if(hosts.indexOf(hostname)<0&&hosts.length<8)hosts.push(hostname);
+    });
+    $('iframe[src]').each(function(_,el){if(visible($,el))frames++;});
+    var challenge=/cf-chl-|challenge-platform|cf-turnstile|verify (?:you are human|your browser)|just a moment/i.test(html);
+    var blocked=/your request was blocked|access denied|request blocked|forbidden/i.test($('body').text());
+    return 'bytes='+String(html.length)+' visibleLinks='+links+' hiddenLinks='+hidden+' iframeCount='+frames+' challenge='+challenge+' blocked='+blocked+' linkHosts='+hosts.join(',');
   }
   function isMagic(bytes) {
     return bytes.length>=8 && ((bytes[0]===0x1a&&bytes[1]===0x45&&bytes[2]===0xdf&&bytes[3]===0xa3) || (bytes[4]===0x66&&bytes[5]===0x74&&bytes[6]===0x79&&bytes[7]===0x70));
@@ -237,10 +252,15 @@ function buildTitleProfile(tmdb) {
         for(var fi=0;fi<files.length&&Date.now()<deadline-1000;fi++) {
           var f=files[fi];
           try {
+            log('HOST_OPEN: file '+(fi+1)+'/'+files.length+' quality='+f.quality+'p audio='+f.audioStatus);
             var host=await request(f.url,{headers:{'User-Agent':UA,Referer:pageUrl}}),direct=extractDirect(host.body,host.url);
+            log('HOST_PAGE: status='+host.status+' content='+host.ct+' origin='+new URL(host.url).origin+' '+hostSummary(host.body,host.url));
+            log('HOST_EXTRACT: directCandidates='+direct.length);
+            if(!direct.length)log('NO_MEDIA: no explicit direct-file or supported storage link; iframe/player pages are not media');
             for(var di=0;di<direct.length&&Date.now()<deadline-1000;di++) {
               var headers={'User-Agent':UA,Referer:new URL(host.url).origin+'/'};
               // Range is required: never download an entire film to validate it.
+              log('MEDIA_CHECK: candidate '+(di+1)+'/'+direct.length+' host='+new URL(direct[di]).hostname);
               var probe=await request(direct[di],{headers:Object.assign({},headers,{Range:'bytes=0-1023'}),binary:true});
               if(probe.status!==206 || /html|json/.test(probe.ct) || !isMagic(probe.body)) {log('REJECT: direct link failed bounded file-signature check');continue;}
               streams.push({name:'CineFreak',title:(meta.title||meta.name)+' • '+(f.audioStatus==='unknown'?'Unknown Audio':f.audioStatus==='dual'?'Dual Audio':'Original Audio'),url:probe.url,quality:f.quality+'p',headers:headers,provider:'cinefreak',language:f.language,audioLanguages:f.audioLanguages,audioStatus:f.audioStatus,subtitles:[],behaviorHints:{notWebReady:true},audioEvidence:f.audioStatus==='unknown'?'audio not confirmed':f.audioStatus==='dual'?'file language list includes TMDB original_language':'file language label matches TMDB original_language'});
@@ -257,7 +277,7 @@ function buildTitleProfile(tmdb) {
   module.exports={getStreams:getStreams};
   globalThis.getStreams=getStreams;
   // Test-only access; never exposed in the app unless explicitly requested by a fixture runner.
-  if(globalThis.CINEFREAK_TEST_MODE)module.exports._test={originalOnly:originalOnly,audioPolicy:audioPolicy,matchedTitle:matchedTitle,selectPost:selectPost,episodeKey:episodeKey,extractFiles:extractFiles,extractDirect:extractDirect,isMagic:isMagic};
+  if(globalThis.CINEFREAK_TEST_MODE)module.exports._test={originalOnly:originalOnly,audioPolicy:audioPolicy,matchedTitle:matchedTitle,selectPost:selectPost,episodeKey:episodeKey,extractFiles:extractFiles,extractDirect:extractDirect,hostSummary:hostSummary,isMagic:isMagic};
 })();
 
 /* CLOUDBANK_PLAYIMDB_DISPLAY_START */

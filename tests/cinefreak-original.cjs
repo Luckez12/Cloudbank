@@ -55,6 +55,14 @@ test('HTML/embed/archive are not returned as direct files',()=>{
  assert.equal(t.isMagic(new Uint8Array([0x1a,0x45,0xdf,0xa3,1,2,3,4])),true);
  assert.equal(t.isMagic(new Uint8Array(Buffer.from('<html>fake'))),false);
 });
+test('upstream extensionless storage links reach media validation',()=>{
+ const html='<a href="https://media.workers.dev/download?id=secret">Direct</a><a href="https://pub-test.r2.dev/object">Mirror</a><a href="https://files.example/watch">Player</a>';
+ const rows=t.extractDirect(html,'https://new5.cinecloud.site/f/example');assert.equal(rows.length,2);assert.ok(rows.every(u=>!u.includes('files.example')));
+});
+test('host diagnostics distinguish an iframe without leaking query tokens',()=>{
+ const html='<a href="https://video.example/player?token=SECRET">Watch</a><iframe src="https://video.example/embed?token=SECRET"></iframe>';
+ const text=t.hostSummary(html,'https://new5.cinecloud.site/f/example');assert.match(text,/visibleLinks=1/);assert.match(text,/iframeCount=1/);assert.ok(!text.includes('SECRET'));assert.match(text,/video.example/);
+});
 function response(body,opts={}) {
  return {ok:true,status:opts.status||200,url:opts.url||'',headers:{get:(key)=>({'content-type':opts.ct||'text/html','content-range':opts.range||'','content-length':opts.length||''}[key.toLowerCase()]||'')},text:async()=>typeof body==='string'?body:JSON.stringify(body),arrayBuffer:async()=>Uint8Array.from(body).buffer};
 }
