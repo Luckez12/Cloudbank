@@ -1,6 +1,6 @@
 {
   "name": "Cloudbank",
-  "version": "1.20.64",
+  "version": "1.20.65",
   "scrapers": [
     {
       "id": "kisskh",
@@ -511,7 +511,7 @@
       "id": "movies4u",
       "name": "Movies4u",
       "description": "Movies and exact TV episodes through the Movies4u website and HubCloud direct files",
-      "version": "2.0.0",
+      "version": "2.0.1",
       "author": "Nuvio Team",
       "supportedTypes": [
         "movie",
@@ -535,7 +535,7 @@
         "movie"
       ],
       "upstreamVersion": "1.0.2",
-      "notes": "Website lookup.php -> verified title/year or IMDb post -> M4uLinks exact quality/episode -> HubCloud -> range-validated MKV/MP4. H.264 preferred; up to three parallel host routes. Minimum 720p, original/dual-including-original/unknown audio accepted, explicit dub-only and ZIP packs rejected. Filename codec hints used when container bytes unavailable. Shared TMDB context; no signed URL cache. Android playback requires testing.",
+      "notes": "Website lookup.php -> verified title/year or IMDb post -> M4uLinks exact quality/episode -> HubCloud -> range-validated MKV/MP4. H.264 preferred; up to three parallel host routes. Minimum 720p, original/dual-including-original/unknown audio accepted, explicit dub-only and ZIP packs rejected. Filename codec hints used when container bytes unavailable. Shared TMDB context; no signed URL cache. Android playback requires testing. v2.0.1 ignores explicitly delimited platform Original suffixes in title matching; IMDb/year identity checks retained.",
       "sourceRepository": "https://github.com/D3adlyRocket/All-in-One-Nuvio",
       "sourceCommit": "3f09a6ff4360498895e622877af7a32212f75038",
       "runtimeModules": [

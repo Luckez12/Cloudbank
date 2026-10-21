@@ -1,4 +1,4 @@
-/* Movies4u 2.0.0 — one website route, exact identity/episode selection, bounded media validation. */
+/* Movies4u 2.0.1 — one website route, exact identity/episode selection, bounded media validation. */
 /* VUEO_SHARED_DISCOVERY_CONTEXT_V1 */
 function vueoSharedTmdb(url, fallback) {
   function trace(stage, details) {
@@ -102,7 +102,7 @@ function buildTitleProfile(tmdb) {
     if(matches.length!==1)return null;
     return {season:null,episode:Number(matches[0].match(/\d+/)[0])};
   }
-  function titleOf(s){return norm(String(s).split(/\(\s*(?:season\b|\d{4}\b)|\bseason\s*\d|\bs\d{1,2}\b/i)[0]);}
+  function titleOf(s){return norm(String(s).split(/\(\s*(?:season\b|\d{4}\b)|\bseason\s*\d|\bs\d{1,2}\b/i)[0].replace(/\s+[–—-]\s+(?:Netflix|Amazon Prime(?: Video)?|Prime Video|Disney\+?|Apple TV\+?|HBO Max|Max|Hulu)\s+Original\s*$/i,''));}
   function exactTitle(s,meta){var title=titleOf(s);return buildTitleProfile(meta).aliases.some(function(a){return norm(a)===title;});}
   function yearOf(s){var m=/\b((?:19|20)\d{2})\b/.exec(s);return m?m[1]:'';}
   function matchPost(doc,meta,type,season){
@@ -282,7 +282,7 @@ function buildTitleProfile(tmdb) {
     }
     try{
       var values=await Promise.all([metadata(),domain()]),meta=values[0],base=values[1],aliases=buildTitleProfile(meta).aliases.slice(0,2),match=null;
-      log('ROUTE: v2.0.0 '+new URL(base).hostname+'; H.264 first; alternatives up to 3; parallel routes=3; one engine; original/dual-including-original/unknown; minimum 720p');
+      log('ROUTE: v2.0.1 '+new URL(base).hostname+'; H.264 first; alternatives up to 3; parallel routes=3; one engine; original/dual-including-original/unknown; minimum 720p');
       var queries=aliases.slice(0,1),imdb=(meta.external_ids||{}).imdb_id||meta.imdb_id;
       if(imdb)queries.push(imdb);else if(aliases[1])queries.push(aliases[1]);
       for(var qi=0;qi<queries.length&&!match;qi++){

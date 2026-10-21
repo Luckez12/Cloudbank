@@ -14,6 +14,15 @@ check('unrelated link pages rejected',()=>assert.equal(t.parseArchive(links.repl
 check('packs rejected rather than interpreted as first episode',()=>{for(const s of ['Episodes: 1-2','Episode 1 ZIP','Season pack','Complete Episodes 1'])assert.equal(t.episodeHeading(s),null);assert.equal(t.episodeHeading('-:Episodes: 10:-').episode,10);});
 check('original, dual containing original, unknown accepted; explicit dub rejected',()=>{assert.equal(t.audioPolicy('[Hindi + English]','en').status,'dual');assert.equal(t.audioPolicy('[English]','en').status,'original');assert.equal(t.audioPolicy('720p','en').allowed,true);assert.equal(t.audioPolicy('[Hindi]','en').allowed,false);assert.equal(t.audioPolicy('[Hindi] Dubbed','').allowed,false);assert.equal(t.audioPolicy('Hindi Dubbed','en').allowed,false);assert.equal(t.audioPolicy('[English Subs]','ko').status,'unknown');});
 check('domain updates restricted to Movies4u',()=>{assert.equal(t.allowedDomain('https://new2.movies4u.garden'),'https://new2.movies4u.garden');assert.equal(t.allowedDomain('https://movies4u.garden.evil.invalid'),'');assert.equal(t.allowedDomain('https://evil.invalid'),'');assert.equal(t.allowedDomain('https://movies4u.garden@evil.invalid'),'');});
+check('Animals platform label is not part of title; similar titles stay rejected',()=>{
+ const meta={title:'Animals',release_date:'2026-10-09',original_language:'en',external_ids:{imdb_id:'tt31049299'}};
+ const doc={post_title:'Animals – Netflix Original (2026) WEB-DL',permalink:'/animals/'};
+ assert.equal(t.matchPost(doc,meta,'movie'),true);
+ for(const title of ['Dangerous Animals (2026)','Nocturnal Animals (2026)','Animals – The Netflix Original Story (2026)'])assert.equal(t.matchPost({...doc,post_title:title},meta,'movie'),false);
+ const page=fixture('animals.html');
+ assert.equal(t.parsePost(page,'https://new2.movies4u.garden/',meta,'movie').length,1);
+ assert.equal(t.parsePost(page.replace('tt31049299','tt99999'),'https://new2.movies4u.garden/',meta,'movie').length,0);
+});
 function response(body,opt={}){return {ok:true,status:opt.status||200,url:opt.url||'',headers:{get:k=>({'content-type':opt.type||'text/html','content-range':opt.range||'','content-disposition':opt.file?'attachment; filename="'+opt.file+'"':''}[k.toLowerCase()]||'')},text:async()=>typeof body==='string'?body:JSON.stringify(body),...(opt.noBuffer?{}:{arrayBuffer:async()=>Uint8Array.from(body).buffer})};}
 function route(mode,kind,calls){return async(u,o)=>{calls.push(u);if(u.includes('domains.json'))return response({movies4u:'https://new2.movies4u.garden'});if(u.includes('/lookup.php')){assert.equal(o.headers.Accept,'application/json');assert.ok(o.headers.Referer.includes('/search.html'));return response(kind==='tv'?{hits:[{post_title:'Love in Disguise (2026) Season 1',permalink:'/tv/'}]}:JSON.parse(fixture('search.json')));}
 if(u.includes('/bad-apples-2026-'))return response(mode==='wrong-id'?post.replace('tt29714073','tt99999'):post);if(u.endsWith('/tv/'))return response(tvpost);
