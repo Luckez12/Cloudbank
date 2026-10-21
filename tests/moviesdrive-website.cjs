@@ -23,6 +23,20 @@ test('archive identity rechecked',()=>assert.equal(t.parseArchive(movieArchive.r
 test('HubCloud follows the real supplied intermediate URL',()=>{assert.equal(t.hubNext('<a href="https://gamerxyt.com/hubcloud.php?id=opaque&amp;x=1">Download</a>','https://hubcloud.ist/drive/test'),'https://gamerxyt.com/hubcloud.php?id=opaque&x=1');assert.equal(t.hubNext('<script>var url = "https://ads.example/popup";</script>','https://hubcloud.ist/drive/test'),'');});
 test('direct storage candidates exclude ad/player/ZIP links',()=>{const rows=t.directLinks('<a href="https://abc.r2.cloudflarestorage.com/bucket/file.mkv?sig=secret">FSL</a><a href="https://ads.example/redirect">Download</a><a href="https://hbplay.pages.dev/?id=x">Play</a><a href="https://abc.r2.cloudflarestorage.com/pack.zip">ZIP</a>','https://gamerxyt.com/hubcloud.php');assert.equal(rows.length,1);assert.equal(rows[0].server,'FSL');});
 test('hidden storage and post links ignored',()=>{assert.equal(t.directLinks('<div hidden><a href="https://a.r2.cloudflarestorage.com/file.mkv">FSL</a></div>','https://gamerxyt.com/').length,0);assert.equal(t.parsePost(postMovie.replace('<main>','<main hidden>'),'https://new3.moviesdrive.beer/',movieMeta,'movie').length,0);});
+test('H.264 720p precedes HEVC 1080p; HEVC stays available',()=>{
+ const rows=t.rank([{quality:1080,codecInfo:t.codecHint('x265 10bit')},{quality:1080,codecInfo:t.codecHint('x265')},{quality:720,codecInfo:t.codecHint('x264')},{quality:1080,codecInfo:t.codecHint('x264')}]);
+ assert.equal(rows[0].quality,1080);assert.equal(rows[0].codecInfo.codec,'h264');assert.equal(rows[1].quality,720);assert.equal(rows[2].codecInfo.codec,'hevc');assert.equal(rows[3].codecInfo.bitDepth,10);
+});
+test('source selection keeps a different quality ahead of duplicate encodes',()=>{
+ const rows=t.sourceChoices([{url:'a',quality:1080,codecInfo:t.codecHint('x264')},{url:'b',quality:1080,codecInfo:t.codecHint('x264')},{url:'c',quality:720,codecInfo:t.codecHint('x264')},{url:'d',quality:1080,codecInfo:t.codecHint('HEVC')}]);
+ assert.equal(rows[0].url,'a');assert.equal(rows[1].url,'c');assert.equal(rows[2].url,'d');
+});
+test('codec detection does not invent H.264 for unknown or HEVC',()=>{
+ assert.equal(t.codecFromBytes(new Uint8Array(Buffer.from('header V_MPEG4/ISO/AVC trailer'))),'h264');
+ assert.equal(t.codecFromBytes(new Uint8Array(Buffer.from('header V_MPEGH/ISO/HEVC trailer'))),'hevc');
+ assert.equal(t.codecFromBytes(new Uint8Array([26,69,223,163,1,2,3,4])),'unknown');
+ assert.equal(t.codecHint('1080p').codec,'unknown');
+});
 function response(body,opts={}){return {ok:true,status:opts.status||200,url:opts.url||'',headers:{get:key=>({'content-type':opts.ct||'text/html','content-range':opts.range||'','content-disposition':opts.disposition||''}[key.toLowerCase()]||'')},text:async()=>typeof body==='string'?body:JSON.stringify(body),...(opts.noBinary?{}:{arrayBuffer:async()=>Uint8Array.from(body).buffer})};}
 function route(mode,type,calls){return async(u,o)=>{calls.push(u);
  if(u.includes('domains.json'))return response({moviesdrive:'https://new3.moviesdrive.beer'});
@@ -31,12 +45,33 @@ function route(mode,type,calls){return async(u,o)=>{calls.push(u);
  if(u.includes('/archive/3/'))return response(movieArchive);if(u.includes('/archive/4/'))return response(tvArchive);
  if(u.includes('hubcloud.ist/drive/'))return response('<script>var url = "https://gamerxyt.com/hubcloud.php?id=opaque";</script>');
  if(u.includes('gamerxyt.com/hubcloud.php'))return response('<a href="https://abc.r2.cloudflarestorage.com/file.mkv?signature=secret">Download [FSL Server]</a>');
- if(u.includes('cloudflarestorage.com')){assert.equal(o.headers.Range,'bytes=0-1023');if(mode==='403')return {ok:false,status:403};return response(mode==='bad'?Array.from(Buffer.from('<html>fake')):[26,69,223,163,1,2,3,4],{status:mode==='ignored-range'?200:206,ct:'application/octet-stream',range:'bytes 0-7/1973138950',noBinary:mode==='no-binary'});}
+ if(u.includes('cloudflarestorage.com')){assert.equal(o.headers.Range,'bytes=0-8191');if(mode==='403')return {ok:false,status:403};return response(mode==='bad'?Array.from(Buffer.from('<html>fake')):[26,69,223,163,1,2,3,4],{status:mode==='ignored-range'?200:206,ct:'application/octet-stream',range:'bytes 0-7/1973138950',noBinary:mode==='no-binary'});}
  if(u.includes('/archive/2/'))throw Error('fallback unavailable');throw Error('Unexpected route '+u);
 };}
 async function run(){
- for(const type of ['movie','tv']){const calls=[],app=load(route('good',type,calls),type==='tv'?tvMeta:movieMeta);const rows=await app.provider.getStreams(type==='tv'?70824:740925,type,1,1);assert.equal(rows.length,1,app.logs.join('\n'));assert.equal(rows[0].audioStatus,'dual');assert.equal(rows[0].quality,type==='tv'?'720p':'1080p');assert.equal(calls.filter(u=>u.includes('/search.php')).length,1);assert.equal(calls.length,7);assert.ok(!app.logs.join('\n').includes('signature=secret'));checks++;console.log('PASS full '+type+' website route uses one engine and validates file');}
+ for(const type of ['movie','tv']){const calls=[],app=load(route('good',type,calls),type==='tv'?tvMeta:movieMeta);const rows=await app.provider.getStreams(type==='tv'?70824:740925,type,1,1);assert.equal(rows.length,1,app.logs.join('\n'));assert.equal(rows[0].audioStatus,'dual');assert.equal(rows[0].quality,type==='tv'?'720p':'1080p');assert.equal(calls.filter(u=>u.includes('/search.php')).length,1);assert.equal(calls.length,type==='tv'?7:8);assert.ok(!app.logs.join('\n').includes('signature=secret'));checks++;console.log('PASS full '+type+' website route uses one engine and validates file');}
  for(const mode of ['403','bad','ignored-range']){const app=load(route(mode,'movie',[]));assert.equal((await app.provider.getStreams(740925,'movie')).length,0);checks++;console.log('PASS media rejection: '+mode);}
+ const twoPost=postMovie.replace(/<\/main>/,'<h5>No One Gets Out Alive (2021) [Hindi + English] 1080p HEVC 10bit</h5><h5><a href="https://mdrive.lol/archive/6/">1080p HEVC</a></h5></main>');
+ function alternateRouter(mode){const fallback=route('good','movie',[]);return async(u,o)=>{
+  if(u.endsWith('/movie/'))return response(twoPost);
+  if(u.includes('/archive/')){
+   const q=u.includes('/2/')?720:1080;
+   if(mode==='partial-error'&&u.includes('/2/'))throw Error('alternate timeout');
+   const key=u.includes('/6/')?'hevc1080':q===720?'avc720':'avc1080';
+   return response('<h1>Menu</h1><h1>No One Gets Out Alive (2021) [Hindi + English] '+q+'p</h1><h5><a href="https://hubcloud.ist/drive/'+key+'">HubCloud</a></h5>');
+  }
+  if(u.includes('hubcloud.ist/drive/'))return response('<script>var url = "https://gamerxyt.com/hubcloud.php?file='+u.split('/').pop()+'";</script>');
+  if(u.includes('gamerxyt.com/hubcloud.php'))return response('<a href="https://abc.r2.cloudflarestorage.com/'+new URL(u).searchParams.get('file')+'.mkv?signature=secret">FSL</a>');
+  if(u.includes('cloudflarestorage.com')){
+   const codec=u.includes('hevc')?'V_MPEGH/ISO/HEVC':'V_MPEG4/ISO/AVC';
+   const bytes=Uint8Array.from([26,69,223,163,1,2,3,4,...Buffer.from(codec)]);
+   return response(bytes,{status:206,ct:'application/octet-stream',range:'bytes 0-'+(bytes.length-1)+'/1973138950'});
+  }
+  return fallback(u,o);
+ };}
+ let variants=await load(alternateRouter('good')).provider.getStreams(740925,'movie');
+ assert.equal(variants.length,3);assert.equal(variants[0].videoCodec,'h264');assert.equal(variants[0].quality,'1080p');assert.equal(variants[1].quality,'720p');assert.equal(variants[2].videoCodec,'hevc');assert.match(variants[0].name,/H\.264/);assert.match(variants[2].name,/HEVC/);checks++;console.log('PASS validated 1080p/720p H.264 and HEVC alternatives returned with visible codec labels');
+ variants=await load(alternateRouter('partial-error')).provider.getStreams(740925,'movie');assert.equal(variants.length,2);assert.equal(variants[0].videoCodec,'h264');checks++;console.log('PASS valid source retained when a later alternate fails');
  let app=load(route('no-binary','movie',[]));assert.equal((await app.provider.getStreams(740925,'movie')).length,1);checks++;console.log('PASS embedded runtime without arrayBuffer uses range and video filename');
  app=load();assert.equal((await app.provider.getStreams('bad','movie')).length,0);assert.equal((await app.provider.getStreams(1,'tv',0,1)).length,0);checks++;console.log('PASS invalid input makes no request');
  console.log(checks+' checks passed. Fixture checks do not confirm VUEO playback.');

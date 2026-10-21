@@ -1,4 +1,4 @@
-/* MoviesDrive 4.0.0 — one website route, exact identity/episode selection, bounded media validation. */
+/* MoviesDrive 4.1.0 — one website route, exact identity/episode selection, bounded media validation. */
 /* VUEO_SHARED_DISCOVERY_CONTEXT_V1 */
 function vueoSharedTmdb(url, fallback) {
   function trace(stage, details) {
@@ -130,9 +130,31 @@ function buildTitleProfile(tmdb) {
     return {allowed:true,languages:found,status:hasOriginal?(found.length>1?'dual':'original'):'unknown'};
   }
   function visible($,el){return !$(el).closest('[aria-hidden="true"],[hidden]').length;}
+  function codecHint(label){
+    var text=String(label||''),codec=/\b(?:x[ ._-]?264|h[ ._-]?264|avc)\b/i.test(text)?'h264':/\b(?:x[ ._-]?265|h[ ._-]?265|hevc)\b/i.test(text)?'hevc':'unknown';
+    return {codec:codec,bitDepth:/\b(?:10[ ._-]?bit|hi10p|main[ ._-]?10)\b/i.test(text)?10:/\b8[ ._-]?bit\b/i.test(text)?8:null};
+  }
+  function codecFromBytes(bytes){
+    function contains(needle){
+      for(var i=0;i<=bytes.length-needle.length;i++){
+        var match=true;for(var j=0;j<needle.length;j++)if(bytes[i+j]!==needle.charCodeAt(j)){match=false;break;}
+        if(match)return true;
+      }
+      return false;
+    }
+    if(contains('V_MPEG4/ISO/AVC'))return 'h264';
+    if(contains('V_MPEGH/ISO/HEVC'))return 'hevc';
+    return 'unknown';
+  }
   function rank(rows){
-    function score(q){return q===1080?0:q===720?1:q===1440?2:q===2160?3:9;}
-    return rows.sort(function(a,b){return score(a.quality)-score(b.quality);});
+    function qualityScore(q){q=parseInt(q,10);return q===1080?0:q===720?1:q===1440?2:q===2160?3:9;}
+    function codecScore(row){var c=row.codecInfo||{codec:row.videoCodec||'unknown',bitDepth:row.videoBitDepth||null};return c.bitDepth===10?5:c.codec==='h264'?0:c.codec==='unknown'?1:2;}
+    return rows.sort(function(a,b){return codecScore(a)-codecScore(b)||qualityScore(a.quality)-qualityScore(b.quality);});
+  }
+  function sourceChoices(rows){
+    var ordered=rank(rows),seen=Object.create(null),primary=[],duplicates=[];
+    ordered.forEach(function(row){var c=row.codecInfo||{},key=c.codec+'|'+(c.bitDepth||'')+'|'+row.quality;if(seen[key])duplicates.push(row);else{seen[key]=true;primary.push(row);}});
+    return primary.concat(duplicates).slice(0,4);
   }
   function parsePost(html,base,meta,type,season){
     var $=$lib.load(html),h1=$('h1').map(function(_,e){return clean($(e).text());}).get().find(function(text){return exactTitle(text,meta);})||'',rows=[],seen=Object.create(null);
@@ -156,9 +178,9 @@ function buildTitleProfile(tmdb) {
       var quality=qvalue(label),audio=audioPolicy(label,meta.original_language||'');
       if(quality<720||!audio.allowed||seen[href])return;
       if(type==='tv'&&seasonValue(label)!==season)return;
-      seen[href]=true;rows.push({url:href,quality:quality,audio:audio,label:label});
+      seen[href]=true;rows.push({url:href,quality:quality,audio:audio,label:label,codecInfo:codecHint(label)});
     });
-    return rank(rows).slice(0,3);
+    return sourceChoices(rows);
   }
   function parseArchive(html,base,meta,type,season,episode,source){
     var $=$lib.load(html),title=$('h1').map(function(_,e){return clean($(e).text());}).get().find(function(text){return exactTitle(text,meta);})||'',out=[],seen=Object.create(null);
@@ -182,7 +204,7 @@ function buildTitleProfile(tmdb) {
         if(!matched)return;
       }
       if(/\bzip\b|\.zip(?:[?#]|$)/i.test(label+' '+href))return;
-      seen[href]=true;out.push({url:href,quality:qvalue(label)||source.quality,audio:source.audio});
+      seen[href]=true;out.push({url:href,quality:qvalue(label)||source.quality,audio:source.audio,codecInfo:codecHint(title+" "+label).codec!=="unknown"?codecHint(title+" "+label):source.codecInfo});
     });
     return out.slice(0,2);
   }
@@ -212,11 +234,12 @@ function buildTitleProfile(tmdb) {
     if(!/^[1-9]\d*$/.test(String(id))||['movie','tv'].indexOf(type)<0)return [];
     season=Number(season);episode=Number(episode);
     if(type==='tv'&&(!Number.isInteger(season)||season<1||!Number.isInteger(episode)||episode<1))return [];
-    var deadline=Date.now()+18700,calls=0;
+    var deadline=Date.now()+18700,calls=0,collectionUntil=deadline,streams=[],seenFiles=Object.create(null),seenFormats=Object.create(null);
+    function finish(){return rank(streams).slice(0,3);}
     async function request(target,ref,binary,limit){
-      var timeout=Math.min(limit||4300,deadline-Date.now());if(timeout<250)throw Error('budget exhausted');
+      var timeout=Math.min(limit||4300,collectionUntil-Date.now());if(timeout<250)throw Error('budget exhausted');
       var controller=typeof AbortController==='function'?new AbortController():null,timer;
-      var headers={'User-Agent':UA,Referer:ref||FALLBACK+'/'};if(binary)headers.Range='bytes=0-1023';
+      var headers={'User-Agent':UA,Referer:ref||FALLBACK+'/'};if(binary)headers.Range='bytes=0-8191';
       calls++;
       try{return await Promise.race([
         (async function(){
@@ -226,14 +249,14 @@ function buildTitleProfile(tmdb) {
           if(binary){
             var range=String(res.headers.get('content-range')||''),m=/^bytes\s+0-(\d+)\/(\d+)$/i.exec(range);
             if(res.status!==206||!m||Number(m[1])>65535||Number(m[2])<1048576||/html|json/.test(ct)){if(controller)controller.abort();throw Error('invalid media range/type');}
-            var signature=false;
+            var signature=false,detectedCodec='unknown';
             if(typeof res.arrayBuffer==='function'){
-              var bytes=new Uint8Array(await res.arrayBuffer());if(bytes.length>65536||!magic(bytes))throw Error('media signature mismatch');signature=true;
+              var bytes=new Uint8Array(await res.arrayBuffer());if(bytes.length>65536||!magic(bytes))throw Error('media signature mismatch');signature=true;detectedCodec=codecFromBytes(bytes);
             }else{
               var filename=String(res.headers.get('content-disposition')||'')+' '+new URL(res.url||target).pathname;
               if(!/\.(?:mkv|mp4)(?:[;"\s]|$)/i.test(filename))throw Error('binary probe unavailable and no video filename');
             }
-            return {url:res.url||target,size:Number(m[2]),signature:signature};
+            return {url:res.url||target,size:Number(m[2]),signature:signature,codec:detectedCodec};
           }
           var text=await res.text();if(text.length>2200000)throw Error('page exceeds parsing limit');
           return {url:res.url||target,text:text,status:res.status};
@@ -252,7 +275,7 @@ function buildTitleProfile(tmdb) {
     }
     try{
       var values=await Promise.all([metadata(),domain()]),meta=values[0],base=values[1],aliases=buildTitleProfile(meta).aliases.slice(0,2),match=null;
-      log('ROUTE: '+new URL(base).hostname+'; one engine; original/dual-including-original/unknown; minimum 720p');
+      log('ROUTE: v4.1.0 '+new URL(base).hostname+'; H.264 first; alternatives up to 3; one engine; original/dual-including-original/unknown; minimum 720p');
       var queries=aliases.slice(0,1),imdb=(meta.external_ids||{}).imdb_id||meta.imdb_id;
       if(imdb)queries.push(imdb);else if(aliases[1])queries.push(aliases[1]);
       for(var qi=0;qi<queries.length&&!match;qi++){
@@ -265,34 +288,45 @@ function buildTitleProfile(tmdb) {
       var pageURL=abs(match.permalink,base);if(!pageURL||new URL(pageURL).hostname!==new URL(base).hostname){log('NO_RESULT: post outside active domain');return [];}
       var page=await request(pageURL,base+'/'),sources=parsePost(page.text,page.url,meta,type,season);
       log('POST: eligible quality routes='+sources.length+(type==='tv'?' S'+season+'E'+episode:''));
-      for(var si=0;si<sources.length&&Date.now()<deadline-700;si++){
-        var source=sources[si];
+      for(var si=0;si<sources.length&&streams.length<3&&Date.now()<collectionUntil-700;si++){
+        var source=sources[si],sourceStartCount=streams.length;
         try{
           var hubs=[];
           if(hubURL(source.url)){if(type==='tv')continue;hubs=[source];}
           else{
             var archive=await request(source.url,page.url);hubs=parseArchive(archive.text,archive.url,meta,type,season,episode,source);
           }
-          log('ARCHIVE: quality='+source.quality+'p exactEpisodeHosts='+hubs.length+'; ZIP packs excluded');
-          for(var hi=0;hi<hubs.length&&Date.now()<deadline-700;hi++){
+          log('ARCHIVE: declaredCodec='+(source.codecInfo||{}).codec+' quality='+source.quality+'p exactEpisodeHosts='+hubs.length+'; ZIP packs excluded');
+          for(var hi=0;hi<hubs.length&&streams.length<3&&Date.now()<collectionUntil-700;hi++){
             var hub=hubs[hi],first=await request(hub.url,source.url),next=hubNext(first.text,first.url),final=first;
             if(next)final=await request(next,first.url);
             var links=directLinks(final.text,final.url);log('HUB: direct storage candidates='+links.length);
-            for(var di=0;di<links.length&&Date.now()<deadline-700;di++){
+            for(var di=0;di<links.length&&Date.now()<collectionUntil-700;di++){
               try{
                 var result=await request(links[di].url,final.url,true),audio=source.audio;
-                log('MEDIA: HTTP 206; '+(result.signature?'MKV/MP4 signature':'video filename')+' verified; '+hub.quality+'p; audio='+audio.status+'; calls='+calls);
-                return [{name:'MoviesDrive',title:(meta.title||meta.name)+' '+(type==='tv'?'S'+season+'E'+episode+' ':'')+(audio.status==='unknown'?'Unknown Audio':audio.status==='dual'?'Dual Audio':'Original Audio'),url:result.url,quality:hub.quality+'p',size:result.size,provider:'moviesdrive',serverName:links[di].server,language:audio.languages.length===1?audio.languages[0]:'',audioLanguages:audio.languages,audioStatus:audio.status,headers:{'User-Agent':UA,Referer:final.url},subtitles:[],behaviorHints:{notWebReady:true}}];
+                var actual=result.codec&&result.codec!=='unknown'?result.codec:((hub.codecInfo||source.codecInfo||{}).codec||'unknown');
+                var hinted=hub.codecInfo||source.codecInfo||{},bitDepth=hinted.codec===actual?hinted.bitDepth:null;
+                var identity=new URL(result.url).origin+new URL(result.url).pathname;
+                if(seenFiles[identity]){log('MEDIA: duplicate file omitted');break;}
+                seenFiles[identity]=true;
+                var formatKey=hub.quality+'|'+actual+'|'+(bitDepth||'');
+                if(seenFormats[formatKey]){log('MEDIA: equivalent quality/codec alternative omitted');break;}
+                seenFormats[formatKey]=true;
+                log('MEDIA: HTTP 206; '+(result.signature?'MKV/MP4 signature':'video filename')+' verified; codec='+actual+' codecEvidence='+(result.codec!=='unknown'?'container':'label-or-unknown')+'; '+hub.quality+'p; audio='+audio.status+'; calls='+calls);
+                streams.push({name:'MoviesDrive',title:(meta.title||meta.name)+' '+(type==='tv'?'S'+season+'E'+episode+' ':'')+(audio.status==='unknown'?'Unknown Audio':audio.status==='dual'?'Dual Audio':'Original Audio'),url:result.url,quality:hub.quality+'p',size:result.size,provider:'moviesdrive',serverName:links[di].server,videoCodec:actual,videoBitDepth:bitDepth,codecEvidence:result.codec!=='unknown'?'container-codec-id':actual!=='unknown'?'file-label':'unknown',language:audio.languages.length===1?audio.languages[0]:'',audioLanguages:audio.languages,audioStatus:audio.status,headers:{'User-Agent':UA,Referer:final.url},subtitles:[],behaviorHints:{notWebReady:true}});
+                if(streams.length===1)collectionUntil=Math.min(deadline,Date.now()+5500);
+                break;
               }catch(err){log('MEDIA_REJECT: '+String(err.message||err));}
             }
+            if(streams.length>sourceStartCount)break;
           }
         }catch(err){log('HOST: '+String(err.message||err));}
       }
-      log('RESULT: 0 validated sources; calls='+calls);return [];
-    }catch(err){log('NO_RESULT: '+String(err.message||err));return [];}
+      log('RESULT: '+streams.length+' validated sources; H.264 first, alternatives retained; calls='+calls);return finish();
+    }catch(err){log('RESULT: retained='+streams.length+'; '+String(err.message||err));return finish();}
   }
   module.exports={getStreams:getStreams};globalThis.getStreams=getStreams;
-  if(globalThis.MOVIESDRIVE_TEST_MODE)module.exports._test={norm:norm,allowedDomain:allowedDomain,matchPost:matchPost,audioPolicy:audioPolicy,episodeValue:episodeValue,parsePost:parsePost,parseArchive:parseArchive,hubNext:hubNext,directLinks:directLinks,magic:magic};
+  if(globalThis.MOVIESDRIVE_TEST_MODE)module.exports._test={sourceChoices:sourceChoices,codecHint:codecHint,codecFromBytes:codecFromBytes,rank:rank,norm:norm,allowedDomain:allowedDomain,matchPost:matchPost,audioPolicy:audioPolicy,episodeValue:episodeValue,parsePost:parsePost,parseArchive:parseArchive,hubNext:hubNext,directLinks:directLinks,magic:magic};
 })();
 /* CLOUDBANK_PLAYIMDB_DISPLAY_START */
 /* CLOUDBANK_PLAYIMDB_DISPLAY_V1
@@ -440,9 +474,11 @@ function cloudbankDisplayInstall(provider, providerName, providerId) {
     var qualityDisplay = qualityLabel === "4K" ? "2160P" : qualityLabel.toUpperCase();
     var audioDisplay = audioLabel.replace(/[- ]Audio/g, "").trim();
     var infoLine = [qualityDisplay ? "💎 " + qualityDisplay : "", audioDisplay ? "🌍 " + audioDisplay : ""].filter(Boolean).join(" | ");
-    var bottomLine = [formatLabel ? "🎞️ " + (formatLabel === "HLS" ? "M3U8" : formatLabel) : "", duration ? "⏱️ " + duration : "", "📌 " + server].filter(Boolean).join(" | ");
+    var bottomLine = [stream.videoCodec==="h264"?"H.264":stream.videoCodec==="hevc"?"HEVC":"Codec unknown", formatLabel ? "🎞️ " + (formatLabel === "HLS" ? "M3U8" : formatLabel) : "", duration ? "⏱️ " + duration : "", "📌 " + server].filter(Boolean).join(" | ");
     var nameQuality = qualityLabel === "4K" ? "4K UHD" : qualityLabel === "1080p" ? "1080p FHD" : qualityLabel === "720p" ? "720p HD" : qualityLabel;
-    output.name = ["🟡 " + providerName, nameQuality, audioLabel ? audioLabel.replace(/ Audio/g, "-Audio") : ""].filter(Boolean).join(" | ");
+    var codecDisplay=stream.videoCodec==="h264"?"H.264":stream.videoCodec==="hevc"?"HEVC":"Codec unknown";
+    if(stream.videoBitDepth)codecDisplay+=" "+stream.videoBitDepth+"-bit";
+    output.name = ["🟡 " + providerName, nameQuality, codecDisplay, audioLabel ? audioLabel.replace(/ Audio/g, "-Audio") : ""].filter(Boolean).join(" | ");
     output.title = [firstLine, infoLine, bottomLine].filter(Boolean).join("\n");
     return output;
   }

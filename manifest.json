@@ -1,6 +1,6 @@
 {
   "name": "Cloudbank",
-  "version": "1.20.61",
+  "version": "1.20.62",
   "scrapers": [
     {
       "id": "kisskh",
@@ -476,8 +476,8 @@
     {
       "id": "moviesdrive",
       "name": "MoviesDrive",
-      "description": "Current MoviesDrive website route; exact movie/season/episode; original, dual including original and unknown audio; minimum 720p",
-      "version": "4.0.0",
+      "description": "MoviesDrive website route; H.264 preferred with validated quality/codec alternatives; original, dual including original and unknown audio; minimum 720p",
+      "version": "4.1.0",
       "author": "Nuvio Team",
       "supportedTypes": [
         "movie",
@@ -499,7 +499,7 @@
         "tv"
       ],
       "upstreamVersion": "3.0.1",
-      "notes": "Website rebuild: one engine, active domain map with tested new3.moviesdrive.beer fallback, exact title and year-or-IMDb, exact season and episode, no first-result/episode fallback or ZIP packs. Current MDrive archive \u2192 HubCloud \u2192 supplied download page \u2192 direct R2 route. Prefers 1080p then 720p and returns first validated file. Bounded Range and video signature or filename validation, real byte size, audio labels preserved, no signed URL caching. Live sample MKV files have original English/Korean tracks and embedded subtitles; VUEO playback needs device confirmation.",
+      "notes": "One website engine. Prefers H.264/x264 and retains up to three distinct codec/quality alternatives, including 720p when available. Uses an 8 KiB Range probe; reads declared MKV video codec IDs when present and does not invent a codec when unknown. Container codec overrides label hints; displayed bit depth is label-derived only. Returns validated sources even if a later alternate fails. Extra collection capped at 5.5 seconds after first success, within 18.7-second total budget. Exact title/year-or-IMDb/season/episode and audio policies retained. No transcoding or app decoder change. Device playback confirmation required.",
       "sourceRepository": "https://github.com/D3adlyRocket/All-in-One-Nuvio",
       "sourceCommit": "3f09a6ff4360498895e622877af7a32212f75038",
       "runtimeModules": [
