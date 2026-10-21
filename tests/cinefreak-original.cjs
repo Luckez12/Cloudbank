@@ -20,10 +20,14 @@ const movie=`<h1>Me Before You (2016) English BluRay</h1><div class="download-li
 <h4 class="movie-title">Me Before You (2016) <span>[Hindi & English] Dual Audio</span> 1080p</h4><div class="dlbtn-container"><a class="dlbtn-download" href="${dub}">Download</a></div></div>`;
 let checks=0;function test(name,fn){fn();checks++;console.log('PASS '+name);}
 test('original English accepted',()=>assert.equal(t.originalOnly('[English]','en'),true));
-test('dubbed and dual containers rejected',()=>{
- for(const s of ['[Hindi]','[English & Hindi]','English Dual Audio','English Dubbed','Unknown','[Japanese]'])assert.equal(t.originalOnly(s,'en'),false,s);
+test('explicit non-original dub rejected; dual and unknown accepted',()=>{
+ for(const s of ['[Hindi]','[Japanese]','Hindi Dubbed','Dubbed'])assert.equal(t.originalOnly(s,'en'),false,s);
  assert.equal(t.originalOnly('[English]','ja'),false);
- assert.equal(t.originalOnly('[English]','xx'),false);
+ assert.equal(t.originalOnly('[English]','xx'),true);
+ for(const label of ['[Hindi & English]','English Dual Audio','Unknown','', 'Dual Audio'])assert.equal(t.originalOnly(label,'en'),true,label);
+ assert.equal(t.originalOnly('[Hindi & Tamil]','en'),false);
+ assert.equal(t.audioPolicy('Unknown','en').status,'unknown');
+ assert.equal(t.audioPolicy('[Hindi & English]','en').status,'dual');
 });
 test('native Hindi accepted for a Hindi-original request',()=>assert.equal(t.originalOnly('[Hindi]','hi'),true));
 test('exact title and year; no sequel fallback',()=>{
@@ -31,8 +35,13 @@ test('exact title and year; no sequel fallback',()=>{
  assert.equal(t.matchedTitle('Me Before You 2 (2016)',fixtureMeta),false);
  assert.equal(t.matchedTitle('Me Before You (2020)',fixtureMeta),false);
 });
-test('movie rejects hidden links, 480p and dual audio',()=>{
- const rows=t.extractFiles(movie,'en','movie');assert.equal(rows.length,1);assert.equal(rows[0].url,original);assert.equal(rows[0].quality,720);
+test('movie rejects hidden and 480p, accepts dual containing original',()=>{
+ const rows=t.extractFiles(movie,'en','movie');assert.equal(rows.length,2);assert.equal(rows[0].url,dub);assert.equal(rows[0].audioStatus,'dual');assert.equal(rows[1].url,original);assert.equal(rows[1].quality,720);
+});
+test('unknown file labels remain unknown, never relabelled original',()=>{
+ const html=movie.replace(/\[English\]/g,'[Unknown]').replace(/\[Hindi & English\] Dual Audio/g,'[Unknown]');
+ const rows=t.extractFiles(html,'en','movie');assert.equal(rows.length,2);
+ assert.ok(rows.every(r=>r.audioStatus==='unknown'&&r.language===''&&r.audioLanguages.length===0));
 });
 test('episode and season exact; ranges/packs refused',()=>{
  assert.equal(t.episodeKey('es02e03',2,3),true);
@@ -56,6 +65,7 @@ async function run(){
   calls.push({u,opts});
   if(u.includes('search-api.php'))return response(search);
   if(u.includes('full-movie-download'))return response(movie);
+  if(u===dub)return {ok:false,status:403,headers:{get:()=>''}};
   if(u===original)return response('<a id="fsl" href="https://files.example/movie.mkv">File</a>');
   if(u==='https://files.example/movie.mkv'){
    assert.equal(opts.headers.Range,'bytes=0-1023');
@@ -64,7 +74,7 @@ async function run(){
   throw Error('Unexpected URL '+u);
  }
  let app=load(async(u,o)=>router(u,o));let streams=await app.provider.getStreams('296096','movie');
- assert.equal(streams.length,1);assert.equal(streams[0].url,'https://files.example/movie.mkv');assert.equal(streams[0].language,'en');assert.equal(calls.length,4);checks++;console.log('PASS complete original-only discovery and bounded file probe');
+ assert.equal(streams.length,1);assert.equal(streams[0].url,'https://files.example/movie.mkv');assert.equal(streams[0].language,'en');assert.equal(calls.length,5);checks++;console.log('PASS complete eligible-audio discovery and bounded file probe');
  calls=[];app=load(async(u,o)=>u===original?{ok:false,status:403,headers:{get:()=>''}}:router(u,o));streams=await app.provider.getStreams('296096','movie');assert.equal(streams.length,0);assert.ok(app.logs.some(s=>s.includes('HTTP 403')));checks++;console.log('PASS host 403 returns no source');
  app=load(async(u,o)=>u==='https://files.example/movie.mkv'?response([],{status:200,ct:'video/x-matroska'}):router(u,o));streams=await app.provider.getStreams('296096','movie');assert.equal(streams.length,0);checks++;console.log('PASS server ignoring Range rejected before reading body');
  app=load();assert.equal((await app.provider.getStreams('296096','tv',1,0)).length,0);assert.equal((await app.provider.getStreams('bad','movie')).length,0);checks++;console.log('PASS invalid request makes no network calls');

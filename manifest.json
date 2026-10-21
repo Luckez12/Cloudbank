@@ -1,6 +1,6 @@
 {
   "name": "Cloudbank",
-  "version": "1.20.56",
+  "version": "1.20.57",
   "scrapers": [
     {
       "id": "kisskh",
@@ -406,8 +406,8 @@
     {
       "id": "cinefreak",
       "name": "CineFreak",
-      "description": "cinefreak.net; single-language original-audio files only; minimum 720p",
-      "version": "2.0.0",
+      "description": "cinefreak.net; original audio, dual containing original, and unknown audio; minimum 720p",
+      "version": "2.0.1",
       "author": "piratezoro9",
       "supportedTypes": [
         "movie",
@@ -430,7 +430,7 @@
         "tv"
       ],
       "upstreamVersion": "1.0.0",
-      "notes": "CineFreak .net rebuild. Uses current public search, exact title/year/type matching, exact episode keys, per-file language labels compared with TMDB original_language. Rejects dubbed/dual/multi audio, unknown language, packs, hidden links and sub-720p. Probes explicit CineCloud direct files using HTTP Range and MKV/MP4 signatures. No signed URL caching or subtitle claims. Fixture checks pass; live CineCloud access/playback unconfirmed (HTTP 403 observed).",
+      "notes": "Accept single original language, dual/multi containing TMDB original_language, and unknown audio as requested. Reject explicit non-original language lists and dub-only labels. Audio labels preserved honestly. Exact title/year/episode, pack/hidden-link rejection, 720p minimum and bounded media validation retained. Moana actual-page parsing and fixture tests pass; live playback still unconfirmed.",
       "sourceRepository": "https://github.com/D3adlyRocket/All-in-One-Nuvio",
       "sourceCommit": "3f09a6ff4360498895e622877af7a32212f75038",
       "runtimeModules": [

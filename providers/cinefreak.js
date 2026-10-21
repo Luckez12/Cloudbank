@@ -1,4 +1,4 @@
-/* CineFreak 2.0.0: cinefreak.net, per-file original-language policy. */
+/* CineFreak 2.0.1: accept original, dual containing original, and unknown audio. */
 /* VUEO_SHARED_DISCOVERY_CONTEXT_V1 */
 function vueoSharedTmdb(url, fallback) {
   function trace(stage, details) {
@@ -91,11 +91,16 @@ function buildTitleProfile(tmdb) {
     });
     return out;
   }
-  function originalOnly(label, original) {
-    if (!LANG[original] || /\b(?:dual|multi(?:ple)?)[ -]?audio\b|\bdubbed\b|\bhindi line\b|\bbangla dub\b/i.test(label)) return false;
-    var found = languages(label);
-    return found.length === 1 && found[0] === original;
+  function audioPolicy(label, original) {
+    var found = languages(label), knownOriginal = !!LANG[original];
+    var includesOriginal = knownOriginal && found.indexOf(original) >= 0;
+    var dubbed = /\bdubbed\b|\bhindi line\b|\bbangla dub\b/i.test(label);
+    // Explicit language lists take precedence: a dual container can include the original.
+    if (knownOriginal && found.length && !includesOriginal) return {allowed:false};
+    if (!includesOriginal && dubbed && !/\b(?:dual|multi)[ -]?audio\b/i.test(label)) return {allowed:false};
+    return {allowed:true,languages:found,status:includesOriginal ? (found.length>1?'dual':'original') : 'unknown'};
   }
+  function originalOnly(label, original) { return audioPolicy(label,original).allowed; }
   function quality(s) { var m = /\b(720|1080|1440|2160)p?\b/i.exec(s); return m ? Number(m[1]) : /\b4k\b/i.test(s) ? 2160 : 0; }
   function url(s, base) { try { var u = new URL(s,base || BASE); return /^https?:$/.test(u.protocol) && !u.username && !u.password ? u.href : ''; } catch (_) { return ''; } }
   function filePage(s) { try { var u = new URL(s); return /^https:$/.test(u.protocol) && /^(?:[a-z0-9-]+\.)*cinecloud\.site$/i.test(u.hostname) && /^\/f\/[A-Za-z0-9_-]+$/.test(u.pathname); } catch (_) { return false; } }
@@ -121,8 +126,10 @@ function buildTitleProfile(tmdb) {
     var $ = cheerio.load(html), out = [], seen = Object.create(null);
     function add(href, label, audio) {
       var resolved = url(href), q = quality(label);
-      if (!filePage(resolved) || !q || /\b(?:dual|multi)[ -]?audio\b|\bdubbed\b/i.test(label) || !originalOnly(audio,original) || seen[resolved]) return;
-      seen[resolved] = true; out.push({url:resolved,quality:q,label:label,language:original});
+      var evidence = audio + (/\b(?:dual|multi)[ -]?audio\b|\bdubbed\b/i.test(label) ? ' '+label.replace(/^[\s\S]*?\(\d{4}\)/,'') : '');
+      var policy = audioPolicy(evidence,original);
+      if (!filePage(resolved) || !q || !policy.allowed || seen[resolved]) return;
+      seen[resolved] = true; out.push({url:resolved,quality:q,label:label,language:policy.languages.length===1?policy.languages[0]:'',audioLanguages:policy.languages,audioStatus:policy.status});
     }
     if (type === 'movie') {
       $('.download-links-div .movie-title').each(function(_, h) {
@@ -201,8 +208,8 @@ function buildTitleProfile(tmdb) {
     }
     try {
       var meta=await metadata(), original=String(meta.original_language||'').toLowerCase();
-      if (!LANG[original]) {log('NO_RESULT: original language unavailable or unsupported');return [];}
-      log('ROUTE: cinefreak.net public search; original='+original+'; minimum=720p; dual audio rejected');
+      if (!LANG[original]) log('AUDIO: original language unknown; accepting unknown, rejecting explicit dub-only');
+      log('ROUTE: cinefreak.net public search; original='+original+'; minimum=720p; dual with original and unknown accepted');
       var aliases=buildTitleProfile(meta).aliases.slice(0,2), posts=[];
       for(var ai=0;ai<aliases.length&&!posts.length;ai++) {
         var r=await request(BASE+'/search-api.php?q='+encodeURIComponent(aliases[ai])+'&pg=1');
@@ -226,7 +233,7 @@ function buildTitleProfile(tmdb) {
           if((type==='movie'&&dataset.type!=='movie')||(type==='tv'&&dataset.type!=='series'))continue;
         }
         var files=extractFiles(page.body,original,type,Number(season),Number(episode));
-        log('MATCH: title/year/type verified; original-only quality files='+files.length+(type==='tv'?' S'+season+'E'+episode+'; packs rejected':''));
+        log('MATCH: title/year/type verified; eligible quality files='+files.length+(type==='tv'?' S'+season+'E'+episode+'; packs rejected':''));
         for(var fi=0;fi<files.length&&Date.now()<deadline-1000;fi++) {
           var f=files[fi];
           try {
@@ -236,21 +243,21 @@ function buildTitleProfile(tmdb) {
               // Range is required: never download an entire film to validate it.
               var probe=await request(direct[di],{headers:Object.assign({},headers,{Range:'bytes=0-1023'}),binary:true});
               if(probe.status!==206 || /html|json/.test(probe.ct) || !isMagic(probe.body)) {log('REJECT: direct link failed bounded file-signature check');continue;}
-              streams.push({name:'CineFreak',title:(meta.title||meta.name)+' • Original '+original.toUpperCase(),url:probe.url,quality:f.quality+'p',headers:headers,provider:'cinefreak',language:original,subtitles:[],behaviorHints:{notWebReady:true},audioEvidence:'single-language file label matched TMDB original_language'});
+              streams.push({name:'CineFreak',title:(meta.title||meta.name)+' • '+(f.audioStatus==='unknown'?'Unknown Audio':f.audioStatus==='dual'?'Dual Audio':'Original Audio'),url:probe.url,quality:f.quality+'p',headers:headers,provider:'cinefreak',language:f.language,audioLanguages:f.audioLanguages,audioStatus:f.audioStatus,subtitles:[],behaviorHints:{notWebReady:true},audioEvidence:f.audioStatus==='unknown'?'audio not confirmed':f.audioStatus==='dual'?'file language list includes TMDB original_language':'file language label matches TMDB original_language'});
               break;
             }
           } catch(err) { log('HOST: '+String(err.message||err)); }
         }
         if(streams.length)break;
       }
-      log('RESULT: '+streams.length+' original-labelled sources; '+count+' HTTP calls; playback needs device confirmation');
+      log('RESULT: '+streams.length+' eligible sources; '+count+' HTTP calls; playback needs device confirmation');
       return streams;
     } catch(err) { log('NO_RESULT: '+String(err.message||err));return []; }
   }
   module.exports={getStreams:getStreams};
   globalThis.getStreams=getStreams;
   // Test-only access; never exposed in the app unless explicitly requested by a fixture runner.
-  if(globalThis.CINEFREAK_TEST_MODE)module.exports._test={originalOnly:originalOnly,matchedTitle:matchedTitle,selectPost:selectPost,episodeKey:episodeKey,extractFiles:extractFiles,extractDirect:extractDirect,isMagic:isMagic};
+  if(globalThis.CINEFREAK_TEST_MODE)module.exports._test={originalOnly:originalOnly,audioPolicy:audioPolicy,matchedTitle:matchedTitle,selectPost:selectPost,episodeKey:episodeKey,extractFiles:extractFiles,extractDirect:extractDirect,isMagic:isMagic};
 })();
 
 /* CLOUDBANK_PLAYIMDB_DISPLAY_START */
@@ -346,6 +353,7 @@ function cloudbankDisplayInstall(provider, providerName, providerId) {
     var parenthesised = /\(([A-Za-z]{2,3})\)\s*$/.exec(clean(originalTitle));
     if (!audioLang && parenthesised) audioLang = language(parenthesised[1]);
     var audioLabel = audioLang ? audioLang + " Audio" : "";
+    if (stream.audioStatus === "unknown") audioLabel = "Unknown Audio";
     if (audioLanguages.length > 1) audioLabel = "Multi Audio (" + audioLanguages.join(", ") + ")";
     if (/^original$/i.test(clean(stream.audioLanguage)) || /\boriginal[- ]audio\b/i.test(text)) audioLabel = "Original Audio";
     if (/\bdual[- ]audio\b/i.test(text)) audioLabel = "Dual Audio" + (audioLang ? " (" + audioLang + ")" : "");
