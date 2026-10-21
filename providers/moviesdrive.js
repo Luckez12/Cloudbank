@@ -1,4 +1,4 @@
-/* MoviesDrive 4.1.0 — one website route, exact identity/episode selection, bounded media validation. */
+/* MoviesDrive 4.2.0 — one website route, exact identity/episode selection, bounded media validation. */
 /* VUEO_SHARED_DISCOVERY_CONTEXT_V1 */
 function vueoSharedTmdb(url, fallback) {
   function trace(stage, details) {
@@ -234,7 +234,7 @@ function buildTitleProfile(tmdb) {
     if(!/^[1-9]\d*$/.test(String(id))||['movie','tv'].indexOf(type)<0)return [];
     season=Number(season);episode=Number(episode);
     if(type==='tv'&&(!Number.isInteger(season)||season<1||!Number.isInteger(episode)||episode<1))return [];
-    var deadline=Date.now()+18700,calls=0,collectionUntil=deadline,streams=[],seenFiles=Object.create(null),seenFormats=Object.create(null);
+    var started=Date.now(),deadline=started+18700,calls=0,collectionUntil=deadline,streams=[],seenFiles=Object.create(null),seenFormats=Object.create(null),activeRoutes=0,peakRoutes=0;
     function finish(){return rank(streams).slice(0,3);}
     async function request(target,ref,binary,limit){
       var timeout=Math.min(limit||4300,collectionUntil-Date.now());if(timeout<250)throw Error('budget exhausted');
@@ -275,7 +275,7 @@ function buildTitleProfile(tmdb) {
     }
     try{
       var values=await Promise.all([metadata(),domain()]),meta=values[0],base=values[1],aliases=buildTitleProfile(meta).aliases.slice(0,2),match=null;
-      log('ROUTE: v4.1.0 '+new URL(base).hostname+'; H.264 first; alternatives up to 3; one engine; original/dual-including-original/unknown; minimum 720p');
+      log('ROUTE: v4.2.0 '+new URL(base).hostname+'; H.264 first; alternatives up to 3; parallel routes=3; one engine; original/dual-including-original/unknown; minimum 720p');
       var queries=aliases.slice(0,1),imdb=(meta.external_ids||{}).imdb_id||meta.imdb_id;
       if(imdb)queries.push(imdb);else if(aliases[1])queries.push(aliases[1]);
       for(var qi=0;qi<queries.length&&!match;qi++){
@@ -288,11 +288,13 @@ function buildTitleProfile(tmdb) {
       var pageURL=abs(match.permalink,base);if(!pageURL||new URL(pageURL).hostname!==new URL(base).hostname){log('NO_RESULT: post outside active domain');return [];}
       var page=await request(pageURL,base+'/'),sources=parsePost(page.text,page.url,meta,type,season);
       log('POST: eligible quality routes='+sources.length+(type==='tv'?' S'+season+'E'+episode:''));
-      for(var si=0;si<sources.length&&streams.length<3&&Date.now()<collectionUntil-700;si++){
-        var source=sources[si],sourceStartCount=streams.length;
+      var resolutionStarted=Date.now();
+      async function resolveSource(source){
+        if(Date.now()>=collectionUntil-700)return;
+        var foundHere=false;activeRoutes++;peakRoutes=Math.max(peakRoutes,activeRoutes);
         try{
           var hubs=[];
-          if(hubURL(source.url)){if(type==='tv')continue;hubs=[source];}
+          if(hubURL(source.url)){if(type==='tv')return;hubs=[source];}
           else{
             var archive=await request(source.url,page.url);hubs=parseArchive(archive.text,archive.url,meta,type,season,episode,source);
           }
@@ -314,14 +316,22 @@ function buildTitleProfile(tmdb) {
                 seenFormats[formatKey]=true;
                 log('MEDIA: HTTP 206; '+(result.signature?'MKV/MP4 signature':'video filename')+' verified; codec='+actual+' codecEvidence='+(result.codec!=='unknown'?'container':'label-or-unknown')+'; '+hub.quality+'p; audio='+audio.status+'; calls='+calls);
                 streams.push({name:'MoviesDrive',title:(meta.title||meta.name)+' '+(type==='tv'?'S'+season+'E'+episode+' ':'')+(audio.status==='unknown'?'Unknown Audio':audio.status==='dual'?'Dual Audio':'Original Audio'),url:result.url,quality:hub.quality+'p',size:result.size,provider:'moviesdrive',serverName:links[di].server,videoCodec:actual,videoBitDepth:bitDepth,codecEvidence:result.codec!=='unknown'?'container-codec-id':actual!=='unknown'?'file-label':'unknown',language:audio.languages.length===1?audio.languages[0]:'',audioLanguages:audio.languages,audioStatus:audio.status,headers:{'User-Agent':UA,Referer:final.url},subtitles:[],behaviorHints:{notWebReady:true}});
+                foundHere=true;
                 if(streams.length===1)collectionUntil=Math.min(deadline,Date.now()+5500);
                 break;
               }catch(err){log('MEDIA_REJECT: '+String(err.message||err));}
             }
-            if(streams.length>sourceStartCount)break;
+            if(foundHere)break;
           }
         }catch(err){log('HOST: '+String(err.message||err));}
+        finally{activeRoutes--;}
       }
+      // Start only the three highest-priority independent quality/codec routes.
+      // Every route keeps its archive -> host -> download page -> probe dependency.
+      await Promise.all(sources.slice(0,3).map(resolveSource));
+      // A fourth route is fallback work, started only after the first batch settles.
+      if(streams.length<3&&sources[3]&&Date.now()<collectionUntil-700)await resolveSource(sources[3]);
+      log('TIMING: preHostMs='+(resolutionStarted-started)+' hostMs='+(Date.now()-resolutionStarted)+' totalMs='+(Date.now()-started)+' peakRoutes='+peakRoutes);
       log('RESULT: '+streams.length+' validated sources; H.264 first, alternatives retained; calls='+calls);return finish();
     }catch(err){log('RESULT: retained='+streams.length+'; '+String(err.message||err));return finish();}
   }

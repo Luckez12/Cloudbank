@@ -72,6 +72,26 @@ async function run(){
  let variants=await load(alternateRouter('good')).provider.getStreams(740925,'movie');
  assert.equal(variants.length,3);assert.equal(variants[0].videoCodec,'h264');assert.equal(variants[0].quality,'1080p');assert.equal(variants[1].quality,'720p');assert.equal(variants[2].videoCodec,'hevc');assert.match(variants[0].name,/H\.264/);assert.match(variants[2].name,/HEVC/);checks++;console.log('PASS validated 1080p/720p H.264 and HEVC alternatives returned with visible codec labels');
  variants=await load(alternateRouter('partial-error')).provider.getStreams(740925,'movie');assert.equal(variants.length,2);assert.equal(variants[0].videoCodec,'h264');checks++;console.log('PASS valid source retained when a later alternate fails');
+ let active=0,peak=0;
+ const parallelBase=alternateRouter('good');
+ const parallelApp=load(async(u,o)=>{active++;peak=Math.max(peak,active);try{await new Promise(r=>setTimeout(r,15));return await parallelBase(u,o);}finally{active--;}});
+ variants=await parallelApp.provider.getStreams(740925,'movie');assert.equal(variants.length,3);assert.equal(peak,3);assert.equal(variants[0].videoCodec,'h264');assert.equal(variants[0].quality,'1080p');assert.equal(variants[1].quality,'720p');assert.ok(parallelApp.logs.some(s=>s.includes('peakRoutes=3')));checks++;console.log('PASS independent source requests overlap with maximum concurrency three');
+ const outOfOrderBase=alternateRouter('good');
+ const outOfOrder=load(async(u,o)=>{if(u.includes('avc1080'))await new Promise(r=>setTimeout(r,20));return outOfOrderBase(u,o);});
+ variants=await outOfOrder.provider.getStreams(740925,'movie');assert.equal(variants.length,3);assert.equal(variants[0].videoCodec,'h264');assert.equal(variants[0].quality,'1080p');assert.equal(variants[2].videoCodec,'hevc');checks++;console.log('PASS completion order does not change H.264/quality priority');
+ const fourPost=twoPost.replace(/<\/main>/,'<h5>No One Gets Out Alive (2021) [Hindi + English] 720p HEVC 10bit</h5><h5><a href="https://mdrive.lol/archive/7/">720p HEVC</a></h5></main>');
+ let activeFallback=0,fallbackStarted=false;
+ const fallbackBase=alternateRouter('partial-error');
+ const fourthApp=load(async(u,o)=>{
+  if(u.includes('/archive/7/')){assert.equal(activeFallback,0,'fourth route must wait for initial batch');fallbackStarted=true;}
+  activeFallback++;
+  try{await new Promise(r=>setTimeout(r,5));
+   if(u.endsWith('/movie/'))return response(fourPost);
+   if(u.includes('/archive/7/'))return response('<h1>No One Gets Out Alive (2021) [Hindi + English] 720p</h1><h5><a href="https://hubcloud.ist/drive/rescue720">HubCloud</a></h5>');
+   return await fallbackBase(u,o);
+  }finally{activeFallback--;}
+ });
+ variants=await fourthApp.provider.getStreams(740925,'movie');assert.equal(fallbackStarted,true);assert.equal(variants.length,3);assert.equal(variants[0].videoCodec,'h264');checks++;console.log('PASS fourth route runs only as fallback after initial batch settles');
  let app=load(route('no-binary','movie',[]));assert.equal((await app.provider.getStreams(740925,'movie')).length,1);checks++;console.log('PASS embedded runtime without arrayBuffer uses range and video filename');
  app=load();assert.equal((await app.provider.getStreams('bad','movie')).length,0);assert.equal((await app.provider.getStreams(1,'tv',0,1)).length,0);checks++;console.log('PASS invalid input makes no request');
  console.log(checks+' checks passed. Fixture checks do not confirm VUEO playback.');

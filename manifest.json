@@ -1,6 +1,6 @@
 {
   "name": "Cloudbank",
-  "version": "1.20.62",
+  "version": "1.20.63",
   "scrapers": [
     {
       "id": "kisskh",
@@ -477,7 +477,7 @@
       "id": "moviesdrive",
       "name": "MoviesDrive",
       "description": "MoviesDrive website route; H.264 preferred with validated quality/codec alternatives; original, dual including original and unknown audio; minimum 720p",
-      "version": "4.1.0",
+      "version": "4.2.0",
       "author": "Nuvio Team",
       "supportedTypes": [
         "movie",
@@ -499,7 +499,7 @@
         "tv"
       ],
       "upstreamVersion": "3.0.1",
-      "notes": "One website engine. Prefers H.264/x264 and retains up to three distinct codec/quality alternatives, including 720p when available. Uses an 8 KiB Range probe; reads declared MKV video codec IDs when present and does not invent a codec when unknown. Container codec overrides label hints; displayed bit depth is label-derived only. Returns validated sources even if a later alternate fails. Extra collection capped at 5.5 seconds after first success, within 18.7-second total budget. Exact title/year-or-IMDb/season/episode and audio policies retained. No transcoding or app decoder change. Device playback confirmation required.",
+      "notes": "Bounded parallel quality extraction: three highest-priority routes processed concurrently, each preserving archive \u2192 HubCloud \u2192 download \u2192 media-probe dependencies. Fourth route starts only as fallback after first batch settles. Retains up to three validated distinct codec/quality files, H.264 ranking and honest codec labels, partial results on failures, 18.7-second total/5.5-second extra collection budgets, exact matching/audio policy and all prior removals. Adds host/total timing logs. v4.1.0 on-device log confirmed three playable sources and subtitle cues; v4.2.0 device timing still needs confirmation.",
       "sourceRepository": "https://github.com/D3adlyRocket/All-in-One-Nuvio",
       "sourceCommit": "3f09a6ff4360498895e622877af7a32212f75038",
       "runtimeModules": [
