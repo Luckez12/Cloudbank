@@ -1,6 +1,6 @@
 {
   "name": "Cloudbank",
-  "version": "1.20.63",
+  "version": "1.20.64",
   "scrapers": [
     {
       "id": "kisskh",
@@ -508,50 +508,21 @@
       "hasSettings": false
     },
     {
-      "id": "movieshunt",
-      "name": "MoviesHunt",
-      "description": "Hollywood & Bollywood Movies in Multi Language",
-      "version": "1.0.4",
-      "author": "piratezoro9",
-      "supportedTypes": [
-        "movie"
-      ],
-      "filename": "providers/movieshunt.js",
-      "enabled": true,
-      "hasSettings": false,
-      "formats": [
-        "m3u8"
-      ],
-      "logo": "https://i.postimg.cc/3Rc34LJj/movieshunt.png",
-      "contentLanguage": [
-        "hi",
-        "en"
-      ],
-      "runtimeTimeoutMs": 20000,
-      "upstreamSupportedTypes": [
-        "movie"
-      ],
-      "upstreamVersion": "1.0.0",
-      "notes": "Imported from D3adlyRocket/All-in-One-Nuvio at 3f09a6ff4360498895e622877af7a32212f75038. Cloudbank adapter preserves upstream extraction/settings, uses shared TMDB detail metadata when available, caps async result wait at 19s, and returns valid stream arrays. Playback and host settings support require app testing.",
-      "sourceRepository": "https://github.com/D3adlyRocket/All-in-One-Nuvio",
-      "sourceCommit": "3f09a6ff4360498895e622877af7a32212f75038",
-      "runtimeModules": []
-    },
-    {
       "id": "movies4u",
       "name": "Movies4u",
-      "description": "Hollywood, Bollywood movies including web series, & Hindi dubbed movies in HD quality",
-      "version": "1.0.6",
+      "description": "Movies and exact TV episodes through the Movies4u website and HubCloud direct files",
+      "version": "2.0.0",
       "author": "Nuvio Team",
       "supportedTypes": [
-        "movie"
+        "movie",
+        "tv"
       ],
       "filename": "providers/movies4u.js",
       "enabled": true,
-      "hasSettings": true,
+      "hasSettings": false,
       "formats": [
-        "mp4",
-        "m3u8"
+        "mkv",
+        "mp4"
       ],
       "logo": "https://i.postimg.cc/J0QG1QhQ/movies4u.jpg",
       "contentLanguage": [
@@ -564,10 +535,12 @@
         "movie"
       ],
       "upstreamVersion": "1.0.2",
-      "notes": "Imported from D3adlyRocket/All-in-One-Nuvio at 3f09a6ff4360498895e622877af7a32212f75038. Cloudbank adapter preserves upstream extraction/settings, uses shared TMDB detail metadata when available, caps async result wait at 19s, and returns valid stream arrays. Playback and host settings support require app testing.",
+      "notes": "Website lookup.php -> verified title/year or IMDb post -> M4uLinks exact quality/episode -> HubCloud -> range-validated MKV/MP4. H.264 preferred; up to three parallel host routes. Minimum 720p, original/dual-including-original/unknown audio accepted, explicit dub-only and ZIP packs rejected. Filename codec hints used when container bytes unavailable. Shared TMDB context; no signed URL cache. Android playback requires testing.",
       "sourceRepository": "https://github.com/D3adlyRocket/All-in-One-Nuvio",
       "sourceCommit": "3f09a6ff4360498895e622877af7a32212f75038",
-      "runtimeModules": []
+      "runtimeModules": [
+        "cheerio-without-node-native"
+      ]
     },
     {
       "id": "movix",
