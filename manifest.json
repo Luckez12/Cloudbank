@@ -1,6 +1,6 @@
 {
   "name": "Cloudbank",
-  "version": "1.20.54",
+  "version": "1.20.55",
   "scrapers": [
     {
       "id": "kisskh",
@@ -94,7 +94,7 @@
       "id": "moviebox",
       "name": "MovieBox",
       "description": "MovieBox signed mobile API with existing H5 mirror discovery fallback",
-      "version": "3.0.0",
+      "version": "3.0.1",
       "author": "Luckez",
       "supportedTypes": [
         "movie",
@@ -120,7 +120,7 @@
       "disabledPlatforms": [],
       "supportsExternalPlayer": true,
       "runtimeTimeoutMs": 20000,
-      "notes": "Isolated signed mobile resolver followed by bounded existing H5/website fallback; no parallel alternate engines. Shared metadata identity checks, exact aliases/year/type, exact TV resource episode filtering and early pagination exit. Local verification keyed by signed URL/resource ID; HTML/image/JSON CDN responses rejected. Mobile captions bound to selected resource. Explicit foreign audio rejected; unknown audio not labeled Original. 18.5s deadline, request caps and portable existing signing retained. Playback pending device test.",
+      "notes": "Isolated signed mobile resolver followed by bounded existing H5/website fallback; no parallel alternate engines. Shared metadata identity checks, exact aliases/year/type, exact TV resource episode filtering and early pagination exit. Local verification keyed by signed URL/resource ID; HTML/image/JSON CDN responses rejected. Mobile captions bound to selected resource. Explicit foreign audio rejected; unknown audio not labeled Original. 18.5s deadline, request caps and portable existing signing retained. Playback pending device test. Bounded 1080p diagnostics: per-page matching/audio counts, resource rejection reasons before dedupe, requested versus actual resolution, selection counts and CDN status/MIME/size outcome. Selection policy and HTTP request count unchanged.",
       "runtimeModules": [
         "crypto-js"
       ]

@@ -28,6 +28,8 @@ async function main(){
  const a=make();let out=await a.run();
  check(out.length===1&&out[0].quality==='1080p','mobile signed route returns observed resolution');
  check(a.calls.length===5,'cold path auth/search/resource/probe/captions');
+ check(a.logs.some(x=>x.includes('RESOURCE_ITEM:')&&x.includes('"requested":1080')&&x.includes('"actual":1080')&&x.includes('eligible_before_dedupe')),'observed resolution is logged against requested quality');
+ check(!a.logs.join('\n').includes('signature=fresh')&&!a.logs.join('\n').includes('fixture-token'),'new diagnostics do not expose signed URLs or auth tokens');
  check(out[0].subtitles.length===2&&out[0].subtitles[0].lang==='en','mobile captions attached to verified resource');
  check(out[0].headers.Referer==='https://player.example/','resource playback headers preserved');
  check(!('_resourceId' in out[0]),'internal resource marker removed from output');
@@ -52,6 +54,7 @@ async function main(){
  check((await dup.run()).length===0&&!dup.calls.some(c=>c.url.includes('/subject-api/resource')),'duplicate exact title/year is ambiguous');
  const explicitDub=make((url,opts)=>url.includes('/subject-api/resource')?response({code:0,data:{list:[{...resource,language:'Hindi'}],pager:{hasMore:false}}}):ordinary(url,opts));
  check((await explicitDub.run()).length===0,'known foreign dubbed audio is not returned');
+ check(explicitDub.logs.some(x=>x.includes('RESOURCE_PAGE:')&&x.includes('"audioRejected":1')),'audio rejections are visible before candidate selection');
  const chinese=make((url,opts)=>{
   if(url.includes('/subject-api/search'))return response({code:0,data:{items:[{...subject,title:'你好',language:'Chinese'}]}});
   if(url.includes('/subject-api/resource'))return response({code:0,data:{list:[{...resource,language:'Chinese'}]}});
@@ -60,10 +63,13 @@ async function main(){
  check((await chinese.run()).length===1,'non-ASCII titles retain exact-match identity');
  const html=make((url,opts)=>url.startsWith('https://cdn.example/')?response('<html>error</html>',200,{'content-type':'text/html','content-length':'524288000'}):ordinary(url,opts));
  check((await html.run()).length===0,'HTML with success status and huge length is not media');
+ check(html.logs.some(x=>x.includes('MEDIA_CHECK:')&&x.includes('http_or_non_media_response')),'media-content rejection reason is logged');
  const tiny=make((url,opts)=>url.startsWith('https://cdn.example/')?response('',206,{'content-type':'video/mp4','content-range':'bytes 0-0/2048'}):ordinary(url,opts));
  check((await tiny.run()).length===0,'tiny notice file rejected despite huge API filesize');
+ check(tiny.logs.some(x=>x.includes('MEDIA_CHECK:')&&x.includes('tiny_size_mismatch')),'file-size mismatch is diagnosed');
  const notice=make((url,opts)=>url.includes('/subject-api/resource')?response({code:0,data:{list:[{...resource,title:'Official Notice - Update the App'}]}}):ordinary(url,opts));
  check((await notice.run()).length===0&&!notice.calls.some(c=>c.url.startsWith('https://cdn.example/')),'known notice resource is not probed');
+ check(notice.logs.some(x=>x.includes('RESOURCE_ITEM:')&&x.includes('notice_resource')),'notice rejection is diagnosed');
  const fallbackQuality=make((url,opts)=>{
   if(url.includes('/subject-api/resource')){
    const res=Number(new URL(url).searchParams.get('resolution'));
@@ -71,6 +77,19 @@ async function main(){
   }return ordinary(url,opts);
  });
  out=await fallbackQuality.run();check(out.length===1&&out[0].quality==='720p','720 fallback only when 1080 resource fails');
+ const rejected1080=make((url,opts)=>{
+  if(url.includes('/subject-api/resource')){
+   const q=Number(new URL(url).searchParams.get('resolution'));
+   return response({code:0,data:{list:q===1080?[{...resource,resourceLink:''},{...resource,resourceId:'low',resolution:480}]:[{...resource,resolution:720}],pager:{hasMore:false}}});
+  }return ordinary(url,opts);
+ });
+ out=await rejected1080.run();
+ check(out.length===1&&out[0].quality==='720p','diagnostics retain the existing 720 fallback for rejected 1080 request items');
+ check(rejected1080.logs.some(x=>x.includes('RESOURCE_ITEM:')&&x.includes('"requested":1080')&&x.includes('missing_resource_link')),'missing resourceLink diagnosed before deduplication hides the row');
+ check(rejected1080.logs.some(x=>x.includes('RESOURCE_ITEM:')&&x.includes('"actual":480')&&x.includes('below_min_resolution')),'lower actual resolution distinguished from requested 1080');
+ const many=make((url,opts)=>url.includes('/subject-api/resource')?response({code:0,data:{list:Array.from({length:12},(_,i)=>({...resource,resourceId:'resource'+i,resourceLink:'https://cdn.example/'+i+'.mp4'}))}}):ordinary(url,opts));
+ await many.run();
+ check(many.logs.filter(x=>x.includes('RESOURCE_ITEM:')).length===8&&many.logs.some(x=>x.includes('RESOURCE_DIAGNOSTICS_TRUNCATED:')),'per-quality diagnostic rows are bounded at eight');
  const capsFallback=make((url,opts)=>url.includes('/subject-api/resource')?response({code:0,data:{list:[{...resource,streamId:'stream3'}]}}):url.includes('/get-ext-captions')?response({code:0,data:{extCaptions:[]}}):url.includes('/get-stream-captions')?response({code:0,data:{extCaptions:[{url:'https://subs.example/ms.srt',lanName:'Malay',lan:'ms'}]}}):ordinary(url,opts));
  out=await capsFallback.run();check(out[0].subtitles[0].lang==='ms','alternate caption endpoint used after empty stream captions');
  check(capsFallback.calls.some(c=>c.url.includes('/get-ext-captions')&&new URL(c.url).searchParams.get('episode')==='3'),'TV captions use requested episode');

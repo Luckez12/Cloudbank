@@ -3,7 +3,7 @@
 /* VUEO_PROVIDER_REPAIR_V16 */
 /* VUEO_FAST_DISCOVERY_V1 */
 /* VUEO_DISCOVERY_REBUILD_V1 */
-var MOVIEBOX_VERSION = "3.0.0";
+var MOVIEBOX_VERSION = "3.0.1";
 function movieboxLog(stage, data) {
   console.log("[MovieBox] " + stage + ": " + JSON.stringify(data || {}));
   try { if (typeof globalThis.vueoTrace === "function") globalThis.vueoTrace(stage, data || {}); } catch (_) {}
@@ -159,7 +159,7 @@ function movieboxMobileFactory(fetch,globalThis,originalAudioLanguage,movieboxSe
 var module={exports:{}};
 
 const PROVIDER = "MovieBox";
-const VERSION = "3.0.0";
+const VERSION = "3.0.1";
 const TMDB_BASE = "https://api.themoviedb.org/3";
 const TMDB_API_KEY = "1865f43a0549ca50d341dd9ab8b29f49";
 var CryptoJS = null;
@@ -565,12 +565,15 @@ function fetchResolution(subjectId, mediaType, season, episode, resolution) {
   function fetchPage(page,acc) {
     return apiCall(PATH_RESOURCE,"GET",{subjectId:subjectId,se:0,ep:0,resolution:resolution,page:page,perPage:10},null).then(function(result){
       var data=result&&result.data||{},list=Array.isArray(data.list)?data.list:[];
+      var pageExact=0,pageAudioRejected=0;
       list.forEach(function(item){
         if(mediaType==="tv"&&(Number(item.se)!==targetSe||Number(item.ep)!==targetEp))return;
-        if(!movieboxAudioAllowed(item,originalAudioLanguage))return;
+        pageExact++;
+        if(!movieboxAudioAllowed(item,originalAudioLanguage)){pageAudioRejected++;return;}
         acc.push(Object.assign({},item,{_requestedResolution:resolution,_apiHost:result?result.host:""}));
       });
       var usable=acc.some(function(item){return /^https?:\/\//i.test(String(item.resourceLink||""))&&isAllowedResolution(item);});
+      console.log("[MovieBox] RESOURCE_PAGE: "+JSON.stringify({requested:resolution,page:page,rows:list.length,exactEpisode:pageExact,audioRejected:pageAudioRejected,retained:acc.length,hasMore:!!(data.pager&&data.pager.hasMore),stop:usable?"matching_link_seen":data.pager&&data.pager.hasMore&&page<20?"continue":"end"}));
       if(!usable&&data.pager&&data.pager.hasMore&&page<20)return fetchPage(page+1,acc);
       console.log("[MovieBox] RESOURCE: "+JSON.stringify({quality:resolution,pages:page,matching:acc.length,season:targetSe,episode:targetEp}));
       return acc;
@@ -640,7 +643,7 @@ function probeCandidate(item, index) {
     var type=String(res.headers&&res.headers.get?res.headers.get("content-type")||"":"").toLowerCase();
     var bad=/text\/html|application\/json|image\//.test(type);
     if(res.body&&typeof res.body.cancel==="function")Promise.resolve(res.body.cancel()).catch(function(){});
-    return {item:item,bytes:parseTotalBytesFromHeaders(res),status:bad?0:res.status,index:index,contentType:type};
+    return {item:item,bytes:parseTotalBytesFromHeaders(res),status:bad?0:res.status,httpStatus:res.status,index:index,contentType:type};
   },function(){return {item:item,bytes:0,status:0,index:index};});
 }
 
@@ -1009,6 +1012,9 @@ function verifyFastDirectCandidate(item, mediaType, index) {
       " actualMB=" + (actualBytes ? Math.round(actualBytes / 1048576) : 0) +
       " ok=" + ok);
 
+    var mime=String(p.contentType||"").split(";")[0].trim();
+    console.log("[MovieBox] MEDIA_CHECK: " + JSON.stringify({actual:qn,status:p.httpStatus||p.status,mime:/^[a-z0-9.+-]+\/[a-z0-9.+-]+$/i.test(mime)?mime:"unknown",apiMB:Math.round(apiBytes/1048576),observedMB:Math.round(actualBytes/1048576),result:ok?"accepted":!validStatus?"http_or_non_media_response":tinyMismatch?"tiny_size_mismatch":!likelyFull?"insufficient_file_size":"audio_mismatch"}));
+
     if (!ok) return null;
     var qLabel = qualityName(qn);
     return {
@@ -1045,14 +1051,35 @@ function verifyCachedCandidate(item, mediaType, index) {
   return fastVerifyCache[key];
 }
 
+function resourceDiagnostic(item, requested, index) {
+  item=item||{};
+  var link=String(item.resourceLink||"").trim(), reasons=[];
+  if(!link)reasons.push("missing_resource_link");
+  else if(!/^https?:\/\//i.test(link))reasons.push("non_http_resource_link");
+  if(!isAllowedResolution(item))reasons.push("below_min_resolution");
+  if(isNoticeCandidate(item))reasons.push("notice_resource");
+  var rawResolution=String(item.resolution==null?"":item.resolution);
+  // Never log URLs, IDs, caption text, signed parameters, cookies or tokens.
+  return {requested:requested,index:index,actual:actualResolution(item),resolutionShape:/^\d+(?:\.\d+)?$/.test(rawResolution)?"numeric":rawResolution?"non_numeric":"missing",
+    httpLink:/^https?:\/\//i.test(link),alternateUrlPresent:!!String(item.url||"").trim(),sizeMB:Math.round(candidateSize(item)/1048576),duration:candidateDuration(item),
+    memberType:item.requireMemberType==null?null:Number(item.requireMemberType),linkType:item.linkType==null?null:Number(item.linkType),
+    fields:Object.keys(item).filter(function(k){return /^[A-Za-z_][A-Za-z0-9_]{0,39}$/.test(k);}).slice(0,24),
+    result:reasons.length?"rejected":"eligible_before_dedupe",reasons:reasons};
+}
 function resolveFastQuality(subjectId, mediaType, season, episode, resolution) {
   return fetchResolution(subjectId, mediaType, season, episode, resolution).then(function (items) {
-    var candidates = uniqueCandidates(items).filter(function (item) {
+    items.slice(0,8).forEach(function(item,index){console.log("[MovieBox] RESOURCE_ITEM: "+JSON.stringify(resourceDiagnostic(item,resolution,index+1)));});
+    if(items.length>8)console.log("[MovieBox] RESOURCE_DIAGNOSTICS_TRUNCATED: "+JSON.stringify({requested:resolution,total:items.length,logged:8}));
+    var unique = uniqueCandidates(items);
+    var eligible = unique.filter(function (item) {
       return /^https?:\/\//i.test(String(item && item.resourceLink || "")) &&
         isAllowedResolution(item) && !isNoticeCandidate(item);
-    }).sort(function (a, b) {
+    });
+    var candidates = eligible.sort(function (a, b) {
       return directCandidateScore(b) - directCandidateScore(a);
     }).slice(0, 2);
+
+    console.log("[MovieBox] RESOURCE_SELECTION: "+JSON.stringify({requested:resolution,raw:items.length,afterUrlOrIdDedupe:unique.length,eligible:eligible.length,selectedForProbe:candidates.length}));
 
     var actualQualities = [];
     candidates.forEach(function (item) {

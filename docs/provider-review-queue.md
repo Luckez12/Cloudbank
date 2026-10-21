@@ -5,7 +5,7 @@ Review providers one at a time in this order, as agreed on 21 October 2026
 received an earlier patch or that they are all broken. The historical repair
 inventory was incomplete when the queue was assembled.
 
-Current: **MovieBox v3.0.0 patch prepared; waiting for device playback/subtitle test.**
+Current: **MovieBox v3.0.1 diagnostics prepared; waiting for a 1080p rejection log.**
 
 KissKH v1.4.0 is deferred: the user reported the site down; no playback confirmation.
 Next: **AllMovieLand**, after MovieBox testing or a new user instruction.
@@ -15,7 +15,7 @@ Passed device test: **OneTouchTV v1.5.0**, confirmed by the user after My Demon
 1.48-second discovery. This confirms that sample, not every title in the catalog.
 
 1. KissKH — deferred: site down as reported by user; device testing pending.
-2. MovieBox — v3.0.0 patch prepared; device testing pending.
+2. MovieBox — v3.0.1 diagnostics prepared; 720p first-frame and captions observed for My Demon S1E3, 1080p investigation pending.
 3. AllMovieLand
 4. CineFreak
 5. CinemaCity
@@ -58,3 +58,5 @@ Separate static tests, successful discovery and confirmed device playback. Keep
 providers already repaired and working out of this queue unless the user reports
 a new issue. Do not change VUEO or delete providers as part of a review patch
 without an instruction to do so.
+
+MovieBox 3.0.0 device evidence: My Demon S1E3 returned one 720p source in 2.905s; 12 captions reached the player and VIDEO_FIRST_FRAME appeared. Two resources from the 1080p request failed selection; v3.0.1 adds reasons without relaxing filters. No full-catalog or original-audio confirmation is inferred.
