@@ -1,6 +1,6 @@
 {
   "name": "Cloudbank",
-  "version": "1.20.58",
+  "version": "1.20.59",
   "scrapers": [
     {
       "id": "kisskh",
@@ -270,42 +270,6 @@
       "runtimeModules": []
     },
     {
-      "id": "allmovieland",
-      "name": "AllMovieLand",
-      "description": "AllMovieLand streaming provider with multi-language support",
-      "version": "1.0.5",
-      "author": "Nuvio Team",
-      "supportedTypes": [
-        "movie",
-        "tv"
-      ],
-      "filename": "providers/allmovieland.js",
-      "enabled": true,
-      "hasSettings": true,
-      "formats": [
-        "m3u8"
-      ],
-      "logo": "https://i.postimg.cc/hhWqkVQs/allmovieland.png",
-      "contentLanguage": [
-        "en",
-        "hi",
-        "ta",
-        "te"
-      ],
-      "runtimeTimeoutMs": 20000,
-      "upstreamSupportedTypes": [
-        "movie",
-        "tv"
-      ],
-      "upstreamVersion": "1.0.0",
-      "notes": "Imported from D3adlyRocket/All-in-One-Nuvio at 3f09a6ff4360498895e622877af7a32212f75038. Cloudbank adapter preserves upstream extraction/settings, uses shared TMDB detail metadata when available, caps async result wait at 19s, and returns valid stream arrays. Playback and host settings support require app testing. Version consolidation: alternate cores embedded as bounded delayed/failed-primary fallbacks; provider identity, playback metadata and settings preserved. Source disabled/platform flags retained per engine. Playback requires app testing.",
-      "sourceRepository": "https://github.com/D3adlyRocket/All-in-One-Nuvio",
-      "sourceCommit": "3f09a6ff4360498895e622877af7a32212f75038",
-      "runtimeModules": [
-        "cheerio-without-node-native"
-      ]
-    },
-    {
       "id": "desiflix",
       "name": "DesiFlix",
       "description": "Bollywood, Hollywood, and South Indian movies, in Dual Language",
@@ -374,7 +338,7 @@
     {
       "id": "cineby",
       "name": "Cineby",
-      "description": "Multi-server movie and TV streaming \u2014 4K/1080p/720p from Videasy network without subtitles",
+      "description": "Multi-server movie and TV streaming — 4K/1080p/720p from Videasy network without subtitles",
       "version": "1.9.6",
       "author": "Nuvio Team",
       "supportedTypes": [
@@ -402,40 +366,6 @@
       "sourceRepository": "https://github.com/D3adlyRocket/All-in-One-Nuvio",
       "sourceCommit": "3f09a6ff4360498895e622877af7a32212f75038",
       "runtimeModules": []
-    },
-    {
-      "id": "cinefreak",
-      "name": "CineFreak",
-      "description": "cinefreak.net; original audio, dual containing original, and unknown audio; minimum 720p",
-      "version": "2.0.2",
-      "author": "piratezoro9",
-      "supportedTypes": [
-        "movie",
-        "tv"
-      ],
-      "filename": "providers/cinefreak.js",
-      "enabled": true,
-      "hasSettings": false,
-      "formats": [
-        "mkv",
-        "mp4"
-      ],
-      "logo": "https://i.postimg.cc/rpDB2284/cinefreak.png",
-      "contentLanguage": [
-        "multi"
-      ],
-      "runtimeTimeoutMs": 20000,
-      "upstreamSupportedTypes": [
-        "movie",
-        "tv"
-      ],
-      "upstreamVersion": "1.0.0",
-      "notes": "Restores upstream extensionless storage-link extraction with mandatory HTTP Range and file-signature validation. Adds token-free host diagnostics for blocked/challenge/iframe pages and extraction/media probe counts. Original/dual-containing-original/unknown audio policy retained. Live host playback remains unconfirmed.",
-      "sourceRepository": "https://github.com/D3adlyRocket/All-in-One-Nuvio",
-      "sourceCommit": "3f09a6ff4360498895e622877af7a32212f75038",
-      "runtimeModules": [
-        "cheerio-without-node-native"
-      ]
     },
     {
       "id": "moonflix",
@@ -617,7 +547,7 @@
       "name": "HindMoviez",
       "description": "HindMoviez - Hindi & English Movies and Series (480p / 720p / 1080p / 4K)",
       "version": "1.0.5",
-      "author": "Sanchit (@S4NCHITT) \u2014 Murph's Streams",
+      "author": "Sanchit (@S4NCHITT) — Murph's Streams",
       "supportedTypes": [
         "movie",
         "tv"
@@ -845,7 +775,7 @@
     {
       "id": "peachify",
       "name": "Peachify",
-      "description": "Streams from peachify.top \u2014 3 server sources (MovieBox/Holly/Air) via Cloudflare Workers with AES-256-GCM decryption",
+      "description": "Streams from peachify.top — 3 server sources (MovieBox/Holly/Air) via Cloudflare Workers with AES-256-GCM decryption",
       "version": "1.0.4",
       "author": "piratezoro9",
       "supportedTypes": [
@@ -1451,7 +1381,7 @@
     {
       "id": "cinevibe",
       "name": "Cinevibe",
-      "description": "Cinevibe.cc website Server 1 \u2014 movies and exact TV episodes",
+      "description": "Cinevibe.cc website Server 1 — movies and exact TV episodes",
       "version": "2.0.0",
       "author": "Nuvio Team",
       "supportedTypes": [
