@@ -1,12 +1,12 @@
 {
   "name": "Cloudbank",
-  "version": "1.20.51",
+  "version": "1.20.52",
   "scrapers": [
     {
       "id": "kisskh",
       "name": "KissKH",
       "description": "Asian drama, series and movie streams with subtitle metadata",
-      "version": "1.3.6",
+      "version": "1.4.0",
       "author": "Luckez",
       "supportedTypes": [
         "movie",
@@ -30,7 +30,7 @@
       ],
       "disabledPlatforms": [],
       "supportsExternalPlayer": true,
-      "notes": "V15 Shared Discovery Context: TMDB detail metadata is coalesced by VUEO core once per scan when the V15 runtime bridge is available; local TMDB fallback remains for older runtimes. V15 centralized trace hooks emit metadata/candidate/verification stages without changing source extraction. V15 Shared Discovery Context + centralized trace hooks. TMDB metadata is coalesced by VUEO core when available, with provider-local fallback retained. Candidate/verification stages emit lightweight diagnostics. Runtime budget alignment: provider now receives the full 20s app runtime instead of the 10s descriptor default, so the existing bounded title/detail/video/subtitle pipeline is not killed before it can return valid links. Test-Plugin adaptation: transferred engine first (11s maximum), existing Cloudbank engine retained as fallback (7.5s maximum). Shared metadata, provider identity and display preserved; Android playback unverified. Version consolidation: alternate cores embedded as bounded delayed/failed-primary fallbacks; provider identity, playback metadata and settings preserved. Source disabled/platform flags retained per engine. Playback requires app testing.",
+      "notes": "Single API resolver: shared TMDB metadata with identity checks, exact title/season/year and bounded alias fallback; local per-episode video/subtitle kkey, optional WebView only after rejected video token. Parallel video/subtitle requests; encrypted TXT subtitle decryption with validation. Runtime-local LRU: 500 title mappings/30 days; 32 compact episode lists, 5min ongoing/6h completed. No signed media cache or remote key service. Playback requires Android testing.",
       "runtimeTimeoutMs": 20000
     },
     {
@@ -374,7 +374,7 @@
     {
       "id": "cineby",
       "name": "Cineby",
-      "description": "Multi-server movie and TV streaming \u2014 4K/1080p/720p from Videasy network without subtitles",
+      "description": "Multi-server movie and TV streaming — 4K/1080p/720p from Videasy network without subtitles",
       "version": "1.9.6",
       "author": "Nuvio Team",
       "supportedTypes": [
@@ -616,7 +616,7 @@
       "name": "HindMoviez",
       "description": "HindMoviez - Hindi & English Movies and Series (480p / 720p / 1080p / 4K)",
       "version": "1.0.5",
-      "author": "Sanchit (@S4NCHITT) \u2014 Murph's Streams",
+      "author": "Sanchit (@S4NCHITT) — Murph's Streams",
       "supportedTypes": [
         "movie",
         "tv"
@@ -844,7 +844,7 @@
     {
       "id": "peachify",
       "name": "Peachify",
-      "description": "Streams from peachify.top \u2014 3 server sources (MovieBox/Holly/Air) via Cloudflare Workers with AES-256-GCM decryption",
+      "description": "Streams from peachify.top — 3 server sources (MovieBox/Holly/Air) via Cloudflare Workers with AES-256-GCM decryption",
       "version": "1.0.4",
       "author": "piratezoro9",
       "supportedTypes": [
@@ -1450,7 +1450,7 @@
     {
       "id": "cinevibe",
       "name": "Cinevibe",
-      "description": "Cinevibe.cc website Server 1 \u2014 movies and exact TV episodes",
+      "description": "Cinevibe.cc website Server 1 — movies and exact TV episodes",
       "version": "2.0.0",
       "author": "Nuvio Team",
       "supportedTypes": [
