@@ -1,6 +1,6 @@
 {
   "name": "Cloudbank",
-  "version": "1.20.60",
+  "version": "1.20.61",
   "scrapers": [
     {
       "id": "kisskh",
@@ -401,40 +401,6 @@
       "runtimeModules": []
     },
     {
-      "id": "dooflix",
-      "name": "DooFlix",
-      "description": "Fast streaming provider with direct TMDB integration",
-      "version": "1.0.5",
-      "author": "Nuvio Team",
-      "supportedTypes": [
-        "movie",
-        "tv"
-      ],
-      "filename": "providers/dooflix.js",
-      "enabled": true,
-      "hasSettings": true,
-      "formats": [
-        "mp4",
-        "m3u8"
-      ],
-      "logo": "https://i.postimg.cc/59H1DmRk/dooflix.png",
-      "contentLanguage": [
-        "en",
-        "es",
-        "hi"
-      ],
-      "runtimeTimeoutMs": 20000,
-      "upstreamSupportedTypes": [
-        "movie",
-        "tv"
-      ],
-      "upstreamVersion": "1.0.0",
-      "notes": "Imported from D3adlyRocket/All-in-One-Nuvio at 3f09a6ff4360498895e622877af7a32212f75038. Cloudbank adapter preserves upstream extraction/settings, uses shared TMDB detail metadata when available, caps async result wait at 19s, and returns valid stream arrays. Playback and host settings support require app testing. Version consolidation: alternate cores embedded as bounded delayed/failed-primary fallbacks; provider identity, playback metadata and settings preserved. Source disabled/platform flags retained per engine. Playback requires app testing.",
-      "sourceRepository": "https://github.com/D3adlyRocket/All-in-One-Nuvio",
-      "sourceCommit": "3f09a6ff4360498895e622877af7a32212f75038",
-      "runtimeModules": []
-    },
-    {
       "id": "fibwatch",
       "name": "FibWatch",
       "description": "FibWatch movie and TV streams with episode selection",
@@ -468,73 +434,6 @@
       "runtimeModules": [
         "cheerio-without-node-native"
       ]
-    },
-    {
-      "id": "hdghartv",
-      "name": "HDGharTV",
-      "description": "HDGhar TV allows users to watch movies, TV shows and web series in English & Hindi.",
-      "version": "1.0.4",
-      "author": "Nuvio Team",
-      "supportedTypes": [
-        "movie",
-        "tv"
-      ],
-      "filename": "providers/hdghartv.js",
-      "enabled": true,
-      "hasSettings": false,
-      "formats": [
-        "m3u8"
-      ],
-      "logo": "https://i.postimg.cc/761WVpJS/hdghartv.png",
-      "contentLanguage": [
-        "en",
-        "hi"
-      ],
-      "limited": false,
-      "runtimeTimeoutMs": 20000,
-      "upstreamSupportedTypes": [
-        "movie",
-        "tv"
-      ],
-      "upstreamVersion": "1.0.0",
-      "notes": "Imported from D3adlyRocket/All-in-One-Nuvio at 3f09a6ff4360498895e622877af7a32212f75038. Cloudbank adapter preserves upstream extraction/settings, uses shared TMDB detail metadata when available, caps async result wait at 19s, and returns valid stream arrays. Playback and host settings support require app testing.",
-      "sourceRepository": "https://github.com/D3adlyRocket/All-in-One-Nuvio",
-      "sourceCommit": "3f09a6ff4360498895e622877af7a32212f75038",
-      "runtimeModules": []
-    },
-    {
-      "id": "hindmoviez",
-      "name": "HindMoviez",
-      "description": "HindMoviez - Hindi & English Movies and Series (480p / 720p / 1080p / 4K)",
-      "version": "1.0.5",
-      "author": "Sanchit (@S4NCHITT) \u2014 Murph's Streams",
-      "supportedTypes": [
-        "movie",
-        "tv"
-      ],
-      "filename": "providers/hindmoviez.js",
-      "enabled": true,
-      "hasSettings": true,
-      "formats": [
-        "mp4",
-        "mkv",
-        "m3u8"
-      ],
-      "logo": "https://i.postimg.cc/5t55Csm4/hindmoviez.png",
-      "contentLanguage": [
-        "en",
-        "hi"
-      ],
-      "runtimeTimeoutMs": 20000,
-      "upstreamSupportedTypes": [
-        "movie",
-        "tv"
-      ],
-      "upstreamVersion": "1.0.1",
-      "notes": "Imported from D3adlyRocket/All-in-One-Nuvio at 3f09a6ff4360498895e622877af7a32212f75038. Cloudbank adapter preserves upstream extraction/settings, uses shared TMDB detail metadata when available, caps async result wait at 19s, and returns valid stream arrays. Playback and host settings support require app testing.",
-      "sourceRepository": "https://github.com/D3adlyRocket/All-in-One-Nuvio",
-      "sourceCommit": "3f09a6ff4360498895e622877af7a32212f75038",
-      "runtimeModules": []
     },
     {
       "id": "movieblast",
@@ -577,8 +476,8 @@
     {
       "id": "moviesdrive",
       "name": "MoviesDrive",
-      "description": "MoviesDrive streaming with HubCloud and Google Drive extraction",
-      "version": "3.0.6",
+      "description": "Current MoviesDrive website route; exact movie/season/episode; original, dual including original and unknown audio; minimum 720p",
+      "version": "4.0.0",
       "author": "Nuvio Team",
       "supportedTypes": [
         "movie",
@@ -592,8 +491,7 @@
       ],
       "logo": "https://www.google.com/s2/favicons?domain=moviesdrives.my&sz=128",
       "contentLanguage": [
-        "en",
-        "hin"
+        "multi"
       ],
       "runtimeTimeoutMs": 20000,
       "upstreamSupportedTypes": [
@@ -601,12 +499,13 @@
         "tv"
       ],
       "upstreamVersion": "3.0.1",
-      "notes": "Imported from D3adlyRocket/All-in-One-Nuvio at 3f09a6ff4360498895e622877af7a32212f75038. Cloudbank adapter preserves upstream extraction/settings, uses shared TMDB detail metadata when available, caps async result wait at 19s, and returns valid stream arrays. Playback and host settings support require app testing. Version consolidation: alternate cores embedded as bounded delayed/failed-primary fallbacks; provider identity, playback metadata and settings preserved. Source disabled/platform flags retained per engine. Playback requires app testing.",
+      "notes": "Website rebuild: one engine, active domain map with tested new3.moviesdrive.beer fallback, exact title and year-or-IMDb, exact season and episode, no first-result/episode fallback or ZIP packs. Current MDrive archive \u2192 HubCloud \u2192 supplied download page \u2192 direct R2 route. Prefers 1080p then 720p and returns first validated file. Bounded Range and video signature or filename validation, real byte size, audio labels preserved, no signed URL caching. Live sample MKV files have original English/Korean tracks and embedded subtitles; VUEO playback needs device confirmation.",
       "sourceRepository": "https://github.com/D3adlyRocket/All-in-One-Nuvio",
       "sourceCommit": "3f09a6ff4360498895e622877af7a32212f75038",
       "runtimeModules": [
         "cheerio-without-node-native"
-      ]
+      ],
+      "hasSettings": false
     },
     {
       "id": "movieshunt",
