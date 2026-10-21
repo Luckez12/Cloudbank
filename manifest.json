@@ -1,6 +1,6 @@
 {
   "name": "Cloudbank",
-  "version": "1.20.55",
+  "version": "1.20.56",
   "scrapers": [
     {
       "id": "kisskh",
@@ -374,7 +374,7 @@
     {
       "id": "cineby",
       "name": "Cineby",
-      "description": "Multi-server movie and TV streaming — 4K/1080p/720p from Videasy network without subtitles",
+      "description": "Multi-server movie and TV streaming \u2014 4K/1080p/720p from Videasy network without subtitles",
       "version": "1.9.6",
       "author": "Nuvio Team",
       "supportedTypes": [
@@ -406,8 +406,8 @@
     {
       "id": "cinefreak",
       "name": "CineFreak",
-      "description": "Direct MKV streams from cinefreak.nl",
-      "version": "1.0.4",
+      "description": "cinefreak.net; single-language original-audio files only; minimum 720p",
+      "version": "2.0.0",
       "author": "piratezoro9",
       "supportedTypes": [
         "movie",
@@ -415,15 +415,14 @@
       ],
       "filename": "providers/cinefreak.js",
       "enabled": true,
-      "hasSettings": true,
+      "hasSettings": false,
       "formats": [
         "mkv",
         "mp4"
       ],
       "logo": "https://i.postimg.cc/rpDB2284/cinefreak.png",
       "contentLanguage": [
-        "en",
-        "hi"
+        "multi"
       ],
       "runtimeTimeoutMs": 20000,
       "upstreamSupportedTypes": [
@@ -431,10 +430,12 @@
         "tv"
       ],
       "upstreamVersion": "1.0.0",
-      "notes": "Imported from D3adlyRocket/All-in-One-Nuvio at 3f09a6ff4360498895e622877af7a32212f75038. Cloudbank adapter preserves upstream extraction/settings, uses shared TMDB detail metadata when available, caps async result wait at 19s, and returns valid stream arrays. Playback and host settings support require app testing.",
+      "notes": "CineFreak .net rebuild. Uses current public search, exact title/year/type matching, exact episode keys, per-file language labels compared with TMDB original_language. Rejects dubbed/dual/multi audio, unknown language, packs, hidden links and sub-720p. Probes explicit CineCloud direct files using HTTP Range and MKV/MP4 signatures. No signed URL caching or subtitle claims. Fixture checks pass; live CineCloud access/playback unconfirmed (HTTP 403 observed).",
       "sourceRepository": "https://github.com/D3adlyRocket/All-in-One-Nuvio",
       "sourceCommit": "3f09a6ff4360498895e622877af7a32212f75038",
-      "runtimeModules": []
+      "runtimeModules": [
+        "cheerio-without-node-native"
+      ]
     },
     {
       "id": "moonflix",
@@ -616,7 +617,7 @@
       "name": "HindMoviez",
       "description": "HindMoviez - Hindi & English Movies and Series (480p / 720p / 1080p / 4K)",
       "version": "1.0.5",
-      "author": "Sanchit (@S4NCHITT) — Murph's Streams",
+      "author": "Sanchit (@S4NCHITT) \u2014 Murph's Streams",
       "supportedTypes": [
         "movie",
         "tv"
@@ -844,7 +845,7 @@
     {
       "id": "peachify",
       "name": "Peachify",
-      "description": "Streams from peachify.top — 3 server sources (MovieBox/Holly/Air) via Cloudflare Workers with AES-256-GCM decryption",
+      "description": "Streams from peachify.top \u2014 3 server sources (MovieBox/Holly/Air) via Cloudflare Workers with AES-256-GCM decryption",
       "version": "1.0.4",
       "author": "piratezoro9",
       "supportedTypes": [
@@ -1450,7 +1451,7 @@
     {
       "id": "cinevibe",
       "name": "Cinevibe",
-      "description": "Cinevibe.cc website Server 1 — movies and exact TV episodes",
+      "description": "Cinevibe.cc website Server 1 \u2014 movies and exact TV episodes",
       "version": "2.0.0",
       "author": "Nuvio Team",
       "supportedTypes": [
