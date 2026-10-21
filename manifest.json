@@ -1,6 +1,6 @@
 {
   "name": "Cloudbank",
-  "version": "1.20.52",
+  "version": "1.20.53",
   "scrapers": [
     {
       "id": "kisskh",
@@ -37,7 +37,7 @@
       "id": "onetouchtv",
       "name": "OneTouchTV",
       "description": "Asian drama, anime, series and movie streams with subtitle metadata",
-      "version": "1.4.5",
+      "version": "1.5.0",
       "author": "Luckez",
       "supportedTypes": [
         "movie",
@@ -60,7 +60,7 @@
       ],
       "disabledPlatforms": [],
       "supportsExternalPlayer": true,
-      "notes": "V16 Provider Repair: failed/404 alias searches are isolated instead of cancelling the whole Promise.all discovery batch; SEARCH/CANDIDATE trace now exposes whether usable results were parsed. V15 Shared Discovery Context: TMDB detail metadata is coalesced by VUEO core once per scan when the V15 runtime bridge is available; local TMDB fallback remains for older runtimes. V15 centralized trace hooks emit metadata/candidate/verification stages without changing source extraction. V15 Shared Discovery Context + centralized trace hooks. TMDB metadata is coalesced by VUEO core when available, with provider-local fallback retained. Candidate/verification stages emit lightweight diagnostics. Runtime budget alignment: provider now receives the full 20s app runtime instead of the 10s descriptor default; alias searches and detail verification remain parallel and bounded. Test-Plugin adaptation: transferred engine first (11s maximum), existing Cloudbank engine retained as fallback (7.5s maximum). Shared metadata, provider identity and display preserved; Android playback unverified.",
+      "notes": "Single API resolver; plaintext/local AES first with bounded remote decrypt only on failure. Shared TMDB identity checks, conditional alias search, exact title/year/season/episode and ambiguity rejection. Preserve source headers and caption tracks. Runtime-local 500-entry mapping cache, 30-day TTL; no media-response cache. Device playback pending.",
       "runtimeTimeoutMs": 20000
     },
     {

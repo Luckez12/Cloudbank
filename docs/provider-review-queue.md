@@ -5,11 +5,13 @@ Review providers one at a time in this order, as agreed on 21 October 2026
 received an earlier patch or that they are all broken. The historical repair
 inventory was incomplete when the queue was assembled.
 
-Current: **KissKH v1.4.0 patch prepared; waiting for device playback/subtitle test.**
-Next: **OneTouchTV**, after KissKH testing or a new user instruction.
+Current: **OneTouchTV v1.5.0 patch prepared; waiting for device playback/subtitle test.**
 
-1. KissKH — patch prepared, device testing pending.
-2. OneTouchTV
+KissKH v1.4.0 is deferred: the user reported the site down; no playback confirmation.
+Next: **MovieBox**, after OneTouchTV testing or a new user instruction.
+
+1. KissKH — deferred: site down as reported by user; device testing pending.
+2. OneTouchTV — v1.5.0 patch prepared; device testing pending.
 3. MovieBox
 4. AllMovieLand
 5. CineFreak

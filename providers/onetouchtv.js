@@ -1,22 +1,244 @@
 "use strict";
-
-var PROVIDER_NAME = "OneTouchTV";
+/* VUEO_PROVIDER_REPAIR_V16 */
+/* VUEO_TITLE_PROFILE_V1 — exact metadata aliases/year and explicit season checks. */
+/* VUEO_FAST_DISCOVERY_V1 — one title query before conditional alias fallback. */
+var PROVIDER_NAME = "OneTouchTV", VERSION = "1.5.0";
 var BASE_URL = "https://api3.devcorp.me";
 var TMDB_API_KEY = "1c29a5198ee1854bd5eb45dbe8d17d92";
-var AES_KEY_TEXT = "im72charPasswordofdInitVectorStm";
-var AES_IV_TEXT = "im72charPassword";
+var AES_KEY_TEXT = "im72charPasswordofdInitVectorStm", AES_IV_TEXT = "im72charPassword";
 var USER_AGENT = "Mozilla/5.0 (Linux; Android 15) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0 Mobile Safari/537.36";
-var DEFAULT_HEADERS = {
-  "User-Agent": USER_AGENT,
-  "Accept": "application/json, text/plain, */*",
-  "Referer": BASE_URL + "/"
-};
+var DEFAULT_HEADERS = { "User-Agent": USER_AGENT, "Accept": "application/json,text/plain,*/*", "Referer": BASE_URL + "/" };
+var CACHE_SLOT = "__CLOUDBANK_ONETOUCH_MATCH_V1__";
+var localCache = { matches: {} };
+function trace(stage, details) {
+  console.log("[OneTouchTV] " + stage + ": " + JSON.stringify(details || {}));
+  try { if (typeof globalThis.vueoTrace === "function") globalThis.vueoTrace(stage, details || {}); } catch (_) {}
+}
+function cacheStore() {
+  try { if (!globalThis[CACHE_SLOT]) globalThis[CACHE_SLOT] = localCache; return globalThis[CACHE_SLOT]; }
+  catch (_) { return localCache; }
+}
+function remember(key, item, info) {
+  var map = cacheStore().matches;
+  map[key] = { id: String(itemId(item)), title: itemTitle(item), year: info.year, used: Date.now(), at: Date.now() };
+  var keys = Object.keys(map).sort(function(a,b) { return map[a].used - map[b].used; });
+  while (keys.length > 500) delete map[keys.shift()];
+}
+function wire(run, url, options, timeout, stage) {
+  var ms = Math.min(timeout || 4000, run.deadline - Date.now());
+  if (ms < 100) return Promise.reject(new Error("Provider deadline at " + stage));
+  return new Promise(function(resolve, reject) {
+    var done = false, start = Date.now();
+    var controller = typeof AbortController === "function" ? new AbortController() : null;
+    var timer = setTimeout(function() { finish(new Error(stage + " timeout")); if (controller) controller.abort(); }, ms);
+    function finish(error, value) { if (done) return; done = true; clearTimeout(timer); if(error) reject(error); else resolve(value); }
+    var opts = Object.assign({}, options || {});
+    opts.headers = Object.assign({}, DEFAULT_HEADERS, opts.headers || {});
+    if (controller) opts.signal = controller.signal;
+    Promise.resolve().then(function() { return fetch(url, opts); }).then(function(res) {
+      if (done) return;
+      if (!res || !res.ok) { var e = new Error(stage + " HTTP " + (res && res.status || 0)); e.status = res && res.status; throw e; }
+      return res.text();
+    }).then(function(text) {
+      if (done) return;
+      if (String(text).length > 2000000) return finish(new Error(stage + " response too large"));
+      trace("HTTP", {stage:stage, ms:Date.now()-start}); finish(null, text);
+    }, function(error) { finish(error); });
+  });
+}
+function unwrapPayload(value) {
+  var current = value;
+  for(var i=0;i<5;i++) {
+    if(typeof current === "string") { try { current = parseJsonLenient(current, "nested response"); continue; } catch (_) { break; } }
+    if(!current || typeof current !== "object" || Array.isArray(current)) break;
+    if(current.sources || current.source || current.streams || current.episodes || current.episodeList || current.title || current.id) break;
+    if(current.result !== undefined && current.result !== null) { current=current.result; continue; }
+    if(current.data !== undefined && current.data !== null) { current=current.data; continue; }
+    break;
+  }
+  return current;
+}
+function api(run, path, stage) {
+  return wire(run, BASE_URL + path, {}, stage === "episode" ? 5000 : 4000, stage).then(function(raw) {
+    var text=String(raw || "").replace(/^\uFEFF/, "").trim();
+    if (!text) throw new Error("Empty API response");
+    if (/^[\[{]/.test(text)) return unwrapPayload(parseJsonLenient(text, stage));
+    try {
+      var result = unwrapPayload(parseJsonLenient(decryptString(text), stage));
+      trace("DECRYPT", {method:"local", stage:stage}); return result;
+    } catch (error) {
+      trace("DECRYPT_FALLBACK", {stage:stage, reason:error.message});
+      // Compatibility only; never adds a remote round trip when local AES works.
+      return wire(run, "https://enc-dec.app/api/dec-onetouchtv", { method:"POST",
+        headers:{"Content-Type":"application/json"}, body:JSON.stringify({text:text}) }, 3000, "remote-decrypt")
+        .then(function(body) {
+          var envelope=parseJsonLenient(body,"decrypt response");
+          if(!envelope || Number(envelope.status)!==200 || envelope.result==null) throw new Error("Remote decrypt rejected response");
+          return unwrapPayload(envelope.result);
+        });
+    }
+  });
+}
+function metadata(run, id, type) {
+  var url="https://api.themoviedb.org/3/"+type+"/"+encodeURIComponent(id)+"?api_key="+TMDB_API_KEY+"&append_to_response=alternative_titles,translations,external_ids";
+  return vueoSharedTmdb(url,function() { return wire(run,url,{},2200,"metadata").then(function(text) {return parseJsonLenient(text,"metadata");}); }).then(function(data) {
+    return {title:data.title||data.name||"", originalTitle:data.original_title||data.original_name||"",
+      year:String(data.release_date||data.first_air_date||"").slice(0,4), aliases:collectTmdbAliases(data,type)};
+  });
+}
+function seasonTitle(value) {
+  var title=String(value||"").replace(/\s*[([](?:19|20)\d{2}[)\]]\s*$/, "").trim();
+  var m=title.match(/(?:\s*[-–—:]\s*|\s+)(?:season\s*(\d+)|s(\d+)|(\d+)(?:st|nd|rd|th)\s+season)\s*$/i);
+  return {title:m?title.slice(0,m.index).trim():title, season:m?Number(m[1]||m[2]||m[3]):null};
+}
+function compatible(item, info, type, season, fallbackTitle) {
+  if(!item || typeof item!=="object") return false;
+  var itype=itemType(item);
+  if (itype && ((type==="tv" && /^(movie|film)$/.test(itype)) || (type==="movie" && /^(drama|tv|series|tvseries)$/.test(itype)))) return false;
+  var titles=[itemTitle(item)||fallbackTitle].concat(Array.isArray(item.otherTitles)?item.otherTitles:[]).filter(Boolean);
+  var main=seasonTitle(itemTitle(item)||fallbackTitle);
+  var explicit=firstValue(item,["season","seasonNumber","season_number"]);
+  var declared=explicit!=null && /^\d+$/.test(String(explicit))?Number(explicit):main.season;
+  if(type==="tv" && declared!==null && declared!==season) return false;
+  var titleOk=titles.some(function(title) {
+    var parsed=seasonTitle(title);
+    if(type==="tv" && parsed.season!==null && parsed.season!==season) return false;
+    return info.aliases.some(function(alias) { return normalizeTitle(seasonTitle(alias).title)===normalizeTitle(parsed.title); });
+  });
+  if(!titleOk) return false;
+  var year=itemYear(item);
+  return !(info.year && year && (type==="movie"||season===1) && info.year!==year);
+}
+function episodeRows(detail) {
+  return Array.isArray(detail.episodes)?detail.episodes:Array.isArray(detail.episodeList)?detail.episodeList:Array.isArray(detail.episode_list)?detail.episode_list:[];
+}
+function selectEpisode(detail, type, season, episode, item) {
+  var rows=episodeRows(detail);
+  var rootSeason=firstValue(detail,["season","seasonNumber","season_number"]) || seasonTitle(itemTitle(detail)||itemTitle(item)).season;
+  if(rootSeason==null) rootSeason=firstValue(item,["season","seasonNumber","season_number"]) || seasonTitle(itemTitle(item)).season;
+  var valid=rows.filter(function(row) {
+    var identifier=firstValue(row,["identifier","contentIdentifier","content_identifier","vodIdentifier","vod_identifier","contentId","content_id"]);
+    var play=firstValue(row,["playId","play_id","playID","id","episodeId","episode_id"]);
+    return identifier!==null && play!==null;
+  });
+  if(type==="movie") { if(valid.length!==1) throw new Error("Ambiguous movie entries"); return valid[0]; }
+  var matching=valid.filter(function(row) {
+    var value=firstValue(row,["episode","episodeNumber","episode_number","number","ep"]);
+    if(value===null || !/^(?:\d+)(?:\.\d+)?$/.test(String(value)) || Number(value)!==episode) return false;
+    var ownSeason=firstValue(row,["season","seasonNumber","season_number"]);
+    var observed=ownSeason!==null?Number(ownSeason):rootSeason!==null && rootSeason!==undefined?Number(rootSeason):1;
+    return observed===season;
+  });
+  if(matching.length!==1) throw new Error("Exact season/episode missing or ambiguous");
+  return matching[0];
+}
+function detail(run, item, info, type, season, episode) {
+  return api(run,"/vod/"+encodeURIComponent(itemId(item))+"/detail","detail").then(function(root) {
+    if(!compatible(root,info,type,season,itemTitle(item))) throw new Error("Detail title/year/type mismatch");
+    if(itemId(root)!==null && String(itemId(root)).toLowerCase()!==String(itemId(item)).toLowerCase()) throw new Error("Detail ID mismatch");
+    var selected=selectEpisode(root,type,season,episode,item);
+    return {item:item,detail:root,selected:selected};
+  });
+}
+function searchList(payload) {
+  var root=unwrapPayload(payload);
+  if(Array.isArray(root)) return root;
+  var keys=["items","list","records","results"];
+  for(var i=0;i<keys.length;i++) if(root && Array.isArray(root[keys[i]])) return root[keys[i]];
+  throw new Error("Unknown search schema");
+}
+function discover(run,id,info,type,season,episode) {
+  var map=cacheStore().matches, key=type+"/"+id+"/"+season;
+  var saved=map[key];
+  function rememberMatch(match) { remember(key,match.item,info);return match; }
+  function search() {
+    var queries=[info.title].concat(type==="tv" && season>1 ? [info.title+" Season "+season] : []).concat([info.originalTitle],info.aliases).filter(function(q,i,all) {return q && all.findIndex(function(x) {return normalizeTitle(x)===normalizeTitle(q);})===i;}).slice(0,3);
+    function at(index) {
+      if(index>=queries.length) throw new Error("No verified title/season/episode");
+      trace("SEARCH",{query:queries[index],attempt:index+1});
+      return api(run,"/vod/search?page=1&keyword="+encodeURIComponent(queries[index]),"search").then(searchList).then(function(rows) {
+        var seen={}, exact=rows.filter(function(row) {
+          if(itemId(row)===null || !compatible(row,info,type,season)) return false;
+          // API returns both lowercase/uppercase slug duplicates for the same title.
+          var identity=String(itemId(row)).toLowerCase()+"|"+normalizeTitle(itemTitle(row))+"|"+itemYear(row)+"|"+itemType(row);
+          if(seen[identity]) return false;seen[identity]=true;return true;
+        });
+        trace("CANDIDATES",{results:rows.length,exact:exact.length});
+        if(!exact.length) return null;
+        if(exact.length>3) throw new Error("Too many ambiguous exact candidates");
+        return Promise.all(exact.map(function(row) {return detail(run,row,info,type,season,episode).catch(function(error) {trace("DETAIL_REJECT",{id:itemId(row),reason:error.message});return null;});})).then(function(matches) {
+          var good=matches.filter(Boolean);
+          if(good.length===1 && (exact.length===1 || itemYear(good[0].detail)===info.year)) return good[0];
+          if(good.length>1) throw new Error("Ambiguous exact title matches");
+          return null;
+        });
+      }).then(function(match) {return match||at(index+1);});
+    }
+    return at(0).then(rememberMatch);
+  }
+  if(saved && Date.now()-saved.at<30*24*60*60*1000 && saved.year===info.year && compatible(saved,info,type,season)) {
+    saved.used=Date.now();trace("CACHE",{hit:true,id:saved.id});
+    return detail(run,saved,info,type,season,episode).then(rememberMatch,function(error) {delete map[key];trace("CACHE_INVALID",{reason:error.message});return search();});
+  }
+  delete map[key];trace("CACHE",{hit:false});return search();
+}
+function safeUrl(value) {
+  if(!String(value||"").trim()) return "";
+  try{var url=new URL(String(value),BASE_URL+"/");return /^https?:$/.test(url.protocol)?url.href:"";}catch(_){return "";}
+}
+function buildSubtitles(payload) {
+  var root=unwrapPayload(payload), tracks=root && (root.track||root.tracks||root.subtitles);
+  if(!Array.isArray(tracks)) return [];
+  var seen={};
+  return tracks.map(function(track) {
+    var kind=String(track.kind||track.type||"").toLowerCase();
+    if(kind && /^(thumbnails|chapters|preview)$/.test(kind)) return null;
+    var url=safeUrl(firstValue(track,["file","url","src"]));if(!url||seen[url])return null;seen[url]=true;
+    var lang=subtitleLanguage(firstValue(track,["name","label","language","lang"]));
+    var m=/\.(vtt|srt|ass|ssa)(?:[?#]|$)/i.exec(url);
+    return {url:url,lang:lang.code,language:lang.label,label:lang.label,format:m?m[1].toLowerCase():"",
+      headers:normalizeHeaders(track.headers,track.referer||BASE_URL+"/"),default:track.default===true||track.isDefault===true};
+  }).filter(Boolean);
+}
+function parseStreams(payload,info,type,season,episode) {
+  var root=unwrapPayload(payload), sources=root && (root.sources||root.source||root.streams), subs=buildSubtitles(root),seen={};
+  if(!Array.isArray(sources)) return [];
+  return sources.map(function(source,index) {
+    var url=safeUrl(firstValue(source,["url","file","src"]));
+    var declared=String(source.type||source.format||"").toLowerCase();
+    if(!url || /\.(?:html?|php)(?:[?#]|$)/i.test(url) || (!/\.(m3u8|mp4|mpd|mkv)(?:[?#]|$)/i.test(url) && !/^(hls|mp4|dash|application\/x-mpegurl|application\/vnd.apple.mpegurl|video\/mp4)$/.test(declared))) return null;
+    var h=normalizeHeaders(source.headers,source.referer||source.referrer||BASE_URL+"/");
+    var identity=url+"|"+Object.keys(h).sort().map(function(k){return k+":"+h[k];}).join("|");
+    if(seen[identity])return null;seen[identity]=true;
+    var captionSeen={}, captions=buildSubtitles(source).concat(subs).filter(function(sub) {
+      var key=sub.url+"|"+sub.lang;if(captionSeen[key])return false;captionSeen[key]=true;return true;
+    });
+    return {name:PROVIDER_NAME+" "+String(source.name||source.label||"Server "+(index+1)),title:info.title+(type==="tv"?" S"+season+"E"+episode:""),
+      url:url,headers:h,quality:inferQuality(source),subtitles:captions, type:/\.mpd(?:[?#]|$)/i.test(url)?"dash":"direct"};
+  }).filter(Boolean);
+}
+function getStreams(id, mediaType, season, episode) {
+  var type=mediaType==="series"?"tv":mediaType;
+  if(!/^\d+$/.test(String(id)) || (type!=="movie"&&type!=="tv")) return Promise.resolve([]);
+  season=season==null?1:Number(season);episode=episode==null?1:Number(episode);
+  if(type==="tv"&&(!Number.isInteger(season)||season<1||!Number.isInteger(episode)||episode<1))return Promise.resolve([]);
+  var run={started:Date.now(),deadline:Date.now()+18500},info;
+  trace("START",{version:VERSION,tmdb:String(id),type:type,season:season,episode:episode});
+  return metadata(run,String(id),type).then(function(value) {
+    info=value;if(!info.title)throw new Error("Missing metadata title");
+    return discover(run,String(id),info,type,season,episode);
+  }).then(function(match) {
+    var row=match.selected, identifier=firstValue(row,["identifier","contentIdentifier","content_identifier","vodIdentifier","vod_identifier","contentId","content_id"]);
+    var play=firstValue(row,["playId","play_id","playID","id","episodeId","episode_id"]);
+    trace("MATCH",{id:itemId(match.item),title:itemTitle(match.detail),season:season,episode:episode});
+    return api(run,"/vod/"+encodeURIComponent(identifier)+"/episode/"+encodeURIComponent(play),"episode");
+  }).then(function(payload) {
+    var streams=parseStreams(payload,info,type,season,episode);
+    trace("RESULT",{streams:streams.length,subtitles:streams.length?streams[0].subtitles.length:0,ms:Date.now()-run.started});return streams;
+  }).catch(function(error){trace("NO_RESULT",{reason:String(error.message||error),ms:Date.now()-run.started});return [];});
+}
+module.exports={getStreams:getStreams};
 
-var REQUEST_TIMEOUT_MS = 4200;
-var PROVIDER_BUDGET_MS = 18000;
-
-/* AES-256-CBC decryption is implemented locally so this provider does not
- * depend on Node crypto, WebCrypto, or an injected crypto-js module. */
 var AES_SBOX = [
   0x63,0x7c,0x77,0x7b,0xf2,0x6b,0x6f,0xc5,0x30,0x01,0x67,0x2b,0xfe,0xd7,0xab,0x76,
   0xca,0x82,0xc9,0x7d,0xfa,0x59,0x47,0xf0,0xad,0xd4,0xa2,0xaf,0x9c,0xa4,0x72,0xc0,
@@ -41,78 +263,6 @@ var AES_INV_SBOX = (function() {
   return inverse;
 })();
 var AES_RCON = [0x00,0x01,0x02,0x04,0x08,0x10,0x20,0x40,0x80,0x1b,0x36,0x6c,0xd8,0xab,0x4d,0x9a];
-
-/* VUEO_PROVIDER_REPAIR_V16 */
-/* VUEO_SHARED_DISCOVERY_CONTEXT_V1 */
-function vueoSharedTmdb(url, fallback) {
-  function trace(stage, details) {
-    try {
-      if (typeof globalThis !== "undefined" && typeof globalThis.vueoTrace === "function") {
-        globalThis.vueoTrace(stage, details);
-      }
-    } catch (_) {}
-  }
-  function normalize(raw) {
-    if (typeof raw === "string") {
-      try { raw = JSON.parse(raw); } catch (_) { return null; }
-    }
-    if (!raw || typeof raw !== "object" || raw.error) return null;
-    var tmdb = raw.tmdb;
-    if (!tmdb || typeof tmdb !== "object") {
-      if (!raw.title || (raw.mediaType !== "movie" && raw.mediaType !== "tv")) return null;
-      var alternatives = Array.isArray(raw.aliases) ? raw.aliases.map(function(alias) {
-        return { title: String(alias), iso_3166_1: "" };
-      }) : [];
-      tmdb = {
-        id: raw.tmdbId,
-        title: raw.mediaType === "movie" ? raw.title : undefined,
-        name: raw.mediaType === "tv" ? raw.title : undefined,
-        original_title: raw.mediaType === "movie" ? (raw.originalTitle || raw.title) : undefined,
-        original_name: raw.mediaType === "tv" ? (raw.originalTitle || raw.title) : undefined,
-        release_date: raw.mediaType === "movie" && raw.year ? String(raw.year) + "-01-01" : "",
-        first_air_date: raw.mediaType === "tv" && raw.year ? String(raw.year) + "-01-01" : "",
-        external_ids: { imdb_id: raw.imdbId || "" },
-        alternative_titles: { titles: alternatives, results: alternatives }
-      };
-    }
-    if (!tmdb.title && !tmdb.name) return null;
-    trace("METADATA", { shared: true, title: raw.title || tmdb.title || tmdb.name || "",
-      year: raw.year || "", imdbId: raw.imdbId || "",
-      aliases: Array.isArray(raw.aliases) ? raw.aliases.length : 0 });
-    return tmdb;
-  }
-  function local() {
-    trace("METADATA_FALLBACK", { shared: false });
-    return Promise.resolve().then(fallback);
-  }
-  try {
-    if (typeof globalThis !== "undefined") {
-      var direct = normalize(globalThis.VUEO_DISCOVERY_CONTEXT);
-      if (direct) return Promise.resolve(direct);
-      if (typeof globalThis.vueoDiscoveryContext === "function") {
-        return Promise.resolve().then(function() {
-          return globalThis.vueoDiscoveryContext(url);
-        }).then(function(raw) {
-          var shared = normalize(raw);
-          return shared || local();
-        }, local);
-      }
-    }
-  } catch (_) {}
-  return local();
-}
-
-
-function vueoCandidateTrace(stage, details) {
-  try {
-    if (
-      typeof globalThis !== "undefined" &&
-      typeof globalThis.vueoTrace === "function"
-    ) {
-      globalThis.vueoTrace(stage, details || {});
-    }
-  } catch (_) {}
-}
 
 function asciiBytes(value) {
   var text = String(value || "");
@@ -314,7 +464,7 @@ function decryptString(encrypted) {
   }
   plain.length -= padding;
 
-  var envelope = JSON.parse(utf8Decode(plain));
+  var envelope = parseJsonLenient(utf8Decode(plain), "local decrypted response");
   if (envelope === null || envelope === undefined) {
     throw new Error("OneTouchTV decrypted payload is empty");
   }
@@ -333,177 +483,79 @@ function decryptString(encrypted) {
 }
 
 
-function withSoftTimeout(promise, timeoutMs, label) {
-  return new Promise(function(resolve, reject) {
-    var settled = false;
 
-    var timer = setTimeout(function() {
-      if (settled) return;
-      settled = true;
-      reject(
-        new Error(
-          (label || "OneTouchTV request") +
-          " timed out"
-        )
-      );
-    }, Math.max(1, Number(timeoutMs || 1)));
+function sanitizeJsonControls(input) {
+  var text = String(input == null ? "" : input).replace(/^\uFEFF/, "");
+  var out = "";
+  var inString = false;
+  var escaped = false;
 
-    Promise.resolve(promise).then(
-      function(value) {
-        if (settled) return;
-        settled = true;
-        clearTimeout(timer);
-        resolve(value);
-      },
-      function(error) {
-        if (settled) return;
-        settled = true;
-        clearTimeout(timer);
-        reject(error);
-      }
-    );
-  });
-}
+  for (var i = 0; i < text.length; i++) {
+    var ch = text.charAt(i);
+    var code = text.charCodeAt(i);
 
-function unwrapPayload(value) {
-  var current = value;
-
-  for (var i = 0; i < 4; i++) {
-    if (
-      current &&
-      typeof current === "object" &&
-      !Array.isArray(current)
-    ) {
-      if (
-        current.result !== undefined &&
-        current.result !== null
-      ) {
-        current = current.result;
+    if (inString) {
+      if (escaped) {
+        out += ch;
+        escaped = false;
         continue;
       }
 
-      if (
-        current.data !== undefined &&
-        current.data !== null
-      ) {
-        current = current.data;
+      if (ch === "\\") {
+        out += ch;
+        escaped = true;
         continue;
       }
+
+      if (ch === '"') {
+        out += ch;
+        inString = false;
+        continue;
+      }
+
+      if (code < 0x20) {
+        out += "\\u" + ("000" + code.toString(16)).slice(-4);
+        continue;
+      }
+
+      out += ch;
+      continue;
     }
 
-    break;
+    if (ch === '"') {
+      inString = true;
+      out += ch;
+      continue;
+    }
+
+    if (code < 0x20 && ch !== "\n" && ch !== "\r" && ch !== "\t") {
+      out += " ";
+      continue;
+    }
+
+    out += ch;
   }
 
-  return current;
+  return out;
 }
 
-function isBlankValue(value) {
-  return (
-    value === undefined ||
-    value === null ||
-    String(value).trim() === ""
-  );
-}
+function parseJsonLenient(input, label) {
+  var text = String(input == null ? "" : input).trim();
 
-function fetchText(
-  url,
-  headers,
-  timeoutMs
-) {
-  return withSoftTimeout(
-    fetch(url, {
-      method: "GET",
-      headers:
-        Object.assign(
-          {},
-          DEFAULT_HEADERS,
-          headers || {}
-        ),
-      redirect: "follow"
-    }).then(function(response) {
-      if (!response.ok) {
-        throw new Error(
-          "HTTP " +
-          response.status +
-          " for " +
-          url
-        );
-      }
-
-      return response.text();
-    }),
-    timeoutMs || REQUEST_TIMEOUT_MS,
-    "OneTouchTV text request"
-  );
-}
-
-function fetchJson(
-  url,
-  headers,
-  timeoutMs
-) {
-  return withSoftTimeout(
-    fetch(url, {
-      method: "GET",
-      headers:
-        Object.assign(
-          {},
-          DEFAULT_HEADERS,
-          headers || {}
-        ),
-      redirect: "follow"
-    }).then(function(response) {
-      if (!response.ok) {
-        throw new Error(
-          "HTTP " +
-          response.status +
-          " for " +
-          url
-        );
-      }
-
-      return response.json();
-    }),
-    timeoutMs || REQUEST_TIMEOUT_MS,
-    "OneTouchTV JSON request"
-  );
-}
-function fetchDecryptedJson(
-  url,
-  headers,
-  timeoutMs
-) {
-  return fetchText(
-    url,
-    headers,
-    timeoutMs
-  ).then(function(raw) {
-    var text =
-      String(raw || "").trim();
-
-    if (!text) {
+  try {
+    return JSON.parse(text);
+  } catch (firstError) {
+    try {
+      return JSON.parse(sanitizeJsonControls(text));
+    } catch (secondError) {
       throw new Error(
-        "OneTouchTV response is empty"
+        (label || "payload") + " JSON parse failed: " +
+        (secondError && secondError.message ? secondError.message : String(secondError))
       );
     }
-
-    /*
-     * Current API uses AES, but accepting plaintext JSON makes the provider
-     * survive endpoint/envelope changes without breaking the whole pipeline.
-     */
-    if (
-      text.charAt(0) === "{" ||
-      text.charAt(0) === "["
-    ) {
-      return JSON.parse(text);
-    }
-
-    var decrypted =
-      decryptString(text);
-
-    return JSON.parse(decrypted);
-  });
+  }
 }
+
 
 function normalizeTitle(value) {
   return String(value || "")
@@ -549,28 +601,7 @@ function itemType(item) {
   ]) || "").toLowerCase();
 }
 
-function titleScore(candidate, expected) {
-  var left = normalizeTitle(candidate);
-  var right = normalizeTitle(expected);
-  if (!left || !right) return 0;
-  if (left === right) return 100;
-  if (left.indexOf(right) !== -1 || right.indexOf(left) !== -1) return 82;
 
-  var expectedWords = right.split(" ").filter(function(word) { return word.length > 1; });
-  var candidateWords = left.split(" ").filter(function(word) { return word.length > 1; });
-  var set = {};
-  candidateWords.forEach(function(word) { set[word] = true; });
-
-  var matched = expectedWords.filter(function(word) { return set[word]; }).length;
-  if (!matched) return 0;
-
-  var recall = matched / Math.max(expectedWords.length, 1);
-  var precision = matched / Math.max(candidateWords.length, 1);
-  return Math.round((recall * 0.7 + precision * 0.3) * 72);
-}
-
-
-/* VUEO_TITLE_PROFILE_V1 */
 function collectTmdbAliases(data, mediaType) {
   var output = [];
   var seen = {};
@@ -599,7 +630,7 @@ function collectTmdbAliases(data, mediaType) {
 
   var altRoot =
     data &&
-    data.alternative_titles;
+    data.alternative_titles || {};
 
   var altItems =
     altRoot &&
@@ -685,428 +716,6 @@ function collectTmdbAliases(data, mediaType) {
     .slice(0, 12);
 }
 
-function bestAliasTitleScore(candidate, info) {
-  var aliases =
-    info &&
-    Array.isArray(info.aliases) &&
-    info.aliases.length
-      ? info.aliases
-      : [
-          info && info.title,
-          info && info.originalTitle
-        ];
-
-  var best = 0;
-
-  aliases.forEach(function(alias) {
-    best = Math.max(
-      best,
-      titleScore(
-        candidate,
-        alias
-      )
-    );
-  });
-
-  return best;
-}
-
-function buildAliasQueries(info, limit) {
-  var output = [];
-  var seen = {};
-
-  var aliases =
-    info &&
-    Array.isArray(info.aliases)
-      ? info.aliases
-      : [
-          info && info.title,
-          info && info.originalTitle
-        ];
-
-  aliases.forEach(function(alias) {
-    var text =
-      String(alias || "")
-        .trim();
-
-    var key =
-      normalizeTitle(text);
-
-    if (
-      !text ||
-      !key ||
-      seen[key]
-    ) {
-      return;
-    }
-
-    seen[key] = true;
-    output.push(text);
-  });
-
-  return output.slice(
-    0,
-    Math.max(
-      1,
-      Number(limit || 4)
-    )
-  );
-}
-
-function extractSeasonFromTitle(title) {
-  var normalized = normalizeTitle(title);
-  var patterns = [
-    /(?:season|series)\s*(\d+)\b/,
-    /\bs\s*(\d+)\b/,
-    /\bpart\s*(\d+)\b/
-  ];
-  for (var i = 0; i < patterns.length; i++) {
-    var match = normalized.match(patterns[i]);
-    if (match) return Number(match[1]);
-  }
-  return null;
-}
-
-function scoreCandidate(item, info, mediaType, season) {
-  var score =
-    bestAliasTitleScore(
-      itemTitle(item),
-      info
-    );
-
-  var directTmdb = firstValue(item, ["tmdbId", "tmdb_id", "themoviedbId", "themoviedb_id"]);
-  if (directTmdb && String(directTmdb) === String(info.tmdbId || "")) score += 200;
-
-  var year = itemYear(item);
-  if (info.year && year && year === info.year) score += 28;
-
-  var type = itemType(item);
-  var typeIsMovie =
-    type === "movie" ||
-    type === "film" ||
-    type === "1";
-
-  if (type) {
-    if (
-      mediaType === "movie" &&
-      typeIsMovie
-    ) {
-      score += 30;
-    } else if (
-      mediaType === "tv" &&
-      !typeIsMovie
-    ) {
-      score += 22;
-    } else {
-      score -= 70;
-    }
-  }
-
-  var rank = Number(item && item.__vueoSearchRank || 0);
-  var queryIndex = Number(item && item.__vueoQueryIndex || 0);
-  score += Math.max(0, 18 - rank * 3);
-  if (queryIndex === 0) score += 6;
-
-  if (mediaType === "tv") {
-    var requestedSeason = Number(season || 1);
-    var titleSeason = extractSeasonFromTitle(itemTitle(item));
-    if (requestedSeason > 1) {
-      if (titleSeason === requestedSeason) score += 35;
-      else if (titleSeason !== null) score -= 40;
-    } else if (titleSeason !== null && titleSeason !== 1) {
-      score -= 30;
-    }
-  }
-  return score;
-}
-
-function getTmdbInfo(tmdbId, mediaType) {
-  var endpoint = mediaType === "movie" ? "movie" : "tv";
-  var url = "https://api.themoviedb.org/3/" + endpoint + "/" + encodeURIComponent(tmdbId) +
-    "?api_key=" + TMDB_API_KEY + "&append_to_response=alternative_titles,translations,external_ids";
-  return vueoSharedTmdb(
-    url,
-    function() {
-      return fetchJson(url, {});
-    }
-  ).then(function(data) {
-    return {
-      tmdbId: String(tmdbId),
-      title: data.title || data.name || "",
-      originalTitle: data.original_title || data.original_name || "",
-      year: String(data.release_date || data.first_air_date || "").split("-")[0],
-      aliases: collectTmdbAliases(data, mediaType)
-    };
-  });
-}
-
-function searchOneTouch(query, page) {
-  var clean = String(query || "").trim();
-  if (!clean) return Promise.resolve([]);
-  var url = BASE_URL + "/vod/search?page=" + String(page || 1) + "&keyword=" + encodeURIComponent(clean);
-  return fetchDecryptedJson(url, { "Referer": BASE_URL + "/" }).then(function(data) {
-    if (Array.isArray(data)) return data;
-    if (!data || typeof data !== "object") return [];
-
-    var candidates = [
-      data.result,
-      data.items,
-      data.list,
-      data.records,
-      data.data,
-      data.data && data.data.items,
-      data.data && data.data.list,
-      data.result && data.result.items,
-      data.result && data.result.list
-    ];
-
-    for (var i = 0; i < candidates.length; i++) {
-      if (Array.isArray(candidates[i])) return candidates[i];
-    }
-    return [];
-  });
-}
-
-function getDetail(id) {
-  return fetchDecryptedJson(BASE_URL + "/vod/" + encodeURIComponent(id) + "/detail", {});
-}
-
-function findBestTitle(info, mediaType, season) {
-  var requestedSeason = mediaType === "tv" ? Number(season || 1) : 0;
-  var aliases = buildAliasQueries(info, 5);
-  var queries = aliases.slice();
-
-  if (requestedSeason > 1) {
-    aliases.slice(0, 3).forEach(function(alias) {
-      queries.unshift(
-        alias +
-        " Season " +
-        requestedSeason
-      );
-    });
-  }
-
-  queries = queries.slice(0, 7);
-
-  return Promise.all(queries.map(function(query) {
-    return searchOneTouch(query, 1).catch(function(error) {
-      console.log("[OneTouchTV] search miss query=\"" + query + "\" error=" +
-        (error && error.message ? error.message : String(error)));
-      return [];
-    });
-  })).then(function(groups) {
-    vueoCandidateTrace("SEARCH", {
-      queries: queries.length,
-      groups: groups.length,
-      nonEmpty: groups.filter(function(group) { return Array.isArray(group) && group.length; }).length
-    });
-    var seen = {};
-    var candidates = [];
-
-    groups.forEach(function(group, queryIndex) {
-      group.forEach(function(rawItem, rank) {
-        var id = itemId(rawItem);
-        if (id === undefined || id === null || seen[String(id)]) return;
-        seen[String(id)] = true;
-
-        var item = Object.assign({}, rawItem);
-        item.__vueoSearchRank = rank;
-        item.__vueoQueryIndex = queryIndex;
-        candidates.push(item);
-      });
-    });
-
-    candidates.sort(function(a, b) {
-      return scoreCandidate(b, info, mediaType, season) - scoreCandidate(a, info, mediaType, season);
-    });
-
-    vueoCandidateTrace("CANDIDATE", {
-      count: candidates.length,
-      title: candidates.length ? itemTitle(candidates[0]) : "",
-      score: candidates.length ? scoreCandidate(candidates[0], info, mediaType, season) : 0
-    });
-
-    candidates = candidates.slice(0, 6);
-    if (!candidates.length) throw new Error("No OneTouchTV title match");
-
-    return Promise.all(candidates.map(function(candidate) {
-      var id = itemId(candidate);
-      return getDetail(id).then(function(detail) {
-        var score = scoreCandidate(candidate, info, mediaType, season);
-
-        var detailRoot =
-          unwrapPayload(detail);
-
-        var detailTitle =
-          itemTitle(detailRoot);
-
-        score = Math.max(
-          score,
-          bestAliasTitleScore(
-            detailTitle,
-            info
-          ) + 20
-        );
-
-        var detailType =
-          itemType(detailRoot);
-
-        var detailIsMovie =
-          detailType === "movie" ||
-          detailType === "film" ||
-          detailType === "1";
-
-        if (detailType) {
-          if (
-            mediaType === "movie" &&
-            detailIsMovie
-          ) {
-            score += 24;
-          } else if (
-            mediaType === "tv" &&
-            !detailIsMovie
-          ) {
-            score += 18;
-          } else {
-            score -= 75;
-          }
-        }
-
-        var detailYear =
-          itemYear(detailRoot);
-        if (info.year && detailYear && detailYear === info.year) score += 20;
-
-        return { candidate: candidate, detail: detail, score: score };
-      }).catch(function() {
-        return null;
-      });
-    })).then(function(matches) {
-      matches = matches.filter(Boolean).sort(function(a, b) { return b.score - a.score; });
-      if (!matches.length) throw new Error("No OneTouchTV detail match");
-
-      /*
-       * The OneTouchTV server already ranked these results for the exact TMDB
-       * title query. Do not reject a top server result solely because the site
-       * uses an alternate English title while TMDB uses another alias.
-       */
-      if (matches[0].score < 28) {
-        throw new Error("OneTouchTV match confidence too low");
-      }
-
-      vueoCandidateTrace("VERIFIED", {
-        title: itemTitle(unwrapPayload(matches[0].detail)),
-        score: matches[0].score
-      });
-
-      return matches[0];
-    });
-  });
-}
-
-function episodeNumber(value) {
-  var text = String(value === undefined || value === null ? "" : value).trim();
-  if (!text) return null;
-  var exact = Number(text);
-  if (isFinite(exact)) return exact;
-  var match = text.match(/(?:episode|ep)?\s*(\d+(?:\.\d+)?)/i);
-  return match ? Number(match[1]) : null;
-}
-
-function selectEpisode(
-  detail,
-  mediaType,
-  episode
-) {
-  var root =
-    unwrapPayload(detail);
-
-  var episodes =
-    root &&
-    Array.isArray(root.episodes)
-      ? root.episodes
-      : root &&
-        Array.isArray(root.episodeList)
-          ? root.episodeList
-          : root &&
-            Array.isArray(root.episode_list)
-              ? root.episode_list
-              : [];
-
-  if (!episodes.length) {
-    throw new Error(
-      "No OneTouchTV episodes"
-    );
-  }
-
-  if (
-    mediaType === "movie" ||
-    episodes.length === 1
-  ) {
-    return episodes[0];
-  }
-
-  var requested =
-    Math.max(
-      1,
-      Number(episode || 1)
-    );
-
-  function valueOf(item) {
-    return episodeNumber(
-      firstValue(
-        item,
-        [
-          "episode",
-          "episodeNumber",
-          "episode_number",
-          "number",
-          "ep",
-          "name",
-          "title"
-        ]
-      )
-    );
-  }
-
-  for (
-    var i = 0;
-    i < episodes.length;
-    i += 1
-  ) {
-    if (
-      valueOf(episodes[i]) ===
-      requested
-    ) {
-      return episodes[i];
-    }
-  }
-
-  var numbered =
-    episodes.filter(function(item) {
-      return (
-        valueOf(item) !== null
-      );
-    });
-
-  if (
-    !numbered.length &&
-    episodes.length >= requested
-  ) {
-    return episodes[
-      requested - 1
-    ];
-  }
-
-  throw new Error(
-    "Episode " +
-    requested +
-    " not found on OneTouchTV"
-  );
-}
-function getEpisodePayload(identifier, playId) {
-  var url = BASE_URL + "/vod/" + encodeURIComponent(identifier) + "/episode/" + encodeURIComponent(playId);
-  return fetchDecryptedJson(url, {});
-}
 
 function inferQuality(source) {
   var explicit = String(source && source.quality || source && source.name || "").trim();
@@ -1119,6 +728,7 @@ function inferQuality(source) {
   if (value.indexOf("360") !== -1) return "360p";
   return explicit || "Auto";
 }
+
 
 function subtitleLanguage(name) {
   var value = String(name || "").trim();
@@ -1133,12 +743,13 @@ function subtitleLanguage(name) {
   var keys = Object.keys(aliases);
   for (var i = 0; i < keys.length; i++) {
     var code = keys[i];
-    if (aliases[code].some(function(alias) { return lower === alias || lower.indexOf(alias) !== -1; })) {
+    if (aliases[code].some(function(alias) { return lower === alias || lower.indexOf(alias + " ") === 0 || lower.indexOf(alias + "-") === 0; })) {
       return { code: code, label: labels[code] };
     }
   }
   return { code: lower || "und", label: value || "Unknown" };
 }
+
 
 function normalizeHeaders(
   headers,
@@ -1195,1057 +806,71 @@ function normalizeHeaders(
 
   return output;
 }
-function buildSubtitles(payload) {
-  var root =
-    unwrapPayload(payload);
 
-  var tracks =
-    root &&
-    Array.isArray(root.track)
-      ? root.track
-      : root &&
-        Array.isArray(root.tracks)
-          ? root.tracks
-          : root &&
-            Array.isArray(root.subtitles)
-              ? root.subtitles
-              : [];
-
-  var seen = {};
-
-  return tracks
-    .map(function(track) {
-      var rawUrl =
-        firstValue(
-          track,
-          [
-            "file",
-            "url",
-            "src"
-          ]
-        );
-
-      var url =
-        String(rawUrl || "").trim();
-
-      if (!url) {
-        return null;
-      }
-
-      try {
-        url =
-          new URL(
-            url,
-            BASE_URL + "/"
-          ).toString();
-      } catch (_) {}
-
-      if (seen[url]) {
-        return null;
-      }
-
-      seen[url] = true;
-
-      var lang =
-        subtitleLanguage(
-          firstValue(
-            track,
-            [
-              "name",
-              "label",
-              "language",
-              "lang"
-            ]
-          )
-        );
-
-      var format =
-        String(
-          firstValue(
-            track,
-            [
-              "format",
-              "type"
-            ]
-          ) ||
-          ""
-        ).toLowerCase();
-
-      if (!format) {
-        var cleanUrl =
-          url
-            .toLowerCase()
-            .split("?")[0];
-
-        if (cleanUrl.endsWith(".vtt")) {
-          format = "vtt";
-        } else if (cleanUrl.endsWith(".srt")) {
-          format = "srt";
-        } else if (cleanUrl.endsWith(".ass")) {
-          format = "ass";
-        }
-      }
-
-      return {
-        label: lang.label,
-        language: lang.label,
-        lang: lang.code,
-        url: url,
-        default:
-          Boolean(
-            track &&
-            (
-              track.default ||
-              track.isDefault
-            )
-          ),
-        format: format
-      };
-    })
-    .filter(Boolean);
-}
-function buildStreams(
-  payload,
-  subtitles,
-  info,
-  mediaType,
-  season,
-  episode
-) {
-  var root =
-    unwrapPayload(payload);
-
-  var sources =
-    root &&
-    Array.isArray(root.sources)
-      ? root.sources
-      : root &&
-        Array.isArray(root.source)
-          ? root.source
-          : root &&
-            Array.isArray(root.streams)
-              ? root.streams
-              : [];
-
-  var seen = {};
-
-  var episodeLabel =
-    mediaType === "tv"
-      ? " S" +
-        String(
-          season || 1
-        ).padStart(2, "0") +
-        "E" +
-        String(
-          episode || 1
-        ).padStart(2, "0")
-      : "";
-
-  return sources
-    .map(function(source, index) {
-      var rawUrl =
-        firstValue(
-          source,
-          [
-            "url",
-            "file",
-            "src"
-          ]
-        );
-
-      var url =
-        String(rawUrl || "")
-          .trim();
-
-      if (!url) {
-        return null;
-      }
-
-      try {
-        url =
-          new URL(
-            url,
-            BASE_URL + "/"
-          ).toString();
-      } catch (_) {}
-
-      if (seen[url]) {
-        return null;
-      }
-
-      seen[url] = true;
-
-      var sourceName =
-        String(
-          firstValue(
-            source,
-            [
-              "name",
-              "label",
-              "server"
-            ]
-          ) ||
-          ""
-        ).trim();
-
-      var quality =
-        inferQuality(
-          Object.assign(
-            {},
-            source,
-            {
-              url: url,
-              name: sourceName
-            }
-          )
-        );
-
-      var sourceHeaders =
-        source &&
-        source.headers &&
-        typeof source.headers === "object"
-          ? source.headers
-          : {};
-
-      var sourceReferer =
-        firstValue(
-          source,
-          [
-            "referer",
-            "referrer"
-          ]
-        ) ||
-        sourceHeaders.Referer ||
-        sourceHeaders.referer ||
-        BASE_URL + "/";
-
-      return {
-        name:
-          PROVIDER_NAME +
-          (
-            sourceName
-              ? " " + sourceName
-              : sources.length > 1
-                ? " Server " + (index + 1)
-                : ""
-          ),
-        title:
-          (info.title || PROVIDER_NAME) +
-          episodeLabel,
-        url: url,
-        quality: quality,
-        type: "direct",
-        subtitles: subtitles,
-        headers:
-          normalizeHeaders(
-            sourceHeaders,
-            String(sourceReferer)
-          )
-      };
-    })
-    .filter(Boolean);
-}
-function getStreams(tmdbId, mediaType, season, episode) {
-  var type = mediaType === "movie" ? "movie" : "tv";
-  console.log("[OneTouchTV] Request tmdbId=" + tmdbId + " type=" + type +
-    (type === "tv" ? " S" + (season || 1) + "E" + (episode || 1) : ""));
-
-  var info;
-
-  var work =
-    getTmdbInfo(
-      tmdbId,
-      type
-    )
-    .then(function(value) {
-      info = value;
-      if (!info.title) throw new Error("TMDB title is empty");
-      return findBestTitle(info, type, season);
-    })
-    .then(function(match) {
-      var selected =
-        selectEpisode(
-          match.detail,
-          type,
-          episode
-        );
-
-      var identifier =
-        firstValue(
-          selected,
-          [
-            "identifier",
-            "contentIdentifier",
-            "content_identifier",
-            "vodIdentifier",
-            "vod_identifier",
-            "contentId",
-            "content_id"
-          ]
-        );
-
-      var playId =
-        firstValue(
-          selected,
-          [
-            "playId",
-            "play_id",
-            "playID",
-            "id",
-            "episodeId",
-            "episode_id"
-          ]
-        );
-
-      if (
-        isBlankValue(identifier) ||
-        isBlankValue(playId)
-      ) {
-        throw new Error(
-          "OneTouchTV episode identifier is missing"
-        );
-      }
-
-      return getEpisodePayload(
-        identifier,
-        playId
-      );
-    })
-    .then(function(payload) {
-      var subtitles = buildSubtitles(payload);
-      var streams = buildStreams(payload, subtitles, info, type, type === "tv" ? season || 1 : null, type === "tv" ? episode || 1 : null);
-      console.log("[OneTouchTV] Direct streams found=" + streams.length + " subtitles=" + subtitles.length);
-      return streams;
-    })
-    ;
-
-  return withSoftTimeout(
-    work,
-    PROVIDER_BUDGET_MS,
-    "OneTouchTV provider"
-  ).catch(function(error) {
-    console.error(
-      "[OneTouchTV] " +
-      (
-        error &&
-        error.message
-          ? error.message
-          : String(error)
-      )
-    );
-
-    return [];
-  });
-}
-
-module.exports = { getStreams: getStreams };
-
-/* CLOUDBANK_TEST_PLUGIN_ADAPTATION_START */
-// Test-Plugin is an additional extraction/discovery engine. Existing Cloudbank
-// discovery and native-host fallbacks remain available in the same provider.
-var cloudbankLegacyProvider = module.exports;
-var cloudbankTestPluginProvider = (function() {
-  var transferredModule = { exports: {} };
-  function metadataFetch(url, options) {
-    var raw = typeof url === "string" ? url : url && url.url;
-    var match = typeof raw === "string" && /^https:\/\/api\.themoviedb\.org\/3\/(movie|tv)\/(\d+)(?:\?|$)/.exec(raw);
-    if (!match || (options && options.method && String(options.method).toUpperCase() !== "GET")) return fetch(url, options);
-    // Reject an explicitly stale host context instead of displaying another title.
-    var context = typeof globalThis !== "undefined" ? globalThis.VUEO_DISCOVERY_CONTEXT : null;
-    if (typeof context === "string") { try { context = JSON.parse(context); } catch (_) { context = null; } }
-    var contextId = context && (context.tmdbId || context.tmdb && context.tmdb.id);
-    var stale = contextId && String(contextId) !== match[2];
-    if (stale) return fetch(url, options);
-    return vueoSharedTmdb(raw, function() {
-      return fetch(url, options).then(function(response) {
-        if (!response.ok) throw new Error("TMDB HTTP " + response.status);
-        return response.json();
-      });
-    }).then(function(data) {
-      var body = JSON.stringify(data);
-      return { ok: true, status: 200, url: raw,
-        headers: { get: function(name) { return String(name).toLowerCase() === "content-type" ? "application/json" : null; } },
-        json: function() { return Promise.resolve(JSON.parse(body)); },
-        text: function() { return Promise.resolve(body); } };
-    });
-  }
-  (function(module, exports, fetch) {
-/* CLOUDBANK_TEST_PLUGIN_SOURCE_START */
-const PROVIDER = "OneTouchTV";
-const BASE = "https://api3.devcorp.me";
-const TMDB_BASE = "https://api.themoviedb.org/3";
-const TMDB_API_KEY = "1865f43a0549ca50d341dd9ab8b29f49";
-const AES_KEY = "im72charPasswordofdInitVectorStm";
-const AES_IV = "im72charPassword";
-const USER_AGENT = "Mozilla/5.0 (Linux; Android 15) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0 Mobile Safari/537.36";
-
-const decryptedCache = new Map();
-const searchCache = new Map();
-
-
-function fetchText(url, options) {
-  return fetch(url, options || {}).then(function (res) {
-    if (!res || !res.ok) {
-      throw new Error("HTTP " + (res ? res.status : "unknown"));
-    }
-    return res.text();
-  });
-}
-
-function sanitizeJsonControls(input) {
-  var text = String(input == null ? "" : input).replace(/^\uFEFF/, "");
-  var out = "";
-  var inString = false;
-  var escaped = false;
-
-  for (var i = 0; i < text.length; i++) {
-    var ch = text.charAt(i);
-    var code = text.charCodeAt(i);
-
-    if (inString) {
-      if (escaped) {
-        out += ch;
-        escaped = false;
-        continue;
-      }
-
-      if (ch === "\\") {
-        out += ch;
-        escaped = true;
-        continue;
-      }
-
-      if (ch === '"') {
-        out += ch;
-        inString = false;
-        continue;
-      }
-
-      if (code < 0x20) {
-        out += "\\u" + ("000" + code.toString(16)).slice(-4);
-        continue;
-      }
-
-      out += ch;
-      continue;
-    }
-
-    if (ch === '"') {
-      inString = true;
-      out += ch;
-      continue;
-    }
-
-    if (code < 0x20 && ch !== "\n" && ch !== "\r" && ch !== "\t") {
-      out += " ";
-      continue;
-    }
-
-    out += ch;
-  }
-
-  return out;
-}
-
-function parseJsonLenient(input, label) {
-  var text = String(input == null ? "" : input).trim();
-
-  try {
-    return JSON.parse(text);
-  } catch (firstError) {
+/* VUEO_SHARED_DISCOVERY_CONTEXT_V1 */
+function vueoSharedTmdb(url, fallback) {
+  var route = /\/3\/(movie|tv)\/(\d+)(?:\?|$)/.exec(String(url));
+  function trace(stage, details) {
     try {
-      return JSON.parse(sanitizeJsonControls(text));
-    } catch (secondError) {
-      throw new Error(
-        (label || "payload") + " JSON parse failed: " +
-        (secondError && secondError.message ? secondError.message : String(secondError))
-      );
-    }
-  }
-}
-
-function fetchJson(url, options) {
-  return fetchText(url, options).then(function (text) {
-    return parseJsonLenient(text, "TMDB");
-  });
-}
-
-function getCryptoJS() {
-  try {
-    return require("crypto-js");
-  } catch (error) {
-    throw new Error("crypto-js module unavailable");
-  }
-}
-
-function normalizeEncryptedBase64(input) {
-  var value = String(input || "")
-    .replace(/-_\./g, "/")
-    .replace(/@/g, "+")
-    .replace(/\s+/g, "");
-
-  var remainder = value.length % 4;
-  if (remainder) value += new Array(5 - remainder).join("=");
-  return value;
-}
-
-function decryptString(encrypted) {
-  var CryptoJS = getCryptoJS();
-  var normalized = normalizeEncryptedBase64(encrypted);
-  var cipherBytes = CryptoJS.enc.Base64.parse(normalized);
-  var key = CryptoJS.enc.Utf8.parse(AES_KEY);
-  var iv = CryptoJS.enc.Utf8.parse(AES_IV);
-  var params = CryptoJS.lib.CipherParams.create({ ciphertext: cipherBytes });
-  var decrypted = CryptoJS.AES.decrypt(params, key, {
-    iv: iv,
-    mode: CryptoJS.mode.CBC,
-    padding: CryptoJS.pad.Pkcs7
-  });
-  var plain = decrypted.toString(CryptoJS.enc.Utf8);
-  if (!plain) throw new Error("empty decrypted payload");
-
-  var wrapper = parseJsonLenient(plain, "encrypted wrapper");
-  if (!wrapper || wrapper.result == null) {
-    throw new Error("decrypted payload missing result");
-  }
-
-  if (typeof wrapper.result === "string") {
-    return wrapper.result;
-  }
-
-  return JSON.stringify(wrapper.result);
-}
-
-function decryptViaRemote(raw) {
-  return fetch("https://enc-dec.app/api/dec-onetouchtv", {
-    method: "POST",
-    headers: {
-      "Accept": "application/json",
-      "Content-Type": "application/json",
-      "User-Agent": USER_AGENT
-    },
-    body: JSON.stringify({ text: String(raw || "") })
-  }).then(function (res) {
-    if (!res || !res.ok) {
-      throw new Error("remote decrypt HTTP " + (res ? res.status : "unknown"));
-    }
-    return res.text();
-  }).then(function (body) {
-    var envelope = parseJsonLenient(body, "remote decrypt response");
-
-    if (!envelope || Number(envelope.status) !== 200) {
-      throw new Error(
-        "remote decrypt failed" +
-        (envelope && envelope.error ? ": " + envelope.error : "")
-      );
-    }
-
-    var result = envelope.result;
-
-    if (typeof result === "string") {
-      return parseJsonLenient(result, "remote decrypted result");
-    }
-
-    if (result && typeof result === "object") {
-      return result;
-    }
-
-    throw new Error("remote decrypt returned empty result");
-  });
-}
-
-function getDecryptedJson(url) {
-  if (decryptedCache.has(url)) {
-    return Promise.resolve(decryptedCache.get(url));
-  }
-
-  return fetchText(url, {
-    headers: {
-      "Accept": "application/json,text/plain,*/*",
-      "Referer": BASE + "/",
-      "User-Agent": USER_AGENT
-    }
-  }).then(function (raw) {
-    // Current OneTouchTV payloads are not reliably compatible with the
-    // local AES routine. Use the working decrypt endpoint directly.
-    return decryptViaRemote(raw);
-  }).then(function (result) {
-    decryptedCache.set(url, result);
-    return result;
-  });
-}
-
-function normalizeTitle(value) {
-  return String(value || "")
-    .toLowerCase()
-    .replace(/&/g, " and ")
-    .replace(/[^a-z0-9\u00c0-\u024f\u3040-\u30ff\u3400-\u9fff\uac00-\ud7af]+/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
-function stripTrailingYear(value) {
-  return normalizeTitle(value)
-    .replace(/\s+(?:19|20)\d{2}$/, "")
-    .trim();
-}
-
-function seasonTitleVariants(title, season) {
-  var s = Number(season || 1);
-  var base = String(title || "").trim();
-  if (!base || s <= 1) return [];
-
-  return [
-    base + " Season " + s,
-    base + " Season" + s,
-    base + " S" + String(s).padStart(2, "0"),
-    base + " S" + s,
-    base + " " + s,
-    base + " " + s + "nd Season",
-    base + " " + s + "rd Season",
-    base + " " + s + "th Season"
-  ];
-}
-
-function inferQuality(value) {
-  var match = String(value || "").match(/(?:^|[^0-9])(2160|1440|1080|720|480|360)(?:p|[^0-9]|$)/i);
-  return match ? match[1] + "p" : "Auto";
-}
-
-function inferType(url) {
-  var value = String(url || "").toLowerCase();
-  if (value.indexOf(".m3u8") !== -1) return "m3u8";
-  if (value.indexOf(".mp4") !== -1) return "mp4";
-  return "m3u8";
-}
-
-function fetchTmdbDetails(tmdbId, mediaType) {
-  var type = mediaType === "movie" ? "movie" : "tv";
-  var url = TMDB_BASE + "/" + type + "/" + encodeURIComponent(tmdbId) +
-    "?api_key=" + TMDB_API_KEY + "&append_to_response=alternative_titles";
-
-  return fetchJson(url, {
-    headers: {
-      "Accept": "application/json",
-      "User-Agent": USER_AGENT
-    }
-  }).then(function (data) {
-    if (!data) return null;
-
-    var altRoot = data.alternative_titles || {};
-    var altItems = type === "movie"
-      ? (Array.isArray(altRoot.titles) ? altRoot.titles : [])
-      : (Array.isArray(altRoot.results) ? altRoot.results : []);
-
-    var alternativeTitles = altItems.map(function (item) {
-      return item && item.title ? String(item.title).trim() : "";
-    }).filter(Boolean);
-
-    return {
-      title: type === "movie" ? (data.title || data.original_title || "") : (data.name || data.original_name || ""),
-      originalTitle: data.original_title || data.original_name || "",
-      year: String(data.release_date || data.first_air_date || "").slice(0, 4),
-      alternativeTitles: alternativeTitles
-    };
-  });
-}
-
-function buildQueries(details, mediaType, season) {
-  var queries = [];
-
-  function add(value) {
-    value = String(value || "").trim();
-    if (value && queries.indexOf(value) === -1) queries.push(value);
-  }
-
-  var titles = [details.title, details.originalTitle]
-    .concat(Array.isArray(details.alternativeTitles) ? details.alternativeTitles : [])
-    .filter(Boolean);
-
-  // Search the canonical title first because it usually returns the season
-  // variants in one response. Only keep a few targeted fallbacks.
-  titles.slice(0, 2).forEach(add);
-
-  if (mediaType === "tv" && Number(season || 1) > 1 && titles[0]) {
-    add(titles[0] + " Season " + Number(season));
-    add(titles[0] + " S" + String(Number(season)).padStart(2, "0"));
-  }
-
-  return queries.slice(0, 4);
-}
-
-function parseSearchPayload(payload) {
-  if (Array.isArray(payload)) return payload;
-  if (payload && Array.isArray(payload.result)) return payload.result;
-  return [];
-}
-
-function search(query) {
-  var url = BASE + "/vod/search?page=1&keyword=" + encodeURIComponent(query);
-  return getDecryptedJson(url).then(parseSearchPayload);
-}
-
-function collectCandidates(queries) {
-  var map = {};
-  var chain = Promise.resolve();
-
-  queries.forEach(function (query) {
-    chain = chain.then(function () {
-      return search(query).then(function (items) {
-        (items || []).forEach(function (item) {
-          var id = item && item.id != null ? String(item.id) : "";
-          if (id) map[id] = item;
-        });
-      }).catch(function (error) {
-        console.log("[OneTouchTV] search failed query='" + query + "' error=" + error.message);
-      });
-    });
-  });
-
-  return chain.then(function () {
-    return Object.keys(map).map(function (id) { return map[id]; });
-  });
-}
-
-function targetTitles(details, mediaType, season) {
-  var set = {};
-
-  function add(value) {
-    var n = normalizeTitle(value);
-    if (n) set[n] = true;
-  }
-
-  var titles = [details.title, details.originalTitle]
-    .concat(Array.isArray(details.alternativeTitles) ? details.alternativeTitles : [])
-    .filter(Boolean);
-
-  titles.forEach(add);
-
-  if (mediaType === "tv" && Number(season || 1) > 1) {
-    titles.forEach(function (title) {
-      seasonTitleVariants(title, season).forEach(add);
-    });
-  }
-
-  return set;
-}
-
-function titleMatchesTargets(value, targets) {
-  var exact = normalizeTitle(value);
-  if (exact && targets[exact]) return true;
-
-  var withoutYear = stripTrailingYear(value);
-  return !!(withoutYear && targets[withoutYear]);
-}
-
-function itemTitleSet(item) {
-  var set = {};
-  function add(value) {
-    var n = normalizeTitle(value);
-    if (n) set[n] = true;
-  }
-
-  add(item && item.title);
-  (Array.isArray(item && item.otherTitles) ? item.otherTitles : []).forEach(add);
-  return set;
-}
-
-function mediaTypeCompatible(value, mediaType) {
-  var type = String(value || "").trim().toLowerCase();
-  if (!type) return true;
-  var isMovie = type === "movie" || type === "film";
-  if (mediaType === "movie") return isMovie;
-  return !isMovie;
-}
-
-function candidateScore(item, details, mediaType, season) {
-  if (!item || !mediaTypeCompatible(item.type, mediaType)) return null;
-
-  var targets = targetTitles(details, mediaType, season);
-  var values = [item.title]
-    .concat(Array.isArray(item.otherTitles) ? item.otherTitles : [])
-    .filter(Boolean);
-
-  var matched = values.some(function (value) {
-    return titleMatchesTargets(value, targets);
-  });
-
-  if (!matched) return null;
-
-  var targetYear = Number(String(details.year || "").slice(0, 4));
-  var itemYear = Number(String(item.year || "").slice(0, 4));
-  var seasonNumber = Number(season || 1);
-
-  // TMDB TV year is the show's first-air year. Do not reject later seasons
-  // because their upstream item can use the season's actual release year.
-  if (
-    (mediaType === "movie" || seasonNumber <= 1) &&
-    targetYear &&
-    itemYear &&
-    Math.abs(targetYear - itemYear) > 1
-  ) {
-    return null;
-  }
-
-  var score = 100;
-  var normalizedMain = stripTrailingYear(item.title);
-
-  if (normalizedMain === normalizeTitle(details.title)) score += 30;
-  if (normalizedMain === normalizeTitle(details.originalTitle)) score += 20;
-
-  if (mediaType === "tv" && seasonNumber > 1) {
-    var seasonVariants = seasonTitleVariants(details.title, seasonNumber)
-      .map(normalizeTitle);
-
-    if (seasonVariants.indexOf(normalizedMain) !== -1) {
-      score += 100;
-    }
-
-    // Prefer a later-year entry for later seasons, but never require it.
-    if (targetYear && itemYear && itemYear > targetYear) score += 20;
-  } else if (targetYear && itemYear) {
-    score += targetYear === itemYear ? 50 : 20;
-  }
-
-  return score;
-}
-
-function fetchDetail(id) {
-  return getDecryptedJson(BASE + "/vod/" + encodeURIComponent(id) + "/detail");
-}
-
-function detailScore(detail, item, details, mediaType, season) {
-  var baseScore = candidateScore(item, details, mediaType, season);
-  if (baseScore === null || !detail) return null;
-  if (!mediaTypeCompatible(detail.type, mediaType)) return null;
-
-  var targets = targetTitles(details, mediaType, season);
-  var detailTitle = String(detail.title || "");
-
-  if (detailTitle && !titleMatchesTargets(detailTitle, targets)) {
-    var itemTitles = itemTitleSet(item);
-    var normalizedDetail = normalizeTitle(detailTitle);
-    var strippedDetail = stripTrailingYear(detailTitle);
-
-    if (!itemTitles[normalizedDetail] && !itemTitles[strippedDetail]) {
-      return null;
-    }
-  }
-
-  var targetYear = Number(String(details.year || "").slice(0, 4));
-  var resultYear = Number(String(detail.year || "").slice(0, 4));
-  var seasonNumber = Number(season || 1);
-
-  if (
-    (mediaType === "movie" || seasonNumber <= 1) &&
-    targetYear &&
-    resultYear &&
-    Math.abs(targetYear - resultYear) > 1
-  ) {
-    return null;
-  }
-
-  var score = baseScore;
-  var strippedTitle = stripTrailingYear(detailTitle);
-
-  if (strippedTitle === normalizeTitle(details.title)) score += 30;
-
-  if (mediaType === "tv" && seasonNumber > 1) {
-    var seasonVariants = seasonTitleVariants(details.title, seasonNumber)
-      .map(normalizeTitle);
-
-    if (seasonVariants.indexOf(strippedTitle) !== -1) score += 100;
-    if (targetYear && resultYear && resultYear > targetYear) score += 20;
-  } else if (targetYear && resultYear) {
-    score += targetYear === resultYear ? 40 : 15;
-  }
-
-  return score;
-}
-
-function chooseBest(candidates, details, mediaType, season) {
-  var ranked = (candidates || []).map(function (item) {
-    return { item: item, score: candidateScore(item, details, mediaType, season) };
-  }).filter(function (x) {
-    return typeof x.score === "number";
-  }).sort(function (a, b) {
-    return b.score - a.score;
-  }).slice(0, 8);
-
-  if (!ranked.length) {
-    var sample = (candidates || []).slice(0, 10).map(function (item) {
-      return String(item && item.title || "?") +
-        (item && item.year ? " (" + item.year + ")" : "") +
-        (item && item.type ? " [" + item.type + "]" : "");
-    }).join(" | ");
-
-    console.log(
-      "[OneTouchTV] no ranked match" +
-      (sample ? " candidates=" + sample : "")
-    );
-    return Promise.resolve(null);
-  }
-
-  return Promise.all(ranked.map(function (entry) {
-    return fetchDetail(entry.item.id).then(function (detail) {
-      return {
-        item: entry.item,
-        detail: detail,
-        score: detailScore(detail, entry.item, details, mediaType, season)
-      };
-    }).catch(function () {
-      return null;
-    });
-  })).then(function (items) {
-    var valid = items.filter(function (x) {
-      return x && typeof x.score === "number";
-    }).sort(function (a, b) {
-      return b.score - a.score;
-    });
-    return valid.length ? valid[0] : null;
-  });
-}
-
-function findPlayableEpisode(detail, mediaType, episode) {
-  var episodes = Array.isArray(detail && detail.episodes) ? detail.episodes : [];
-  var playable = episodes.filter(function (item) {
-    return item && String(item.identifier || "").trim() && String(item.playId || "").trim();
-  });
-
-  if (mediaType === "movie") return playable.length ? playable[0] : null;
-
-  var target = Number(episode || 1);
-  var exact = playable.find(function (item) {
-    var value = Number(item.episode);
-    return Number.isFinite(value) && value === target;
-  });
-  return exact || null;
-}
-
-function parseStreams(payload) {
-  var root = payload && payload.result && typeof payload.result === "object" ? payload.result : payload;
-  var sources = root && Array.isArray(root.sources) ? root.sources : [];
-
-  var seen = {};
-  return sources.map(function (source) {
-    var url = String(source && source.url || "").trim();
-    if (!url) return null;
-
-    var headerObj = source && source.headers && typeof source.headers === "object"
-      ? source.headers
-      : {};
-    var headerKey = Object.keys(headerObj).sort().map(function (key) {
-      return key + ":" + String(headerObj[key]);
-    }).join("|");
-    var dedupe = url + "|" + headerKey;
-    if (seen[dedupe]) return null;
-    seen[dedupe] = true;
-
-    var quality = String(source.quality || "").trim() || inferQuality(source.name || url);
-    var label = String(source.name || "Source").trim();
-
-    return {
-      name: PROVIDER,
-      title: label + (quality && label.toLowerCase().indexOf(quality.toLowerCase()) === -1 ? " • " + quality : ""),
-      url: url,
-      quality: quality || "Auto",
-      headers: headerObj,
-      provider: PROVIDER,
-      type: inferType(url)
-    };
-  }).filter(Boolean);
-}
-
-function getStreams(tmdbId, mediaType, season, episode) {
-  mediaType = mediaType === "movie" ? "movie" : "tv";
-  console.log(
-    "[OneTouchTV] TMDB=" + tmdbId +
-    " type=" + mediaType +
-    (mediaType === "tv" ? " S" + Number(season || 1) + "E" + Number(episode || 1) : "")
-  );
-
-  var details;
-  var match;
-
-  return fetchTmdbDetails(tmdbId, mediaType)
-    .then(function (value) {
-      details = value;
-      if (!details || !details.title) throw new Error("TMDB metadata unavailable");
-      var queries = buildQueries(details, mediaType, season);
-      return collectCandidates(queries);
-    })
-    .then(function (candidates) {
-      return chooseBest(candidates, details, mediaType, season);
-    })
-    .then(function (value) {
-      match = value;
-      if (!match || !match.detail) {
-        throw new Error("No matching title found");
+      if (typeof globalThis !== "undefined" && typeof globalThis.vueoTrace === "function") {
+        globalThis.vueoTrace(stage, details);
       }
-
-      console.log(
-        "[OneTouchTV] matched id=" + match.item.id +
-        " title='" + String(match.detail.title || match.item.title || "") +
-        "' year=" + String(match.detail.year || match.item.year || "")
-      );
-
-      var selected = findPlayableEpisode(match.detail, mediaType, episode);
-      if (!selected) throw new Error("Episode/stream entry not found");
-
-      var streamUrl = BASE + "/vod/" + encodeURIComponent(selected.identifier) +
-        "/episode/" + encodeURIComponent(selected.playId);
-      return getDecryptedJson(streamUrl);
-    })
-    .then(function (payload) {
-      var streams = parseStreams(payload);
-      console.log("[OneTouchTV] v1.0.4 playable sources=" + streams.length);
-      return streams;
-    })
-    .catch(function (error) {
-      console.log("[OneTouchTV] " + (error && error.message ? error.message : String(error)));
-      return [];
-    });
-}
-
-module.exports = { getStreams };
-
-/* CLOUDBANK_TEST_PLUGIN_SOURCE_END */
-  })(transferredModule, transferredModule.exports, metadataFetch);
-  return transferredModule.exports;
-})();
-function cloudbankTestPluginAttempt(provider, args, ms) {
-  return new Promise(function(resolve) {
-    var done = false;
-    var timer = setTimeout(function() { finish([]); }, ms);
-    function finish(value) {
-      if (done) return;
-      done = true;
-      clearTimeout(timer);
-      resolve(Array.isArray(value) ? value.filter(function(item) {
-        return item && typeof item.url === "string" && /^https?:\/\//i.test(item.url);
-      }) : []);
-    }
-    Promise.resolve().then(function() {
-      return provider.getStreams.apply(provider, args);
-    }).then(finish, function() { finish([]); });
-  });
-}
-module.exports = Object.assign({}, cloudbankLegacyProvider, {
-  getStreams: function(id, type, season, episode) {
-    type = type === "series" ? "tv" : type;
-    if (!String(id || "").trim() || (type !== "movie" && type !== "tv")) return Promise.resolve([]);
-    if (type === "tv" && (!Number.isInteger(Number(season)) || Number(season) < 0 || !Number.isInteger(Number(episode)) || Number(episode) < 1)) return Promise.resolve([]);
-    var args = [String(id), type, season, episode];
-    return cloudbankTestPluginAttempt(cloudbankTestPluginProvider, args, 11000).then(function(streams) {
-      if (streams.length) return streams;
-      try { if (typeof globalThis.vueoTrace === "function") globalThis.vueoTrace("RESOLVER_FALLBACK", { source: "Cloudbank existing engine" }); } catch (_) {}
-      return cloudbankTestPluginAttempt(cloudbankLegacyProvider, args, 7500);
-    });
+    } catch (_) {}
   }
-});
-/* CLOUDBANK_TEST_PLUGIN_ADAPTATION_END */
+  function normalize(raw) {
+    if (typeof raw === "string") {
+      try { raw = JSON.parse(raw); } catch (_) { return null; }
+    }
+    if (!raw || typeof raw !== "object" || raw.error) return null;
+    var contextId = raw.tmdbId || raw.tmdb && raw.tmdb.id;
+    var contextType = raw.mediaType || raw.tmdb && raw.tmdb.media_type;
+    if (!route || String(contextId) !== route[2] || (contextType && contextType !== route[1] && !(contextType === "series" && route[1] === "tv"))) return null;
+    var tmdb = raw.tmdb;
+    if (!tmdb || typeof tmdb !== "object") {
+      if (!raw.title || (raw.mediaType !== "movie" && raw.mediaType !== "tv")) return null;
+      var alternatives = Array.isArray(raw.aliases) ? raw.aliases.map(function(alias) {
+        return { title: String(alias), iso_3166_1: "" };
+      }) : [];
+      tmdb = {
+        id: raw.tmdbId,
+        title: raw.mediaType === "movie" ? raw.title : undefined,
+        name: raw.mediaType === "tv" ? raw.title : undefined,
+        original_title: raw.mediaType === "movie" ? (raw.originalTitle || raw.title) : undefined,
+        original_name: raw.mediaType === "tv" ? (raw.originalTitle || raw.title) : undefined,
+        release_date: raw.mediaType === "movie" && raw.year ? String(raw.year) + "-01-01" : "",
+        first_air_date: raw.mediaType === "tv" && raw.year ? String(raw.year) + "-01-01" : "",
+        external_ids: { imdb_id: raw.imdbId || "" },
+        alternative_titles: { titles: alternatives, results: alternatives }
+      };
+    }
+    if (!tmdb.title && !tmdb.name) return null;
+    trace("METADATA", { shared: true, title: raw.title || tmdb.title || tmdb.name || "",
+      year: raw.year || "", imdbId: raw.imdbId || "",
+      aliases: Array.isArray(raw.aliases) ? raw.aliases.length : 0 });
+    return tmdb;
+  }
+  function local() {
+    trace("METADATA_FALLBACK", { shared: false });
+    return Promise.resolve().then(fallback);
+  }
+  try {
+    if (typeof globalThis !== "undefined") {
+      var direct = normalize(globalThis.VUEO_DISCOVERY_CONTEXT);
+      if (direct) return Promise.resolve(direct);
+      if (typeof globalThis.vueoDiscoveryContext === "function") {
+        return Promise.resolve().then(function() {
+          return globalThis.vueoDiscoveryContext(url);
+        }).then(function(raw) {
+          var shared = normalize(raw);
+          return shared || local();
+        }, local);
+      }
+    }
+  } catch (_) {}
+  return local();
+}
 
-/* CLOUDBANK_PLAYIMDB_DISPLAY_START */
+
 /* CLOUDBANK_PLAYIMDB_DISPLAY_V1
  * Embedded in each provider: the app downloads standalone JavaScript files.
  * Presentation only. No network requests and no changes to playback fields.
