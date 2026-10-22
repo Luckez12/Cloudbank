@@ -1,4 +1,4 @@
-/* VidRock 2.0.0 — rebuilt website API, authenticated URLs and segment-checked HLS. */
+/* VidRock 2.1.0 — authenticated HLS, segment checks and bounded alternative collection. */
 /* VUEO_SHARED_DISCOVERY_CONTEXT_V1 */
 function vueoSharedTmdb(url, fallback) {
   function trace(stage, details) {
@@ -129,7 +129,7 @@ function buildTitleProfile(tmdb) {
       }else result.text=await response.text();
       if(result.text&&result.text.length>(binary?16*1024*1024:2*1024*1024))throw Error('response too large');
       if(state.finished)throw Error('finished');return result;
-    })(),new Promise(function(_,reject){requestTimer=setTimeout(function(){if(controller)controller.abort();reject(Error('HTTP timeout'));},Math.min(new URL(url).origin===BASE?10000:binary?5500:7000,Math.max(1,state.deadline-Date.now())));})]);}
+    })(),new Promise(function(_,reject){requestTimer=setTimeout(function(){if(controller)controller.abort();reject(Error('HTTP timeout'));},Math.min(new URL(url).origin===BASE?10000:binary?5500:7000,Math.max(1,state.deadline-Date.now())));}),state.stopped.then(function(){if(controller)controller.abort();throw Error('finished');})]);}
     finally{if(requestTimer)clearTimeout(requestTimer);}
   }
 
@@ -253,7 +253,7 @@ function buildTitleProfile(tmdb) {
         var codec=dims?dims.codec:/avc1|avc3/i.test(v.codecs)?'h264':/hvc1|hev1/i.test(v.codecs)?'hevc':'unknown';
         log('MEDIA: server='+clean(row.name)+' '+q+'p; '+proof.evidence+'; codec='+codec+'; MIME=HLS');
         return {name:'VidRock',title:state.title+'\n'+q+'p | '+row.audio.label+'\n'+clean(row.name),url:mediaURL,mimeType:'application/x-mpegURL',type:'hls',isHls:true,quality:q+'p',videoCodec:codec,codecEvidence:dims?'transport-SPS':codec!=='unknown'?'HLS-codecs':'unknown',audioStatus:row.audio.status,audioLanguages:row.audio.languages,language:row.audio.languages.length===1?row.audio.languages[0]:'',audioEvidence:'API language label; not a probe of actual tracks',provider:'vidrock',serverName:clean(row.name),headers:headers(),subtitles:[],behaviorHints:{notWebReady:true}};
-      }catch(error){log('SKIP: server='+clean(row.name)+' rendition='+(variants[i].quality||'unknown')+'p reason='+safeReason(error));}
+      }catch(error){if(state.finished)return null;log('SKIP: server='+clean(row.name)+' rendition='+(variants[i].quality||'unknown')+'p reason='+safeReason(error));}
     }
     return null;
   }
@@ -261,8 +261,9 @@ function buildTitleProfile(tmdb) {
   async function run(id,type,season,episode){
     type=type==='series'?'tv':type;
     if(!/^[1-9]\d*$/.test(String(id))||['movie','tv'].indexOf(type)<0||type==='tv'&&(!Number.isInteger(Number(season))||Number(season)<0||season==null||!Number.isInteger(Number(episode))||Number(episode)<1))return [];
-    var state={calls:0,deadline:Date.now()+17500,finished:false,title:'TMDB '+id},timer;
-    log('ROUTE: v2.0.0 website exact TMDB '+id+' '+type+(type==='tv'?' S'+Number(season)+'E'+Number(episode):'')+'; original/dual/unknown; minimum 720p; no VUEO changes');
+    var started=Date.now(),state={calls:0,deadline:started+17500,finished:false,title:'TMDB '+id},timer,collectionTimer;
+    state.stopped=new Promise(function(done){state.stop=done;});
+    log('ROUTE: v2.1.0 website exact TMDB '+id+' '+type+(type==='tv'?' S'+Number(season)+'E'+Number(episode):'')+'; original/dual/unknown; minimum 720p; parallel routes=3; alternatives wait=1500ms; no VUEO changes');
     try{
       var route=BASE+'/api/'+(type==='movie'?'movie/'+id:'tv/'+id+'/'+Number(season)+'/'+Number(episode));
       var metadataURL='https://api.themoviedb.org/3/'+type+'/'+id+'?api_key=1865f43a0549ca50d341dd9ab8b29f49';
@@ -275,13 +276,30 @@ function buildTitleProfile(tmdb) {
       function decodeRows(){rows=[];errors=0;entries.forEach(function(n){var a=audio(payload[n].language,original);if(!a.allowed){log('AUDIO: excluded explicit foreign-language source '+clean(n));return;}try{rows.push({name:n,url:decrypt(payload[n].url,keyInfo.hex),audio:a});}catch(_){errors++;}});}
       decodeRows();
       if(!rows.length&&errors&&keyInfo.cached){cache('remove');localKey=null;keyInfo=await key(state,true);decodeRows();}
+      log('DISCOVERY: keyCache='+(keyInfo.cached?'hit':'miss')+'; elapsedMs='+(Date.now()-started));
       log('API: candidates='+entries.length+' eligibleAudio='+rows.length+' authenticationFailures='+errors+' original='+(original||'unknown'));
-      var found=[],index=0;
-      async function worker(){while(index<rows.length&&found.length<3&&!state.finished){var row=rows[index++];try{var item=await resolveRoute(state,row);if(item&&!found.some(function(x){return x.url===item.url;}))found.push(item);}catch(e){log('SKIP: server='+clean(row.name)+' reason='+safeReason(e));}}}
-      try{await Promise.race([Promise.all([worker(),worker(),worker()]),timeout]);}catch(e){if(!state.finished)throw e;log('BUDGET: returning completed routes');}
+      var found=[],index=0,firstSourceMs=null,hostStarted=Date.now(),active=0,peak=0,collectionReason='all routes finished',completeCollection;
+      var collection=new Promise(function(done){completeCollection=done;});
+      async function worker(){while(index<rows.length&&found.length<3&&!state.finished){
+        var row=rows[index++];active++;peak=Math.max(peak,active);
+        try{var item=await resolveRoute(state,row);
+          if(item&&!state.finished&&!found.some(function(x){return x.url===item.url;})){
+            found.push(item);
+            if(firstSourceMs===null){
+              firstSourceMs=Date.now()-started;
+              log('FIRST_SOURCE: elapsedMs='+firstSourceMs+'; alternativesWaitMs=1500');
+              collectionTimer=setTimeout(function(){collectionReason='alternative wait elapsed';state.finished=true;state.stop();completeCollection();},Math.min(1500,Math.max(0,state.deadline-Date.now())));
+            }
+            if(found.length>=3){collectionReason='source limit';state.finished=true;state.stop();completeCollection();}
+          }
+        }catch(e){if(!state.finished)log('SKIP: server='+clean(row.name)+' reason='+safeReason(e));}
+        finally{active--;}
+      }}
+      try{await Promise.race([Promise.all([worker(),worker(),worker()]),collection,timeout]);}catch(e){if(!state.finished)throw e;collectionReason='total budget elapsed';log('BUDGET: returning completed routes');}
       state.finished=true;var result=found.sort(function(a,b){return (a.videoCodec==='h264'?0:1)-(b.videoCodec==='h264'?0:1)||parseInt(b.quality)-parseInt(a.quality);}).slice(0,3);
+      log('TIMING: firstSourceMs='+(firstSourceMs===null?'none':firstSourceMs)+' preHostMs='+(hostStarted-started)+' hostMs='+(Date.now()-hostStarted)+' totalMs='+(Date.now()-started)+' peakRoutes='+peak+' finish='+collectionReason);
       log('RESULT: '+result.length+' segment-checked HLS sources; calls='+state.calls+'; playback requires device test');return result;
-    }catch(e){log('NO_RESULT: '+safeReason(e)+'; calls='+state.calls);return [];}finally{state.finished=true;if(timer)clearTimeout(timer);}
+    }catch(e){log('NO_RESULT: '+safeReason(e)+'; calls='+state.calls);return [];}finally{state.finished=true;state.stop();if(timer)clearTimeout(timer);if(collectionTimer)clearTimeout(collectionTimer);}
   }
   module.exports={getStreams:run};
   if(typeof globalThis!=='undefined')globalThis.getStreams=run;

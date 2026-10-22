@@ -1,6 +1,6 @@
 {
   "name": "Cloudbank",
-  "version": "1.20.68",
+  "version": "1.20.69",
   "scrapers": [
     {
       "id": "kisskh",
@@ -677,8 +677,8 @@
     {
       "id": "vidrock",
       "name": "VidRock",
-      "description": "Website API HLS streams, 720p and above; original/dual/unknown audio labels",
-      "version": "2.0.0",
+      "description": "Website API HLS streams, 720p+; bounded wait for alternative sources",
+      "version": "2.1.0",
       "author": "Nuvio Team",
       "supportedTypes": [
         "movie",
@@ -700,7 +700,7 @@
         "tv"
       ],
       "upstreamVersion": "1.0.0",
-      "notes": "Rebuilt from current vidrock.net website API and public bundle. Authenticated AES-256-GCM URLs; exact TMDB movie/TV/episode routing; explicit HLS MIME and headers; selected 720p+ media playlists; first-segment transport checks reject PNG-prefixed/image/HTML payloads. Binary-capable runtimes additionally inspect TS SPS; existing text-only VUEO runtime requires playlist resolution evidence. Up to three parallel routes; bounded requests. Audio is API label evidence only. Device playback still requires testing.",
+      "notes": "Rebuilt from current vidrock.net website API and public bundle. Authenticated AES-256-GCM URLs; exact TMDB movie/TV/episode routing; explicit HLS MIME and headers; selected 720p+ media playlists; first-segment transport checks reject PNG-prefixed/image/HTML payloads. Binary-capable runtimes additionally inspect TS SPS; existing text-only VUEO runtime requires playlist resolution evidence. Up to three parallel routes; bounded requests. Audio is API label evidence only. Device playback still requires testing. v2.1.0: returns completed sources at most 1500ms after the first validated source, or sooner when routes finish/three sources are ready. Slower alternatives may be omitted. Keeps all HLS, quality, audio and segment checks. Releases pending JS waits, aborts fetch where supported, prevents late retries/results/logs and reports first-source/total timings. Native in-flight HTTP cancellation depends on runtime support. Public-key cache behavior unchanged; no playback-URL cache. Deterministic timing replay is a benchmark, not a device speed guarantee.",
       "sourceRepository": "https://github.com/D3adlyRocket/All-in-One-Nuvio",
       "sourceCommit": "3f09a6ff4360498895e622877af7a32212f75038",
       "runtimeModules": []
