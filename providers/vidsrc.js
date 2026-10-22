@@ -1,4 +1,4 @@
-// Cloudbank VidSrc v2.0.0: current website browser bootstrap, original master handoff.
+// Cloudbank VidSrc v2.0.1: browser-result compatibility, original master handoff.
 /* VUEO_SHARED_DISCOVERY_CONTEXT_V1 */
 function vueoSharedTmdb(url, fallback) {
   function trace(stage, details) {
@@ -155,7 +155,7 @@ function cloudbankMetadataFetch(nativeFetch) {
   }
   (function(module, exports, require, fetch, self) {
 /* CLOUDBANK_UPSTREAM_SOURCE_START */
-// VidSrc v2.0.0: current website bootstrap in one browser session.
+// VidSrc v2.0.1: current website bootstrap in one browser session.
 var BASE = 'https://vidsrc.sh';
 function log(message) { console.log('[VidSrc] ' + message); }
 function sharedContext(id, type) {
@@ -183,6 +183,28 @@ function headers(raw) {
   });
   return out;
 }
+async function validateLegacy(row) {
+  // Basic bridge results omit observation flags. Check only the returned file
+  // or manifest, never a child playlist or segment, before native handoff.
+  var timer, controller = typeof AbortController === 'function' ? new AbortController() : null;
+  var timedOut = new Promise(function(resolve) {
+    timer = setTimeout(function() { if (controller) controller.abort(); resolve(false); }, 1800);
+  });
+  var task = Promise.resolve().then(async function() {
+    var h = Object.assign({}, row.headers);
+    if (row.type === 'mp4') h.Range = 'bytes=0-1023';
+    var response = await fetch(row.url, {method: 'GET', headers: h, redirect: 'follow', signal: controller ? controller.signal : undefined});
+    var ct = String(response.headers.get('content-type') || '').toLowerCase();
+    if (!response.ok || /text\/html|application\/json/.test(ct)) return false;
+    if (row.type === 'mp4') return /^video\/mp4/.test(ct) && (response.status === 200 || response.status === 206);
+    var body = String(await response.text()).replace(/^\uFEFF/, '').trim();
+    if (row.type === 'hls') return body.indexOf('#EXTM3U') === 0 && /#EXT-X-STREAM-INF:|#EXTINF:/.test(body);
+    return !/<!DOCTYPE|<!ENTITY/i.test(body) && /<(?:[\w.-]+:)?MPD\b/.test(body) && /<(?:[\w.-]+:)?Period\b/.test(body);
+  }).catch(function() { return false; });
+  var ok = await Promise.race([task, timedOut]);
+  clearTimeout(timer);
+  return ok;
+}
 async function getStreams(tmdbId, mediaType, season, episode) {
   var id = String(tmdbId || ''), type = mediaType === 'series' ? 'tv' : mediaType;
   if (!/^[1-9]\d*$/.test(id) || ['movie', 'tv'].indexOf(type) < 0) return [];
@@ -195,7 +217,7 @@ async function getStreams(tmdbId, mediaType, season, episode) {
   }
   var route = BASE + '/embed/' + type + '/' + id + (type === 'tv' ? '/' + Number(season) + '/' + Number(episode) : '');
   var started = Date.now(), meta = sharedContext(id, type);
-  log('ROUTE: v2.0.0 current website; exact TMDB=' + id + ' ' + type +
+  log('ROUTE: v2.0.1 current website; exact TMDB=' + id + ' ' + type +
     (type === 'tv' ? ' S' + Number(season) + 'E' + Number(episode) : '') + '; one browser session');
   log('BOOTSTRAP: website handles iframe API, session tokens, WASM and Turnstile; verification may prevent discovery');
   var session;
@@ -212,11 +234,16 @@ async function getStreams(tmdbId, mediaType, season, episode) {
     });
   } catch (_) { log('NO_RESULT: browser session failed'); return []; }
   var rows = session && Array.isArray(session.streams) ? session.streams : [];
-  var seen = Object.create(null), output = [], rejectedDub = 0;
+  var seen = Object.create(null), output = [], rejectedDub = 0, unknownKind = 0, rejectedObservation = 0;
+  var detailed = session && session.sessionResponseVersion === 1;
   rows.forEach(function(row) {
-    if (!row || (row.networkObserved !== true && row.responseObserved !== true)) return;
+    if (!row) return;
+    var observed = row.networkObserved === true || row.responseObserved === true;
+    var hasFlags = typeof row.networkObserved === 'boolean' || typeof row.responseObserved === 'boolean';
+    if ((detailed || hasFlags) && !observed) { rejectedObservation++; return; }
     var kind = mediaKind(row);
-    if (!kind || seen[row.url]) return;
+    if (!kind) { unknownKind++; return; }
+    if (seen[row.url]) return;
     var original = String(meta.original_language || '').toLowerCase();
     var audio = String(row.audioLanguage || '').toLowerCase();
     if (row.isDubbed === true && row.isDualAudio !== true && (!original || audio !== original)) { rejectedDub++; return; }
@@ -230,18 +257,31 @@ async function getStreams(tmdbId, mediaType, season, episode) {
       url: row.url, headers: h, provider: 'vidsrc', type: kind,
       mimeType: kind === 'hls' ? 'application/x-mpegURL' : kind === 'dash' ? 'application/dash+xml' : 'video/mp4',
       isAdaptive: kind !== 'mp4', quality: kind !== 'mp4' ? 'Auto' : String(row.quality || 'Unknown'),
-      audioLanguage: row.audioLanguage || undefined,
+      audioLanguage: row.audioLanguage || undefined, _legacyCheck: !observed,
       _master: row.isMaster === true || /(?:^|\/)(?:master|index)\.m3u8(?:[?#]|$)/i.test(row.url) });
   });
   // Prefer an observed master; never fetch, split or filter its variants.
   output.sort(function(a, b) { return Number(b._master) - Number(a._master); });
-  output = output.slice(0, 3).map(function(row) { delete row._master; return row; });
+  var checks = 0;
+  output = (await Promise.all(output.slice(0, 3).map(async function(row) {
+    delete row._master;
+    var needsCheck = row._legacyCheck; delete row._legacyCheck;
+    if (needsCheck) {
+      checks++;
+      var ok = await validateLegacy(row);
+      log('BASIC_MEDIA_CHECK: kind=' + row.type + ' accessible=' + ok);
+      if (!ok) return null;
+    }
+    return row;
+  }))).filter(Boolean);
   var d = session && session.diagnostics || {};
-  var finish = session && ['timeout', 'load-error', 'media-ready', 'response-media', 'network-candidate'].indexOf(session.finishReason) >= 0 ? session.finishReason : 'unknown';
-  log('SESSION: finish=' + finish + ' pageFinished=' + (d.pageFinished === true) +
-    ' observed=' + rows.length + ' explicitDubRejected=' + rejectedDub + ' elapsedMs=' + (Date.now() - started));
-  log('RESULT: ' + output.length + ' observed media sources; master unchanged; no native media/subtitle/segment fetches; playback unverified');
-  if (!output.length) log('NO_MEDIA: website bootstrap/verification may be incomplete; HTML player pages are not media');
+  var finish = session && ['timeout', 'load-error', 'media-ready', 'response-media', 'network-candidate', 'first-candidate'].indexOf(session.finishReason) >= 0 ? session.finishReason : 'not-provided';
+  log('SESSION: mode=' + (detailed ? 'detailed' : 'basic') + ' finish=' + finish +
+    ' pageFinished=' + (typeof d.pageFinished === 'boolean' ? d.pageFinished : 'not-provided') +
+    ' captured=' + rows.length + ' unknownKind=' + unknownKind + ' observationRejected=' + rejectedObservation +
+    ' explicitDubRejected=' + rejectedDub + ' elapsedMs=' + (Date.now() - started));
+  log('RESULT: ' + output.length + ' media sources; basicChecks=' + checks + '; master unchanged; no child/segment/subtitle fetches; playback unverified');
+  if (!output.length) log('NO_MEDIA: no eligible media after type/observation/audio/basic HTTP checks; missing diagnostics do not prove a website verification failure');
   return output;
 }
 module.exports = { getStreams: getStreams };

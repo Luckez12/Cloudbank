@@ -1,5 +1,5 @@
-# Apply patch
+# VidSrc v2.0.1 correction
 
-Extract these files over the Cloudbank repository. Delete the three paths listed in DELETE_FILES.md before running npm run validate. No deletion script or workflow is included.
+Extract over the repository. Delete the three provider paths in DELETE_FILES.md if still present. Manifest is included. No executable deletion script or YML.
 
-VidSrc v2.0.0 uses the current website browser flow. Device testing is still required: website Turnstile may block discovery. Master HLS is returned unchanged. No VUEO application changes.
+Fixes rejection of basic WebView results without observation flags. A single manifest/file check validates those candidates. Original master HLS stays intact. Playback requires device testing; no VUEO changes.

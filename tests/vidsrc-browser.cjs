@@ -2,15 +2,19 @@ const fs = require('node:fs');
 const vm = require('node:vm');
 const assert = require('node:assert/strict');
 const source = fs.readFileSync('providers/vidsrc.js', 'utf8');
-function load(streams, finishReason = 'response-media') {
+function load(streams, finishReason = 'response-media', basic = false, nativeFetch) {
   const calls = [];
   const context = {
     module: { exports: {} }, URL, console: { log() {} }, setTimeout, clearTimeout,
-    fetch() { throw Error('Separate HTTP requests are forbidden in this flow'); },
+    fetch: nativeFetch || function() { throw Error('Detailed observed sources must not cause extra HTTP requests'); },
     VUEO_DISCOVERY_CONTEXT: { tmdbId: '12345', mediaType: 'movie', tmdb: { id: 12345, title: 'Fixture', original_language: 'en' } },
     webviewResolve: async (url, options) => {
       calls.push({url, options});
-      return {streams, finishReason, diagnostics: {pageFinished: true}};
+      if (basic) return {streams: streams.map(row => {
+        const {networkObserved, responseObserved, ...rest} = row;
+        return rest;
+      })};
+      return {sessionResponseVersion: 1, streams, finishReason, diagnostics: {pageFinished: true}};
     }
   };
   vm.runInNewContext(source, context, {timeout: 1000});
@@ -51,5 +55,19 @@ function load(streams, finishReason = 'response-media') {
   assert.ok(rows.every(row => !row.url.includes('/dub.mp4')));
   const blocked = load([], 'timeout');
   assert.equal((await blocked.provider.getStreams('12345', 'movie')).length, 0);
-  console.log('VidSrc: exact movie/episode route, original master handoff, observed-only media, audio handling and empty session checks passed.');
+  const nativeCalls = [];
+  const legacy = load([{url: master, networkObserved: true, headers: {Referer: 'https://player.example/'}}], undefined, true, async (url, opts) => {
+    nativeCalls.push({url, opts});
+    return {ok: true, status: 200, headers: {get: () => 'application/vnd.apple.mpegurl'},
+      text: async () => '#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=1000000\n720p/playlist.m3u8\n'};
+  });
+  rows = await legacy.provider.getStreams('12345', 'movie');
+  assert.equal(rows.length, 1, 'Basic resolver output must not be discarded for absent observation flags');
+  assert.equal(rows[0].url, master);
+  assert.equal(nativeCalls.length, 1);
+  assert.equal(nativeCalls[0].url, master, 'Check master only, never child or segments');
+  assert.equal(rows[0]._legacyCheck, undefined);
+  const html = load([{url: master}], undefined, true, async () => ({ok: true, status: 200, headers: {get: () => 'text/html'}, text: async () => '<html>Verification</html>'}));
+  assert.equal((await html.provider.getStreams('12345', 'movie')).length, 0, 'HTML at a media-shaped URL is not a stream');
+  console.log('VidSrc: detailed and basic bridge contracts, exact routes, master-only check, HTML rejection and audio checks passed.');
 })().catch(error => {console.error(error); process.exitCode = 1;});
