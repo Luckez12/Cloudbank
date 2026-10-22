@@ -1,4 +1,4 @@
-// Cloudbank VidSrc v3.2.0: frame-local Play interaction and direct media handoff.
+// Cloudbank VidSrc v3.2.1: player loading and verification-stage observations.
 /* VUEO_SHARED_DISCOVERY_CONTEXT_V1 */
 function vueoSharedTmdb(url, fallback) {
   function trace(stage, details) {
@@ -155,7 +155,7 @@ function cloudbankMetadataFetch(nativeFetch) {
   }
   (function(module, exports, require, fetch, self) {
 /* CLOUDBANK_UPSTREAM_SOURCE_START */
-// VidSrc v3.2.0: frame-local Play activation and direct captured media handoff.
+// VidSrc v3.2.1: observe player loading, verification and stream-API stages.
 var BASE = 'https://vidsrc.sh';
 function log(message) { console.log('[VidSrc] ' + message); }
 function sharedContext(id, type) {
@@ -196,7 +196,7 @@ async function getStreams(tmdbId, mediaType, season, episode) {
   }
   var route = BASE + '/embed/' + type + '/' + id + (type === 'tv' ? '/' + Number(season) + '/' + Number(episode) : '');
   var started = Date.now(), meta = sharedContext(id, type);
-  log('ROUTE: v3.2.0 website session; exact TMDB=' + id + ' ' + type +
+  log('ROUTE: v3.2.1 website session; exact TMDB=' + id + ' ' + type +
     (type === 'tv' ? ' S' + Number(season) + 'E' + Number(episode) : '') + '; one browser session');
   log('BOOTSTRAP: website handles iframe API, session tokens, WASM and Turnstile; verification may prevent discovery');
   var session;
@@ -209,20 +209,34 @@ async function getStreams(tmdbId, mediaType, season, episode) {
       match: ['.m3u8', '.mpd', '.mp4'],
       blocked: ['doubleclick.net', 'googlesyndication.com', 'googleadservices.com'],
       framePlaySelectors: ['button#bigPlay'], playerFrameSelectors: ['iframe#player_frame'],
-      stagePathPrefixes: {bootstrap: '/vs_src.php', player: '/embed/player/', api: '/api.php'},
+      stagePathPrefixes: {bootstrap: '/vs_src.php', player: '/embed/player/', api: '/api.php', verify: '/embed/verify.php', hls: '/npm/hls.js', decoder: '/embed/iframe_player/assets/vsdec.js', logic: '/embed/iframe_player/assets/player.js', wasm: '/wasm.php'},
+      stageQueryKeys: {stream: 'stream_urls'},
+      frameProgressEvents: ['vs:verified', 'vs:playerready'],
+      frameConsoleMatchers: {devtools: 'permission to use devtool'},
       interactionTexts: [], clickDelaysMs: [0],
       viewportWidth: 1080, viewportHeight: 1080, clickX: 540, clickY: 540
     });
   } catch (_) { log('NO_RESULT: browser session failed'); return []; }
   var rows = session && Array.isArray(session.streams) ? session.streams : [];
   var frame = session && session.frameInteraction;
-  if (frame && frame.version === 1) {
+  if (frame && frame.version >= 1) {
     function count(value) { return typeof value === 'number' && Number.isFinite(value) ? Math.max(0, Math.min(10000, Math.floor(value))) : 0; }
     var requests = frame.requests || {}, errors = frame.errors || {};
     log('FRAME_FLOW: hook=' + (frame.hookSupported === true) + ' readyFrames=' + count(frame.readyFrames) +
       ' playClicks=' + count(frame.playClicks) + ' playerFrames=' + count(frame.playerFrames) +
       ' bootstrapRequests=' + count(requests.bootstrap) + ' playerRequests=' + count(requests.player) +
       ' apiRequests=' + count(requests.api) + ' apiHttpError=' + count(errors.api));
+    if (frame.version >= 2) {
+      var player = frame.documents && frame.documents.player || {}, progress = frame.progress || [], signals = frame.consoleSignals || {};
+      log('FRAME_PLAYER: created=' + count(player.created) + ' domReady=' + count(player.ready) +
+        ' loaded=' + count(player.loaded) + ' unloaded=' + count(player.unloaded) + ' scriptLoads=' + count(player.scriptLoads) +
+        ' scriptErrors=' + count(player.scriptErrors) + ' runtimeErrors=' + count(player.runtimeErrors));
+      log('PLAYER_STAGES: verified=' + count(progress[0]) + ' playerSignal=' + count(progress[1]) +
+        ' streamRequests=' + count(requests.stream) + ' streamHttpError=' + count(errors.stream) +
+        ' verifyRequests=' + count(requests.verify) + ' verifyHttpError=' + count(errors.verify) +
+        ' decoderRequests=' + count(requests.decoder) + ' wasmRequests=' + count(requests.wasm) + ' wasmHttpError=' + count(errors.wasm) +
+        ' clientRestrictionSignals=' + count(signals.devtools));
+    } else log('PLAYER_STAGES: unavailable; separate VUEO player-stage diagnostics v2 required');
   } else log('FRAME_FLOW: frame interaction bridge unavailable; install separate VUEO frame-play patch');
   var seen = Object.create(null), output = [], rejectedDub = 0, unknownKind = 0, rejectedObservation = 0;
   var detailed = session && session.sessionResponseVersion === 1;

@@ -1,12 +1,12 @@
 const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
 const source=fs.readFileSync('providers/vidsrc.js','utf8');
-function load(streams, detailed=false){
+function load(streams, detailed=false, frameInteraction){
  const calls=[],logs=[];
  const context={module:{exports:{}},URL,setTimeout,clearTimeout,console:{log:s=>logs.push(s)},
   VUEO_DISCOVERY_CONTEXT:{tmdbId:'12345',mediaType:'movie',tmdb:{id:12345,title:'Fixture',original_language:'en'}},
   fetch(){throw Error('Native HTTP must not be called');},
   __vueoNativeFetch(){throw Error('Binary HTTP must not be called');},
-  webviewResolve:async(url,options)=>{calls.push({url,options});return detailed?{sessionResponseVersion:1,streams,finishReason:'response-media',diagnostics:{pageFinished:true}}:{streams};}};
+  webviewResolve:async(url,options)=>{calls.push({url,options});return detailed?{sessionResponseVersion:1,streams,finishReason:'response-media',diagnostics:{pageFinished:true},frameInteraction}:{streams};}};
  vm.runInNewContext(source,context,{timeout:1000});return {provider:context.module.exports,calls,logs};
 }
 (async()=>{
@@ -21,6 +21,7 @@ function load(streams, detailed=false){
  assert.equal(opts.waitForMediaReady,false);assert.equal(opts.blockMatchedRequests,false);assert.equal(opts.captureSessionResponses,false);assert.equal(opts.captureSubtitles,false);
  assert.equal(opts.framePlaySelectors.join(','),'button#bigPlay');assert.equal(opts.playerFrameSelectors.join(','),'iframe#player_frame');
  assert.equal(opts.clickDelaysMs.join(','),'0');assert.equal(opts.timeoutMs,12000);
+ assert.equal(opts.stageQueryKeys.stream,'stream_urls');assert.equal(opts.frameProgressEvents.join(','),'vs:verified,vs:playerready');
  assert.ok(actualBasic.logs.some(x=>x.includes('pageFinished=not-provided')));
  const mixed=load([{url},{url},{url:'blob:https://player.example/fixture'},{url:'https://player.example/watch/12345'},{url:'https://media.example/segment.mp4'},{url:'https://media.example/init.mp4'},{url:'https://media.example/dub.mp4',isDubbed:true,audioLanguage:'hi'},{url:'https://media.example/dual.mp4',isDubbed:true,isDualAudio:true}]);
  assert.equal((await mixed.provider.getStreams('12345','movie')).length,2);
@@ -28,5 +29,9 @@ function load(streams, detailed=false){
  assert.equal((await observed.provider.getStreams('12345','movie')).length,1);
  const tv=load([]);assert.equal((await tv.provider.getStreams('67890','series',2,7)).length,0);assert.equal(tv.calls[0].url,'https://vidsrc.sh/embed/tv/67890/2/7');
  assert.equal((await tv.provider.getStreams('67890','tv',null,7)).length,0);assert.equal((await tv.provider.getStreams('bad/id','movie')).length,0);assert.equal(tv.calls.length,1);
+ const pending=load([],true,{version:2,hookSupported:true,readyFrames:2,playClicks:1,playerFrames:1,documents:{player:{created:1,ready:0,scriptLoads:1}},requests:{api:1,stream:0},errors:{},progress:[0,0]});
+ assert.equal((await pending.provider.getStreams('12345','movie')).length,0);
+ assert.ok(pending.logs.some(x=>x.includes('FRAME_PLAYER: created=1 domReady=0')));
+ assert.ok(pending.logs.some(x=>x.includes('verified=0 playerSignal=0 streamRequests=0')));
  console.log('VidSrc session: actual basic result accepted, master/header preservation, no native HTTP or binary capability, strict detailed flags, episode identity and empty sessions passed.');
 })().catch(e=>{console.error(e);process.exitCode=1;});

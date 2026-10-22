@@ -1,5 +1,5 @@
-Cloudbank only. Copy these files to the Cloudbank repository root; follow DELETE_FILES.md if listed files remain. Requires the SEPARATE VUEO Frame-Local Play patch and rebuilt app. Then refresh the provider to VidSrc v3.2.0.
+Cloudbank only. Apply at the Cloudbank repository root and follow DELETE_FILES.md for remaining listed files. Requires the SEPARATE VUEO Player-Stage Diagnostics v2 patch and rebuilt app. Refresh provider to VidSrc v3.2.1.
 
-Frame-local, document-ready Play activation replaces timed coordinate clicks. Master HLS remains unchanged, without separate HTTP/API/media probes. New frame/stage diagnostics explain where discovery stops. No native binary capability is required.
+Adds FRAME_PLAYER and PLAYER_STAGES observations after Play: player created/DOM-ready, scripts/errors, verification event, stream API distinguished from metadata, verification/WASM requests/errors and client-restriction warning count. Native HTTP/media probing, website flow, Play behavior and timeout are unchanged. No binary update or dependency change is needed.
 
-Validation, provider fixtures, frame-script fixtures and native resolver compilation pass. Full APK/WebView playback and device speed are unverified. No YML or deletion script.
+This is a targeted diagnostic revision, not a verified playback repair. Full device behavior remains unverified. Validation and regression fixtures pass. No YML or deletion script.
