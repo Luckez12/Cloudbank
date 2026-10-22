@@ -25,6 +25,8 @@ function load({page=html,src='/embed/987654?lang=ja&cdn=fixture',apiStatus=200,e
  assert.equal(master.searchParams.get('h'),'1');assert.equal(master.searchParams.get('lang'),'ja');assert.equal(master.searchParams.get('cdn'),'fixture');
  assert.equal(rows[0].quality,'Auto');assert.equal(rows[0].isAdaptive,true);assert.equal(rows[0].mimeType,'application/x-mpegURL');
  assert.equal(rows[0].headers.Origin,'https://vixsrc.to');assert.equal(rows[0].headers.Referer,basic.calls[1].url);
+ assert.equal(rows[0].headers['X-VUEO-HTTP-Transport'],'shared');
+ assert.ok(basic.calls.every(x=>!x.options.headers['X-VUEO-HTTP-Transport']),'Transport instruction belongs only to playback configuration');
  assert.equal(rows[0].subtitles,undefined);
  const tv=load();await tv.provider.getStreams('24680','series',2,7);assert.equal(tv.calls[0].url,'https://vixsrc.to/api/tv/24680/2/7');
  const invalid=load();await invalid.provider.getStreams('bad/id','movie');await invalid.provider.getStreams('1','tv',null,1);assert.equal(invalid.calls.length,0);

@@ -153,7 +153,7 @@ function cloudbankMetadataFetch(nativeFetch) {
   }
   (function(module, exports, require, fetch, self) {
 /* CLOUDBANK_UPSTREAM_SOURCE_START */
-/* VixSrc v2.0.0: current website API -> embed -> original master HLS.
+/* VixSrc v2.0.1: current website API -> embed -> original master HLS.
  * No WebView, playlist probes, variant splitting, external subtitles or fallback hosts.
  */
 var VIXSRC_BASE = 'https://vixsrc.to';
@@ -245,7 +245,7 @@ async function getStreams(tmdbId, mediaType, seasonNum, episodeNum) {
   if (mediaType === 'tv' && (!Number.isInteger(seasonNum) || seasonNum < 0 || !Number.isInteger(episodeNum) || episodeNum < 1)) return [];
   var path = mediaType === 'movie' ? '/movie/' + tmdbId : '/tv/' + tmdbId + '/' + seasonNum + '/' + episodeNum;
   var page = VIXSRC_BASE + path + '/';
-  vixsrcLog('ROUTE: v2.0.0 exact TMDB=' + tmdbId + ' ' + mediaType + (mediaType === 'tv' ? ' S' + seasonNum + 'E' + episodeNum : '') + '; API -> embed -> master; HTTP only');
+  vixsrcLog('ROUTE: v2.0.1 exact TMDB=' + tmdbId + ' ' + mediaType + (mediaType === 'tv' ? ' S' + seasonNum + 'E' + episodeNum : '') + '; API -> embed -> master; HTTP only; playback transport=shared');
   try {
     calls++;
     var api = await vixsrcRead(VIXSRC_BASE + '/api' + path, page, true);
@@ -261,7 +261,9 @@ async function getStreams(tmdbId, mediaType, seasonNum, episodeNum) {
     vixsrcLog('RESULT: 1 signed master; calls=' + calls + ' elapsedMs=' + (Date.now() - started) + '; audio unverified/unknown accepted; no playlist/child/segment/subtitle fetches; playback unverified');
     return [{ name: 'VixSrc', title: 'VixSrc', url: master, quality: 'Auto',
       type: 'hls', format: 'hls', mimeType: 'application/x-mpegURL', isAdaptive: true, provider: 'vixsrc',
-      headers: { 'User-Agent': VIXSRC_UA, Referer: content.url, Origin: VIXSRC_BASE },
+      // Internal VUEO instruction, stripped before networking by its existing
+      // data source. Reuse discovery's OkHttp client for adaptive playback.
+      headers: { 'User-Agent': VIXSRC_UA, Referer: content.url, Origin: VIXSRC_BASE, 'X-VUEO-HTTP-Transport': 'shared' },
       easyProxySourceUrl: content.url }];
   } catch (error) {
     // Never leak a signed URL/token through transport exception messages.
