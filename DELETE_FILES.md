@@ -3,4 +3,4 @@
 - `providers/netmirror.js`
 - `providers/peachify.js`
 
-Only delete these exact files if they still exist. They are absent from the included manifest 1.20.73. Already-deleted files require no action. VidRock remains installed at 3.1.0. The existing ZIP workflow copies files only and does not execute this list. No automatic deletion script is included.
+Delete these exact files only if still present. Both are removed from manifest 1.20.74. Already-absent files need no action. Keep VidRock at 4.0.0. The ZIP workflow copies files and does not execute this list; no automatic deletion script is included.

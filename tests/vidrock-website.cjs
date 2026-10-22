@@ -1,33 +1,37 @@
-const fs=require('fs'),vm=require('vm'),assert=require('assert'),crypto=require('crypto');
-const source=fs.readFileSync(require('path').join(__dirname,'../providers/vidrock.js'),'utf8');
-const key=/BOOTSTRAP_KEY\s*=\s*'([0-9a-f]{64})'/.exec(source)[1],other='abcdef0123456789'.repeat(4);
-function encrypt(url,k=key){let iv=crypto.randomBytes(12),c=crypto.createCipheriv('aes-256-gcm',Buffer.from(k,'hex'),iv);return Buffer.concat([iv,c.update(url),c.final(),c.getAuthTag()]).toString('base64url');}
-// Synthetic H.264 SPS in TS; contains no real video samples.
-function ts(w=1920,h=800){let bits='';const bit=x=>bits+=String(x),uint=(x,n)=>bits+=x.toString(2).padStart(n,'0'),ue=x=>{let n=(x+1).toString(2);bits+='0'.repeat(n.length-1)+n;};uint(66,8);uint(0,8);uint(40,8);ue(0);ue(0);ue(0);ue(0);ue(1);bit(0);ue(w/16-1);ue(h/16-1);bit(1);bit(1);bit(0);bit(0);bit(1);while(bits.length%8)bit(0);const sps=Buffer.from(bits.match(/.{8}/g).map(x=>parseInt(x,2))),b=Buffer.alloc(188*4,255);for(let i=0;i<4;i++){b[i*188]=71;b[i*188+1]=i?1:65;b[i*188+2]=0;b[i*188+3]=16+i;}Buffer.concat([Buffer.from([0,0,1,224,0,0,128,0,0,0,0,1,103]),sps,Buffer.from([0,0,1,104,0,0,0,0])]).copy(b,4);return b;}
-function load(fetch){let logs=[],ctx={module:{exports:{}},console:{log:s=>logs.push(s)},URL,Uint8Array,atob,setTimeout,clearTimeout,fetch,VUEO_DISCOVERY_CONTEXT:{title:'Fixture',mediaType:'movie',tmdbId:55,originalLanguage:'en'}};vm.createContext(ctx);vm.runInContext(source.replace('module.exports={getStreams:run};','module.exports={getStreams:run,_test:{decrypt,https,playlist,sample,audio,quality,renditionRecipe,recipeVariant}};'),ctx);return {...ctx.module.exports,logs};}
-function scenario({native=false,mode='normal',audio='English',serverCount=1}={}){let calls=[],active=0,peak=0,bundleKey=key,apiKey=key;let f=load(async(url,opts)=>{calls.push(url);active++;peak=Math.max(peak,active);await Promise.resolve();active--;assert.equal(opts.headers.Referer,'https://vidrock.net/');assert.equal(opts.headers.Origin,'https://vidrock.net');let body='',type='text/html',final=url;
+const fs=require('fs'),path=require('path'),vm=require('vm'),assert=require('assert'),crypto=require('crypto');
+const source=fs.readFileSync(path.join(__dirname,'../providers/vidrock.js'),'utf8'),key=/BOOTSTRAP_KEY\s*=\s*'([0-9a-f]{64})'/.exec(source)[1],other='abcdef0123456789'.repeat(4);
+function seal(url,k=key){let iv=crypto.randomBytes(12),c=crypto.createCipheriv('aes-256-gcm',Buffer.from(k,'hex'),iv);return Buffer.concat([iv,c.update(url),c.final(),c.getAuthTag()]).toString('base64url');}
+function load(fetch){let logs=[],ctx={module:{exports:{}},console:{log:s=>logs.push(s)},URL,Uint8Array,atob,setTimeout,clearTimeout,fetch,VUEO_DISCOVERY_CONTEXT:{title:'Fixture',mediaType:'movie',tmdbId:55,originalLanguage:'en'}};vm.createContext(ctx);vm.runInContext(source.replace('module.exports={getStreams:run};','module.exports={getStreams:run,_test:{decrypt,playlist,audio}};'),ctx);return {...ctx.module.exports,logs};}
+function scenario({mode='master',audio='English',count=1}={}){let calls=[],apiKey=key,bundleKey=key;const f=load(async(url,opts)=>{
+ calls.push(url);assert.equal(opts.headers.Referer,'https://vidrock.net/');assert.equal(opts.headers.Origin,'https://vidrock.net');assert.equal(opts.headers.Range,undefined);let body='',final=url;
  if(url==='https://vidrock.net/')body='<script src="/assets/index-fixture.js"></script>';
  else if(url.includes('/assets/'))body='const publicKey="'+bundleKey+'"; /* AES-GCM importKey decrypt */';
- else if(url.includes('/api/')){let data={};for(let i=0;i<serverCount;i++)data['Route'+i]={url:encrypt('https://media.test/token'+i+'/index',apiKey),language:audio};body=JSON.stringify(data);}
- else if(/\/token\d+\/index$/.test(url))body=mode==='leaf'?'#EXTM3U\n#EXTINF:6,\nvideo.ts':'#EXTM3U\n#EXT-X-STREAM-INF:RESOLUTION=640x360,CODECS="avc1.640028"\nlow.m3u8\n#EXT-X-STREAM-INF:RESOLUTION=1920x800,CODECS="avc1.640028"\nhi.m3u8';
- else if(url.endsWith('/hi.m3u8')){final='https://edge.test/play/'+/token\d+/.exec(url)[0]+'/final.m3u8';body=mode==='html'?'<!doctype html>error':'#EXTM3U\n#EXT-X-TARGETDURATION:6\n#EXTINF:6,\nvideo.ts';}
- else if(url.endsWith('/video.ts')){assert.equal(opts.headers.Range,'bytes=0-8191');body=mode==='png'?Buffer.concat([Buffer.from([137,80,78,71,13,10,26,10]),ts()]):mode==='badsegment'?Buffer.from('<html>not video</html>'):ts();type='image/png';}
- else throw Error('Unexpected fixture request');
- const b=Buffer.isBuffer(body)?body:Buffer.from(body);let r={ok:true,status:200,url:final,headers:{get:n=>n==='content-type'?type:null},text:async()=>b.toString('utf8')};if(!native)r.arrayBuffer=async()=>Uint8Array.from(b).buffer;return r;});return {f,calls,peak:()=>peak,rotate:()=>{bundleKey=other;apiKey=other;}};}
-(async()=>{const t=load(()=>{throw Error('unexpected fetch')})._test;
- for(let i=0;i<25;i++){let k=crypto.randomBytes(32).toString('hex'),url='https://fixture.test/'+crypto.randomBytes(i*5+1).toString('hex'),cipher=encrypt(url,k);assert.equal(t.decrypt(cipher,k),url);let b=Buffer.from(cipher,'base64url');b[b.length-1]^=1;assert.throws(()=>t.decrypt(b.toString('base64url'),k),/authentication/);}
- for(const u of [undefined,'','http://a.test','https://u:p@a.test'])assert.equal(t.https(u),'');
- assert.equal(t.playlist('#EXTM3U\n#EXT-X-STREAM-INF:RESOLUTION=1920x800','https://a.test').variants.length,0);
- const recipe=t.renditionRecipe('https://old.test/file/old-token/master.m3u8',{url:'https://old.test/file/old-token/1080p/video.m3u8',quality:1080,codecs:'avc1'});assert.equal(recipe.relative,'1080p/video.m3u8');assert(!JSON.stringify(recipe).includes('old-token'));assert(!JSON.stringify(recipe).includes('old.test'));assert.equal(t.recipeVariant('https://new.test/another/new-token/master.m3u8',recipe).url,'https://new.test/another/new-token/1080p/video.m3u8');for(const relative of ['../escape.m3u8','https://foreign.test/a.m3u8','/absolute.m3u8','1080p/video.m3u8?signature=old'])assert.equal(t.recipeVariant('https://new.test/base/master.m3u8',{...recipe,relative}),null);assert.equal(t.recipeVariant('https://new.test/base/different.m3u8',recipe),null);
- assert.equal(t.quality(1920,800),1080);assert.equal(t.quality(1280,534),720);assert.equal(t.quality(640,360),0);
- for(const [label,expected] of [['Hindi',false],['Dual Hindi Tamil',false],['English Hindi Dual',true],['',true],['Dual',true]])assert.equal(t.audio(label,'en').allowed,expected);
- assert.equal(t.sample({bytes:new Uint8Array(ts())},false).size.width,1920);assert.throws(()=>t.sample({bytes:new Uint8Array(Buffer.from('<html>pretend ciphertext</html>'))},true),/image\/document/);
- for(const native of [false,true]){let s=scenario({native}),out=await s.f.getStreams('55','movie');assert.equal(out.length,1);assert.equal(out[0].quality,'1080p');assert.equal(out[0].mimeType,'application/x-mpegURL');assert.equal(out[0].url,'https://edge.test/play/token0/final.m3u8');assert(s.calls.includes('https://edge.test/play/token0/video.ts'));assert(!s.calls.some(x=>x.includes('low.m3u8')));assert.equal(out[0].headers.Range,undefined);assert.equal(out[0].codecEvidence,native?'HLS-codecs':'transport-SPS');for(const mode of ['html','png','badsegment']){s=scenario({native,mode});assert.equal((await s.f.getStreams('55','movie')).length,0);}s=scenario({native,mode:'leaf'});assert.equal((await s.f.getStreams('55','movie')).length,native?0:1);}
- let s=scenario({audio:'Hindi'});assert.equal((await s.f.getStreams('55','movie')).length,0);assert(!s.calls.some(x=>x.includes('media.test')));
- s=scenario({audio:'Unknown',serverCount:6});assert.equal((await s.f.getStreams('55','movie')).length,3);assert(s.calls.length<=24);assert(s.peak()<=3);
- s=scenario();assert.equal((await s.f.getStreams('55','movie')).length,1);s.rotate();assert.equal((await s.f.getStreams('55','movie')).length,1);assert.equal(s.calls.filter(x=>x==='https://vidrock.net/').length,1);
- s=scenario();s.rotate();assert.equal((await s.f.getStreams('55','movie')).length,1);assert.equal(s.calls.filter(x=>x==='https://vidrock.net/').length,1);assert(s.f.logs.some(x=>x.includes('keyCache=refreshed')));
- s=scenario();assert.equal((await s.f.getStreams('55','tv',0,1)).length,1);assert(s.calls.includes('https://vidrock.net/api/tv/55/0/1'));let count=s.calls.length;for(const args of [['55','tv',null,1],['55','tv',1,0],['55','tv',1.5,1],['0','movie'],['55x','movie'],['55','anime']])assert.equal((await s.f.getStreams(...args)).length,0);assert.equal(s.calls.length,count);
- assert(!source.includes('nuvio-plugin'));assert(!source.includes('webviewResolve'));assert(source.includes('GCM authentication failed'));
- console.log('PASS: GCM authentication/tamper; key rotation; movie/TV/specials; explicit HLS MIME; 720p+; relative redirects; native fallback; synthetic SPS; misleading MIME; image/HTML rejection; audio; concurrency/budget; invalid input.');
+ else if(url.includes('/api/')){let out={};for(let i=0;i<count;i++)out['Server'+i]={url:seal('https://media.test/token'+i,apiKey),language:audio};body=JSON.stringify(out);}
+ else if(url.startsWith('https://sub.vdrk.site/'))body='[{"label":"English","file":"https://caption.test/en.vtt"}]';
+ else if(/^https:\/\/media.test\/token\d+$/.test(url)||url==='https://media.test/selected'){
+  if(mode==='html')body='<html>#EXTM3U challenge</html>';
+  else if(mode==='empty')body='#EXTM3U';
+  else if(mode==='missing')body='#EXTM3U\n#EXT-X-STREAM-INF:RESOLUTION=1920x1080';
+  else if(mode==='media')body='#EXTM3U\n#EXT-X-TARGETDURATION:6\n#EXTINF:6,\nsegment.ts';
+  else if(mode==='json'&&url!=='https://media.test/selected')body='[{"resolution":360,"url":"https://media.test/low"},{"resolution":2160,"url":"https://media.test/selected"}]';
+  else if(mode==='no-resolution')body='#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=5000000\nchild.m3u8';
+  else if(mode==='low')body='#EXTM3U\n#EXT-X-STREAM-INF:RESOLUTION=640x360\nlow.m3u8';
+  else {body='#EXTM3U\n#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="audio",NAME="Original",URI="audio.m3u8"\n#EXT-X-STREAM-INF:RESOLUTION=3840x2160,CODECS="hvc1.1.6",AUDIO="audio"\n4k.m3u8\n#EXT-X-STREAM-INF:RESOLUTION=1920x800,CODECS="avc1.640028",AUDIO="audio"\n1080p.m3u8\n#EXT-X-STREAM-INF:RESOLUTION=1280x720\n720p.m3u8';if(mode==='redirect')final='https://edge.test/master-token';}
+ }else throw Error('Unexpected child/segment fetch: '+url);
+ return {ok:true,status:200,url:final,headers:{get:()=> 'text/html'},text:async()=>body};
+ });return {f,calls,rotate(){apiKey=other;bundleKey=other;}};}
+(async()=>{
+ const t=load(()=>{throw Error('unexpected fetch')})._test;
+ for(let i=0;i<25;i++){let k=crypto.randomBytes(32).toString('hex'),url='https://fixture.test/'+crypto.randomBytes(i*5+1).toString('hex'),cipher=seal(url,k);assert.equal(t.decrypt(cipher,k),url);let b=Buffer.from(cipher,'base64url');b[b.length-1]^=1;assert.throws(()=>t.decrypt(b.toString('base64url'),k),/authentication/);}
+ let s=scenario({count:2}),out=await s.f.getStreams('55','movie');assert.equal(out.length,2);assert.equal(s.calls.filter(x=>x.startsWith('https://media.test/')).length,2);
+ for(const item of out){assert.match(item.url,/\/token\d$/);assert.equal(item.mimeType,'application/x-mpegURL');assert.equal(item.quality,'Auto');assert.equal(item.isAdaptive,true);assert.equal(item.maxQuality,2160);assert.deepEqual(Array.from(item.availableQualities),['2160p','1080p','720p']);assert.equal(item.videoCodec,'unknown');assert(item.name.includes('Auto'));assert(item.subtitles.some(x=>x.language==='en'));}
+ for(const mode of ['html','empty','missing']){s=scenario({mode});assert.equal((await s.f.getStreams('55','movie')).length,0);}
+ for(const mode of ['media','no-resolution','low','redirect','json']){s=scenario({mode});out=await s.f.getStreams('55','movie');assert.equal(out.length,1);assert.equal(out[0].mimeType,'application/x-mpegURL');if(mode==='media'){assert.equal(out[0].isAdaptive,false);assert.equal(out[0].url,'https://media.test/token0');}else assert.equal(out[0].isAdaptive,true);if(mode==='redirect')assert.equal(out[0].url,'https://edge.test/master-token');if(mode==='json')assert.equal(out[0].url,'https://media.test/selected');}
+ s=scenario({audio:'Hindi'});assert.equal((await s.f.getStreams('55','movie')).length,0);assert(!s.calls.some(x=>x.startsWith('https://media.test/')));
+ s=scenario({audio:'Unknown'});assert.equal((await s.f.getStreams('55','movie')).length,1);s.rotate();assert.equal((await s.f.getStreams('55','movie')).length,1);assert.equal(s.calls.filter(x=>x==='https://vidrock.net/').length,1);
+ s=scenario();s.rotate();assert.equal((await s.f.getStreams('55','movie')).length,1);assert(s.f.logs.some(x=>x.includes('keyCache=refreshed')));
+ s=scenario();assert.equal((await s.f.getStreams('55','tv',0,1)).length,1);assert(s.calls.includes('https://vidrock.net/api/tv/55/0/1'));let count=s.calls.length;
+ for(const args of [['55','tv',null,1],['55','tv',1,0],['55','tv',1.5,1],['0','movie'],['55x','movie'],['55','anime']])assert.equal((await s.f.getStreams(...args)).length,0);assert.equal(s.calls.length,count);
+ assert(!source.includes('verifyVariant'));assert(!source.includes('segmentProbes=1'));assert(!source.includes('renditionRecipe'));
+ console.log('PASS: original master/opaque-token URLs; one playlist fetch per server; no child/segment probes; Auto quality incl 4K, unknown resolution and sub-720; audio groups retained; direct media/JSON/redirect; HLS MIME/headers; GCM tamper/refresh; audio policy; exact TV/specials; invalid input.');
 })().catch(e=>{console.error(e);process.exitCode=1});

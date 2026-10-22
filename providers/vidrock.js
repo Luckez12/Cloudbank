@@ -1,4 +1,4 @@
-/* VidRock 3.1.0 — reuse validated relative rendition recipes with the current API URL. */
+/* VidRock 4.0.0 — return original HLS masters directly; let the player choose renditions. */
 /* VUEO_SHARED_DISCOVERY_CONTEXT_V1 */
 function vueoSharedTmdb(url, fallback) {
   function trace(stage, details) {
@@ -123,12 +123,6 @@ function buildTitleProfile(tmdb) {
       if(json.length<=20000){localMetadata[name]={json:json,at:Date.now(),ttl:Math.min(ttl,300000)};metadataOrder=metadataOrder.filter(function(k){return k!==name;});metadataOrder.push(name);while(metadataOrder.length>32)delete localMetadata[metadataOrder.shift()];}
     }return nativeValue;
   }
-  function hash(text){var h=2166136261;for(var i=0;i<text.length;i++){h^=text.charCodeAt(i);h=Math.imul(h,16777619);}return (h>>>0).toString(16);}
-  function reusableVariant(root,v){
-    try{var a=new URL(root),b=new URL(v.url),directory=a.pathname.slice(0,a.pathname.lastIndexOf('/')+1);
-      return !v.audioGroup&&a.protocol==='https:'&&b.protocol==='https:'&&!a.username&&!b.username&&!a.password&&!b.password&&!a.search&&!b.search&&!a.hash&&!b.hash&&a.origin===b.origin&&b.pathname.indexOf(directory)===0&&/\.m3u8$/i.test(a.pathname)&&/\.m3u8$/i.test(b.pathname)&&a.href!==b.href&&a.href.length<2048&&b.href.length<2048&&Number(v.quality)>=720&&Number(v.quality)<=4320;
-    }catch(_){return false;}
-  }
   function headers() { return {'User-Agent':UA,Referer:BASE+'/',Origin:BASE}; }
   function get(state,url,binary,timeoutMs) {
     if(state.finished)return Promise.reject(Error('finished'));
@@ -148,25 +142,17 @@ function buildTitleProfile(tmdb) {
   async function request(state,url,binary,timeoutMs) {
     if(state.finished||Date.now()>state.deadline||state.calls>=24)throw Error('request budget');
     state.calls++;
-    var h=headers();if(binary){h.Range='bytes=0-8191';h['Accept-Encoding']='identity';}
+    var h=headers();
     var requestTimer,controller=typeof AbortController==='function'?new AbortController():null;
     try{return await Promise.race([(async function(){
       var response=await fetch(url,{headers:h,signal:controller?controller.signal:undefined});
       if(state.finished)throw Error('finished');
       if(!response.ok)throw Error('HTTP '+response.status);
-      var result={binaryCapable:typeof response.arrayBuffer==='function',status:response.status,url:https(response.url||url),ct:String(response.headers&&response.headers.get('content-type')||'').toLowerCase()};
+      var result={status:response.status,url:https(response.url||url),ct:String(response.headers&&response.headers.get('content-type')||'').toLowerCase(),text:await response.text()};
       if(!result.url)throw Error('non-HTTPS redirect');
-      if(binary&&typeof response.arrayBuffer==='function'){
-        if(response.body&&typeof response.body.getReader==='function'){
-          var reader=response.body.getReader(),chunks=[],length=0;
-          try{while(length<8192){var part=await reader.read();if(part.done)break;var chunk=part.value.subarray(0,8192-length);chunks.push(chunk);length+=chunk.length;}}
-          finally{reader.cancel().catch(function(){});}
-          var bytes=new Uint8Array(length),offset=0;chunks.forEach(function(chunk){bytes.set(chunk,offset);offset+=chunk.length;});result.bytes=bytes;
-        }else result.bytes=new Uint8Array(await response.arrayBuffer()).subarray(0,8192);
-      }else result.text=await response.text();
-      if(result.text&&result.text.length>(binary?16*1024*1024:2*1024*1024))throw Error('response too large');
+      if(result.text&&result.text.length>2*1024*1024)throw Error('response too large');
       if(state.finished)throw Error('finished');return result;
-    })(),new Promise(function(_,reject){requestTimer=setTimeout(function(){if(controller)controller.abort();reject(Error('HTTP timeout'));},Math.min(timeoutMs||(new URL(url).origin===BASE?10000:binary?5500:7000),Math.max(1,state.deadline-Date.now())));}),state.stopped.then(function(){if(controller)controller.abort();throw Error('finished');})]);}
+    })(),new Promise(function(_,reject){requestTimer=setTimeout(function(){if(controller)controller.abort();reject(Error('HTTP timeout'));},Math.min(timeoutMs||(new URL(url).origin===BASE?10000:7000),Math.max(1,state.deadline-Date.now())));}),state.stopped.then(function(){if(controller)controller.abort();throw Error('finished');})]);}
     finally{if(requestTimer)clearTimeout(requestTimer);}
   }
 
@@ -223,102 +209,35 @@ function buildTitleProfile(tmdb) {
   }
   function attrs(line){var out={},r=/([A-Z0-9-]+)=(?:"([^"]*)"|([^,]*))/gi,m;while((m=r.exec(line)))out[m[1].toUpperCase()]=m[2]!==undefined?m[2]:m[3];return out;}
   function playlist(text,base){
-    text=String(text||'').replace(/^\uFEFF/,'').trim();if(!text.startsWith('#EXTM3U'))throw Error('not HLS');
-    var lines=text.split(/\r?\n/).map(function(s){return s.trim();}),variants=[],segments=[],tracks=[],init='',keyUrl='',encrypted=false;
+    text=String(text||'').replace(/^\uFEFF/,'').trim();if(!/^#EXTM3U(?:\r?\n|$)/.test(text))throw Error('not HLS');
+    var lines=text.split(/\r?\n/).map(function(s){return s.trim();}),variants=[],segments=[],hasMaster=false;
     for(var i=0;i<lines.length;i++){
-      var l=lines[i],a;
-      if(l.startsWith('#EXT-X-STREAM-INF:')){a=attrs(l);var next=i+1;while(next<lines.length&&(!lines[next]||lines[next][0]==='#'))next++;var u=https(lines[next],base),res=/^(\d+)x(\d+)$/.exec(a.RESOLUTION||'');if(u&&res)variants.push({url:u,width:+res[1],height:+res[2],quality:quality(+res[1],+res[2]),codecs:a.CODECS||'',audioGroup:a.AUDIO||''});}
-      else if(l.startsWith('#EXT-X-MEDIA:')){a=attrs(l);tracks.push(a);}
-      else if(l.startsWith('#EXT-X-MAP:')){a=attrs(l);init=https(a.URI,base);}
-      else if(l.startsWith('#EXT-X-KEY:')){a=attrs(l);if(a.METHOD&&a.METHOD!=='NONE'){if(a.METHOD!=='AES-128')throw Error('unsupported encrypted HLS');encrypted=true;keyUrl=https(a.URI,base);}}
-      else if(l&&l[0]!=='#')segments.push(https(l,base));
+      var l=lines[i];
+      if(l.startsWith('#EXT-X-STREAM-INF:')){
+        hasMaster=true;var a=attrs(l),next=i+1;
+        while(next<lines.length&&(!lines[next]||lines[next][0]==='#')){if(lines[next].startsWith('#EXT-X-STREAM-INF:'))break;next++;}
+        var u=next<lines.length&&lines[next][0]!=='#'?https(lines[next],base):'',res=/^(\d+)x(\d+)$/.exec(a.RESOLUTION||'');
+        if(u)variants.push({url:u,width:res?+res[1]:0,height:res?+res[2]:0,quality:res?quality(+res[1],+res[2]):0,codecs:a.CODECS||''});
+      }else if(l&&l[0]!=='#')segments.push(https(l,base));
     }
-    return {variants:variants,segments:segments.filter(Boolean),tracks:tracks,init:init,key:keyUrl,encrypted:encrypted};
-  }
-  function h264Size(bytes){
-    // Recover Annex-B elementary video from TS packet payloads; no filename guesses.
-    var pid=-1,data=[];
-    for(var pos=0;pos+188<=bytes.length;pos+=188){if(bytes[pos]!==71)return null;var p=pos+4,af=(bytes[pos+3]>>>4)&3;if(af===0||af===2)continue;if(af===3)p+=1+bytes[p];if(p>=pos+188)continue;var id=((bytes[pos+1]&31)<<8)|bytes[pos+2];
-      if((bytes[pos+1]&64)&&bytes[p]===0&&bytes[p+1]===0&&bytes[p+2]===1&&bytes[p+3]>=224&&bytes[p+3]<=239){pid=id;p+=9+bytes[p+8];}if(id===pid)for(;p<pos+188;p++)data.push(bytes[p]);}
-    for(var a=0;a+8<data.length;a++)if(data[a]===0&&data[a+1]===0&&data[a+2]===1&&(data[a+3]&31)===7){
-      var raw=[],end=a+4;while(end+3<data.length&&!(data[end]===0&&data[end+1]===0&&(data[end+2]===1||data[end+2]===0&&data[end+3]===1)))end++;
-      for(var j=a+4;j<end;j++){if(data[j]===3&&j>=a+6&&data[j-1]===0&&data[j-2]===0)continue;raw.push(data[j]);}
-      try{var bit=0;function read(n){if(bit+n>raw.length*8||n>32)throw Error('SPS truncated');var v=0;while(n--){v=v*2+((raw[bit>>>3]>>>(7-(bit&7)))&1);bit++;}return v;}function ue(){var n=0;while(read(1)===0){if(++n>24)throw Error('SPS overflow');}return Math.pow(2,n)-1+(n?read(n):0);}function se(){var v=ue();return v&1?(v+1)/2:-v/2;}
-        var profile=read(8);read(16);ue();var chroma=1,separate=0;
-        if([100,110,122,244,44,83,86,118,128,138,139,134,135].indexOf(profile)>=0){chroma=ue();if(chroma===3)separate=read(1);ue();ue();read(1);if(read(1))for(var list=0;list<(chroma===3?12:8);list++)if(read(1)){var last=8,next=8;for(var z=0;z<(list<6?16:64);z++){if(next!==0)next=(last+se()+256)%256;last=next===0?last:next;}}}
-        ue();var poc=ue();if(poc===0)ue();else if(poc===1){read(1);se();se();var cycle=ue();if(cycle>256)throw Error('SPS cycle');while(cycle--)se();}ue();read(1);var w=(ue()+1)*16,mh=ue()+1,frame=read(1);if(!frame)read(1);read(1);var left=0,right=0,top=0,bottom=0;if(read(1)){left=ue();right=ue();top=ue();bottom=ue();}var ctype=separate?0:chroma,cropX=ctype===0||ctype===3?1:2,cropY=(ctype===1?2:1)*(2-frame),h=mh*16*(2-frame);w-=(left+right)*cropX;h-=(top+bottom)*cropY;if(w>=16&&w<=8192&&h>=16&&h<=8192)return {width:w,height:h,codec:'h264'};
-      }catch(_){}return null;
-    }return null;
-  }
-  function sample(result,encrypted){
-    if(result.bytes){var b=result.bytes;if(b.length<16)throw Error('short segment');
-      if(b[0]===71&&b.length>376&&b[188]===71&&b[376]===71)return {evidence:'TS bytes',size:h264Size(b)};
-      var box='';for(var i=4;i<8;i++)box+=String.fromCharCode(b[i]);if(['ftyp','styp','moof','sidx','emsg'].indexOf(box)>=0)return {evidence:'MP4 bytes',size:null};
-      var prefix='';for(var bi=0;bi<Math.min(b.length,48);bi++)prefix+=String.fromCharCode(b[bi]);
-      if(/^\s*(?:<|\{|\[)|^\x89PNG|^GIF8|^\xff\xd8\xff/.test(prefix))throw Error('segment is an image/document');
-      if(encrypted)return {evidence:'encrypted bytes',size:null};throw Error('segment is not TS/fMP4');
-    }
-    // The existing native fetch exposes text only. Never claim a byte-level SPS probe here.
-    var text=result.text||'',trim=text.replace(/^\s+/,'');
-    if(/^\uFFFD?PNG|^\x89PNG|^<|^\{|^\[|^#EXTM3U/i.test(trim))throw Error('segment is an image/document');
-    if(text.length>376&&text.charCodeAt(0)===71&&text.charCodeAt(1)<128&&(text.charCodeAt(3)&48)&&text.indexOf('\x00\x00\x01')>=0)return {evidence:'TS text prefix; binary API unavailable',size:null};
-    if(['ftyp','styp','moof','sidx','emsg'].indexOf(text.slice(4,8))>=0)return {evidence:'MP4 text prefix; binary API unavailable',size:null};
-    if(encrypted&&text.length>=16)return {evidence:'encrypted HTTP payload; binary API unavailable',size:null};
-    throw Error('segment transport not verified');
-  }
-  async function verifyVariant(state,row,root,manifest,v){
-    var media=manifest,mediaURL=root.url;
-    if(v.url!==root.url){var child=await get(state,v.url,false);mediaURL=child.url;media=playlist(child.text,mediaURL);}
-    if(!media.segments.length)throw Error('media playlist empty');
-    if(!v.quality&&!root.binaryCapable)throw Error('resolution not verified; binary API unavailable');
-    var external=manifest.tracks.filter(function(t){return t.TYPE==='AUDIO'&&t['GROUP-ID']===v.audioGroup&&t.URI;});
-    if(external.length)throw Error('external-audio rendition not supported by this direct route');
-    if(media.init)sample(await get(state,media.init,true),false);
-    if(media.encrypted){if(!media.key)throw Error('missing AES key URL');var kr=await get(state,media.key,true);if(kr.bytes?kr.bytes.length!==16:!kr.text||/^\s*</.test(kr.text))throw Error('invalid AES key');}
-    var proof=sample(await get(state,media.segments[0],true),media.encrypted),dims=proof.size,q=dims?quality(dims.width,dims.height):v.quality;
-    if(q<720)throw Error('resolution not verified at 720p+');
-    var codec=dims?dims.codec:/avc1|avc3/i.test(v.codecs)?'h264':/hvc1|hev1/i.test(v.codecs)?'hevc':'unknown';
-    log('MEDIA: server='+clean(row.name)+' '+q+'p; '+proof.evidence+'; codec='+codec+'; MIME=HLS');
-    return {name:'VidRock',title:state.title+'\n'+q+'p | '+row.audio.label+'\n'+clean(row.name),url:mediaURL,mimeType:'application/x-mpegURL',type:'hls',isHls:true,quality:q+'p',videoCodec:codec,codecEvidence:dims?'transport-SPS':codec!=='unknown'?'HLS-codecs':'unknown',audioStatus:row.audio.status,audioLanguages:row.audio.languages,language:row.audio.languages.length===1?row.audio.languages[0]:'',audioEvidence:'API language label; not a probe of actual tracks',provider:'vidrock',serverName:clean(row.name),headers:headers(),subtitles:[],behaviorHints:{notWebReady:true}};
-  }
-  function routeRecipeScope(state,row){return state.mediaPath+'|'+row.name;}
-  function renditionRecipe(root,v){
-    if(!reusableVariant(root,v))return null;
-    var a=new URL(root),b=new URL(v.url),directory=a.pathname.slice(0,a.pathname.lastIndexOf('/')+1);
-    return {rootFile:a.pathname.slice(directory.length),relative:b.pathname.slice(directory.length),quality:Number(v.quality),codecs:v.codecs||''};
-  }
-  function recipeVariant(root,recipe){
-    if(!recipe||typeof recipe.relative!=='string'||recipe.relative.length>2048||!recipe.relative||/^[\/\\]|[?#]/.test(recipe.relative))return null;
-    try{var a=new URL(root);if(a.pathname.slice(a.pathname.lastIndexOf('/')+1)!==recipe.rootFile)return null;
-      var v={url:https(recipe.relative,root),quality:Number(recipe.quality),codecs:clean(recipe.codecs).slice(0,200),audioGroup:''};
-      return reusableVariant(root,v)?v:null;
-    }catch(_){return null;}
+    if(hasMaster&&!variants.length)throw Error('master has no valid HTTPS renditions');
+    return {isMaster:hasMaster,variants:variants,segments:segments.filter(Boolean),isMedia:/^#EXTINF:/m.test(text)};
   }
   async function resolveRoute(state,row){
-    var scope=routeRecipeScope(state,row),cacheKey='vidrock:v31:recipe:'+hash(scope),saved=cache('get',null,cacheKey),v;
-    if(saved&&saved.schema===2&&saved.scope===scope&&Date.now()>=saved.at&&Date.now()-saved.at<60000&&(v=recipeVariant(row.url,saved.recipe))){
-      try{
-        var cached=await verifyVariant(state,row,{url:row.url,binaryCapable:false},{tracks:[]},v);
-        state.variantHits++;log('VARIANT_CACHE: recipe hit server='+clean(row.name)+'; current API URL; child and segment rechecked');return cached;
-      }catch(e){if(state.finished)return null;cache('remove',null,cacheKey);if(state.reads)delete state.reads[v.url];log('VARIANT_CACHE: stale server='+clean(row.name)+'; refreshing master');}
-    }
-    var root=await get(state,row.url,false),manifest,rootURL=root.url,hint=0;
+    var root=await get(state,row.url,false),hint=0;
     if(/^\s*\[/.test(root.text||'')){
-      var choices=JSON.parse(root.text).filter(function(x){return x&&Number(x.resolution)>=720&&https(x.url);}).sort(function(a,b){return b.resolution-a.resolution;});
-      if(!choices.length)throw Error('no eligible JSON source');hint=Number(choices[0].resolution);root=await get(state,https(choices[0].url),false);rootURL=root.url;
+      var choices=JSON.parse(root.text).filter(function(x){return x&&https(x.url);}).sort(function(a,b){return (Number(b.resolution)||0)-(Number(a.resolution)||0);});
+      if(!choices.length)throw Error('no eligible JSON source');hint=Number(choices[0].resolution)||0;root=await get(state,https(choices[0].url),false);
     }
-    manifest=playlist(root.text,rootURL);
-    var variants=manifest.variants.filter(function(v){return v.quality>=720;}).sort(function(a,b){return b.quality-a.quality;});
-    if(manifest.variants.length&&!variants.length)throw Error('below 720p');
-    if(!manifest.variants.length)variants=[{url:rootURL,quality:hint,codecs:'',audioGroup:''}];
-    for(var i=0;i<Math.min(variants.length,2);i++){
-      try{
-        var v=variants[i],item=await verifyVariant(state,row,root,manifest,v);
-        var recipe=row.url===rootURL?renditionRecipe(row.url,Object.assign({},v,{quality:parseInt(item.quality)})):null;
-        if(recipe){cache('put',{schema:2,scope:scope,at:Date.now(),recipe:recipe},cacheKey,60000);log('VARIANT_CACHE: recipe saved server='+clean(row.name)+'; TTL=60s');}
-        return item;
-      }catch(error){if(state.finished)return null;log('SKIP: server='+clean(row.name)+' rendition='+(variants[i].quality||'unknown')+'p reason='+safeReason(error));}
-    }return null;
+    var manifest=playlist(root.text,root.url);
+    if(!manifest.isMaster&&(!manifest.isMedia||!manifest.segments.length))throw Error('empty media playlist');
+    var qualities=manifest.variants.map(function(v){return v.quality;}).filter(function(q){return q>0;}).filter(function(q,i,a){return a.indexOf(q)===i;}).sort(function(a,b){return b-a;});
+    var codecs=manifest.variants.map(function(v){return /avc1|avc3/i.test(v.codecs)?'h264':/hvc1|hev1/i.test(v.codecs)?'hevc':'unknown';});
+    var codec=codecs.length&&codecs.every(function(c){return c===codecs[0];})?codecs[0]:'unknown';
+    var adaptive=manifest.isMaster,label=adaptive?'Auto HLS':hint?hint+'p HLS':'Direct HLS';
+    if(adaptive)state.masterSources++;else state.mediaSources++;
+    log('HLS: server='+clean(row.name)+' kind='+(adaptive?'master':'media')+'; returned=original-playlist; advertised='+(qualities.length?qualities.map(function(q){return q+'p';}).join(','):'unknown')+'; childFetches=0 segmentProbes=0');
+    return {name:'VidRock',title:state.title+'\n'+label+' | '+row.audio.label+'\n'+clean(row.name),url:root.url,mimeType:'application/x-mpegURL',type:'hls',isHls:true,isAdaptive:adaptive,streamKind:adaptive?'hls-master':'hls-media',quality:adaptive?'Auto':hint?hint+'p':'Unknown',maxQuality:qualities[0]||hint||0,availableQualities:qualities.map(function(q){return q+'p';}),videoCodec:codec,codecEvidence:codec!=='unknown'?'HLS-codecs':'unknown',audioStatus:row.audio.status,audioLanguages:row.audio.languages,language:row.audio.languages.length===1?row.audio.languages[0]:'',audioEvidence:'API language label; not a probe of actual tracks',provider:'vidrock',serverName:clean(row.name),headers:headers(),subtitles:[],behaviorHints:{notWebReady:true}};
   }
   function subtitleRows(payload,base,original){
     var rows=[],lists=['subtitles','data','results','items','list'];
@@ -364,11 +283,11 @@ function buildTitleProfile(tmdb) {
   async function run(id,type,season,episode){
     type=type==='series'?'tv':type;
     if(!/^[1-9]\d*$/.test(String(id))||['movie','tv'].indexOf(type)<0||type==='tv'&&(!Number.isInteger(Number(season))||Number(season)<0||season==null||!Number.isInteger(Number(episode))||Number(episode)<1))return [];
-    var started=Date.now(),state={calls:0,reused:0,variantHits:0,subtitles:[],subtitleStatus:'pending',deadline:started+17500,finished:false,title:'TMDB '+id},timer;
+    var started=Date.now(),state={calls:0,reused:0,masterSources:0,mediaSources:0,subtitles:[],subtitleStatus:'pending',deadline:started+17500,finished:false,title:'TMDB '+id},timer;
     state.stopped=new Promise(function(done){state.stop=done;});
-    log('ROUTE: v3.1.0 website exact TMDB '+id+' '+type+(type==='tv'?' S'+Number(season)+'E'+Number(episode):'')+'; original/dual/unknown; minimum 720p; parallel routes=3; retain completed alternatives; no VUEO changes');
+    log('ROUTE: v4.0.0 website exact TMDB '+id+' '+type+(type==='tv'?' S'+Number(season)+'E'+Number(episode):'')+'; original/dual/unknown; direct master HLS; adaptive quality; parallel routes=3; retain completed alternatives; no VUEO changes');
     try{
-      var path=type==='movie'?'movie/'+id:'tv/'+id+'/'+Number(season)+'/'+Number(episode),route=BASE+'/api/'+path;state.mediaPath=path;
+      var path=type==='movie'?'movie/'+id:'tv/'+id+'/'+Number(season)+'/'+Number(episode),route=BASE+'/api/'+path;
       loadSubtitles(state,path).catch(function(){});
       var metadataURL='https://api.themoviedb.org/3/'+type+'/'+id+'?api_key=1865f43a0549ca50d341dd9ab8b29f49';
       var metaTask=vueoSharedTmdb(metadataURL,async function(){var r=await get(state,metadataURL,false);return JSON.parse(r.text);}).catch(function(){return {};});
@@ -400,8 +319,8 @@ function buildTitleProfile(tmdb) {
       state.finished=true;var result=found.sort(function(a,b){return (a.videoCodec==='h264'?0:1)-(b.videoCodec==='h264'?0:1)||parseInt(b.quality)-parseInt(a.quality);}).slice(0,3);
       result.forEach(function(item){item.subtitles=state.subtitles.slice();});
       log('SUBTITLE_RESULT: tracks='+state.subtitles.length+' status='+state.subtitleStatus+'; no extra wait after media');
-      log('TIMING: firstSourceMs='+(firstSourceMs===null?'none':firstSourceMs)+' preHostMs='+(hostStarted-started)+' hostMs='+(Date.now()-hostStarted)+' totalMs='+(Date.now()-started)+' peakRoutes='+peak+' reusedReads='+state.reused+' variantHits='+state.variantHits+' finish='+collectionReason);
-      log('RESULT: '+result.length+' segment-checked HLS sources; calls='+state.calls+'; playback requires device test');return result;
+      log('TIMING: firstSourceMs='+(firstSourceMs===null?'none':firstSourceMs)+' preHostMs='+(hostStarted-started)+' hostMs='+(Date.now()-hostStarted)+' totalMs='+(Date.now()-started)+' peakRoutes='+peak+' reusedReads='+state.reused+' masterSources='+state.masterSources+' mediaSources='+state.mediaSources+' finish='+collectionReason);
+      log('RESULT: '+result.length+' HLS playlist sources; calls='+state.calls+'; playback requires device test');return result;
     }catch(e){log('NO_RESULT: '+safeReason(e)+'; calls='+state.calls);return [];}finally{state.finished=true;state.stop();if(timer)clearTimeout(timer);}
   }
   module.exports={getStreams:run};
@@ -487,7 +406,7 @@ function cloudbankDisplayInstall(provider, providerName, providerId) {
     var quality = usable(stream.quality);
     var resolution = /\b(2160|1440|1080|720|576|480|360|240|144)p?\b/i.exec(quality);
     if (!resolution) resolution = /\b(2160|1440|1080|720|576|480|360|240|144)p\b/i.exec(text);
-    var qualityLabel = resolution ? (resolution[1] === "2160" ? "4K" : resolution[1] + "p") : (/\b4k\b/i.test(quality + " " + text) ? "4K" : "");
+    var qualityLabel = stream.isAdaptive ? "Auto" : resolution ? (resolution[1] === "2160" ? "4K" : resolution[1] + "p") : (/\b4k\b/i.test(quality + " " + text) ? "4K" : "");
     var audioLang = language(stream.audioLanguage || stream.language || stream.lang);
     var audioLanguages = Array.isArray(stream.audioLanguages) ? unique(stream.audioLanguages.map(language)) : [];
     if (!audioLang && audioLanguages.length === 1) audioLang = audioLanguages[0];

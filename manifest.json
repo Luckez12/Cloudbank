@@ -1,6 +1,6 @@
 {
   "name": "Cloudbank",
-  "version": "1.20.73",
+  "version": "1.20.74",
   "scrapers": [
     {
       "id": "kisskh",
@@ -612,8 +612,8 @@
     {
       "id": "vidrock",
       "name": "VidRock",
-      "description": "Website API HLS, 720p+, reusable rendition choices with current API URLs",
-      "version": "3.1.0",
+      "description": "Original adaptive HLS masters returned directly; player chooses quality",
+      "version": "4.0.0",
       "author": "Nuvio Team",
       "supportedTypes": [
         "movie",
@@ -635,7 +635,7 @@
         "tv"
       ],
       "upstreamVersion": "1.0.0",
-      "notes": "v3.1.0 speed update only: cache the relative rendition path and quality derived from a validated master, scoped to exact TMDB movie/TV/season/episode and logical API server for 60 seconds. Resolve that path against the current authenticated API root URL rather than retaining an old hostname/token. Matching root filename, HTTPS, same-directory m3u8 paths, no query/fragment/credentials or audio group are required. Re-fetch child playlist and probe its segment each time; reload master after failed cached validation and invalidate a stale per-invocation child read before retry. No copied token, host, title or device routing rule. First searches and opaque-token sources retain their existing HTTP steps. Existing public website key bootstrap/rotation, three parallel routes, 17.5 second total budget, up to three completed sources, audio/quality/HLS/segment checks and display behavior remain. Subtitle implementation is byte-for-byte unchanged from v3.0.0, as requested. No VUEO app changes. App-memory cache availability and upstream HTTP timing determine the actual saving.",
+      "notes": "v4.0.0: return the original HLS master URL immediately after fetching and parsing that playlist, with explicit HLS MIME and website headers. Do not fetch rendition playlists, segments, AES media keys or init segments during source discovery. Preserve all master quality/audio choices and mark adaptive sources Auto; available/max quality are advertised metadata, not a selected resolution or media probe. Remove the 720p minimum and rendition recipe/probe pipeline per user priority for speed. Direct media HLS is returned unchanged after playlist syntax/non-empty checks. JSON quality lists still require selecting one listed URL when no master is provided. Keep API URL authentication/public key refresh, exact identity route, audio policy, three concurrent routes, up to three sources and total deadline. Subtitle implementation is unchanged from v3.0.0/3.1.0. No VUEO app changes. Playback verification now belongs to the player; broken child/segment URLs are not tested in provider discovery.",
       "sourceRepository": "https://github.com/D3adlyRocket/All-in-One-Nuvio",
       "sourceCommit": "3f09a6ff4360498895e622877af7a32212f75038",
       "runtimeModules": []
