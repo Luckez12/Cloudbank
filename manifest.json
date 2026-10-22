@@ -1,6 +1,6 @@
 {
   "name": "Cloudbank",
-  "version": "1.20.74",
+  "version": "1.20.75",
   "scrapers": [
     {
       "id": "kisskh",
@@ -338,7 +338,7 @@
     {
       "id": "cineby",
       "name": "Cineby",
-      "description": "Multi-server movie and TV streaming \u2014 4K/1080p/720p from Videasy network without subtitles",
+      "description": "Multi-server movie and TV streaming — 4K/1080p/720p from Videasy network without subtitles",
       "version": "1.9.6",
       "author": "Nuvio Team",
       "supportedTypes": [
@@ -499,7 +499,7 @@
         "tv"
       ],
       "upstreamVersion": "3.0.1",
-      "notes": "Bounded parallel quality extraction: three highest-priority routes processed concurrently, each preserving archive \u2192 HubCloud \u2192 download \u2192 media-probe dependencies. Fourth route starts only as fallback after first batch settles. Retains up to three validated distinct codec/quality files, H.264 ranking and honest codec labels, partial results on failures, 18.7-second total/5.5-second extra collection budgets, exact matching/audio policy and all prior removals. Adds host/total timing logs. v4.1.0 on-device log confirmed three playable sources and subtitle cues; v4.2.0 device timing still needs confirmation.",
+      "notes": "Bounded parallel quality extraction: three highest-priority routes processed concurrently, each preserving archive → HubCloud → download → media-probe dependencies. Fourth route starts only as fallback after first batch settles. Retains up to three validated distinct codec/quality files, H.264 ranking and honest codec labels, partial results on failures, 18.7-second total/5.5-second extra collection budgets, exact matching/audio policy and all prior removals. Adds host/total timing logs. v4.1.0 on-device log confirmed three playable sources and subtitle cues; v4.2.0 device timing still needs confirmation.",
       "sourceRepository": "https://github.com/D3adlyRocket/All-in-One-Nuvio",
       "sourceCommit": "3f09a6ff4360498895e622877af7a32212f75038",
       "runtimeModules": [
@@ -641,77 +641,6 @@
       "runtimeModules": []
     },
     {
-      "id": "uhdmovies",
-      "name": "UHDMovies",
-      "description": "UHDMovies movie/episode releases with exact title/year and season mapping; current short-link and Driveseed resolution",
-      "version": "1.3.0",
-      "author": "Nuvio Team",
-      "supportedTypes": [
-        "movie",
-        "tv"
-      ],
-      "filename": "providers/uhdmovies.js",
-      "enabled": true,
-      "formats": [
-        "mkv",
-        "mp4",
-        "m3u8",
-        "dash"
-      ],
-      "logo": "https://www.google.com/s2/favicons?domain=uhdmovies.my&sz=128",
-      "contentLanguage": [
-        "en"
-      ],
-      "runtimeTimeoutMs": 20000,
-      "upstreamSupportedTypes": [
-        "movie",
-        "tv"
-      ],
-      "upstreamVersion": "1.2.1",
-      "notes": "v1.3.0: replaces duplicated legacy engines with one bounded provider. Exact normalized title/year matching, h2-h5 season-aware episode parsing, release-level quality/audio labels, current lp-land/lp-s1-form and lp_go cookie flow, Driveseed redirects/cloud multipart action, VideoSeed API, no unresolved HTML as video. Live audit reaches Driveseed file page; sampled video-seed.dev is unavailable and Resume Cloud returns Unknown error. Final media extraction and Android playback not confirmed. Multi-audio releases may include original and dubbed tracks.",
-      "sourceRepository": "https://github.com/D3adlyRocket/All-in-One-Nuvio",
-      "sourceCommit": "3f09a6ff4360498895e622877af7a32212f75038",
-      "runtimeModules": [
-        "cheerio-without-node-native"
-      ],
-      "limited": true
-    },
-    {
-      "id": "vegamovies",
-      "name": "VegaMovies",
-      "description": "VegaMovies streaming with high-quality direct links",
-      "version": "1.0.3",
-      "author": "piratezoro9",
-      "supportedTypes": [
-        "movie",
-        "tv"
-      ],
-      "filename": "providers/vegamovies.js",
-      "enabled": true,
-      "hasSettings": true,
-      "formats": [
-        "mp4",
-        "mkv"
-      ],
-      "logo": "https://i.postimg.cc/TwYK26jn/vegamovies.png",
-      "contentLanguage": [
-        "en",
-        "hi"
-      ],
-      "runtimeTimeoutMs": 20000,
-      "upstreamSupportedTypes": [
-        "movie",
-        "tv"
-      ],
-      "upstreamVersion": "2.0",
-      "notes": "Imported from D3adlyRocket/All-in-One-Nuvio at 3f09a6ff4360498895e622877af7a32212f75038. Cloudbank adapter preserves upstream extraction/settings, uses shared TMDB detail metadata when available, caps async result wait at 19s, and returns valid stream arrays. Playback and host settings support require app testing.",
-      "sourceRepository": "https://github.com/D3adlyRocket/All-in-One-Nuvio",
-      "sourceCommit": "3f09a6ff4360498895e622877af7a32212f75038",
-      "runtimeModules": [
-        "cheerio-without-node-native"
-      ]
-    },
-    {
       "id": "vidlink",
       "name": "VidLink",
       "description": "Vidlink streaming with encrypted TMDB ID support for movies and TV shows",
@@ -745,49 +674,10 @@
       "runtimeModules": []
     },
     {
-      "id": "videasy",
-      "name": "VidEasy",
-      "description": "Videasy streaming with encrypted TMDB ID support for movies and TV shows",
-      "version": "1.0.5",
-      "author": "Nuvio Team",
-      "supportedTypes": [
-        "movie",
-        "tv"
-      ],
-      "filename": "providers/videasy.js",
-      "enabled": true,
-      "hasSettings": true,
-      "formats": [
-        "mp4",
-        "m3u8",
-        "mkv"
-      ],
-      "logo": "https://i.postimg.cc/7LHYMtVV/videasy.png",
-      "contentLanguage": [
-        "en",
-        "de",
-        "it",
-        "fr",
-        "hi",
-        "es",
-        "pt"
-      ],
-      "runtimeTimeoutMs": 20000,
-      "upstreamSupportedTypes": [
-        "movie",
-        "tv"
-      ],
-      "upstreamVersion": "1.0.0",
-      "notes": "Imported from D3adlyRocket/All-in-One-Nuvio at 3f09a6ff4360498895e622877af7a32212f75038. Cloudbank adapter preserves upstream extraction/settings, uses shared TMDB detail metadata when available, caps async result wait at 19s, and returns valid stream arrays. Playback and host settings support require app testing. Version consolidation: alternate cores embedded as bounded delayed/failed-primary fallbacks; provider identity, playback metadata and settings preserved. Source disabled/platform flags retained per engine. Playback requires app testing.",
-      "sourceRepository": "https://github.com/D3adlyRocket/All-in-One-Nuvio",
-      "sourceCommit": "3f09a6ff4360498895e622877af7a32212f75038",
-      "runtimeModules": []
-    },
-    {
       "id": "vidsrc",
       "name": "VidSrc",
-      "description": "Vidsrc - The best place to watch movies and TV shows online for free. Stream in 1080p HD",
-      "version": "1.0.4",
+      "description": "Current VidSrc website player in one browser session; observed master HLS passed unchanged",
+      "version": "2.0.0",
       "author": "Nuvio Team",
       "supportedTypes": [
         "movie",
@@ -795,7 +685,7 @@
       ],
       "filename": "providers/vidsrc.js",
       "enabled": true,
-      "hasSettings": true,
+      "hasSettings": false,
       "formats": [
         "mp4",
         "m3u8"
@@ -810,7 +700,7 @@
         "tv"
       ],
       "upstreamVersion": "1.0.0",
-      "notes": "Imported from D3adlyRocket/All-in-One-Nuvio at 3f09a6ff4360498895e622877af7a32212f75038. Cloudbank adapter preserves upstream extraction/settings, uses shared TMDB detail metadata when available, caps async result wait at 19s, and returns valid stream arrays. Playback and host settings support require app testing.",
+      "notes": "Rebuilt for vidsrc.sh dynamic iframe bootstrap. Website handles its session tokens, WASM and Turnstile. Only network/response-observed media returned. No separate API replay or variant/segment probes. Unknown audio accepted; explicit dub-only rejected. Website verification and native playback require device testing.",
       "sourceRepository": "https://github.com/D3adlyRocket/All-in-One-Nuvio",
       "sourceCommit": "3f09a6ff4360498895e622877af7a32212f75038",
       "runtimeModules": []
@@ -1147,7 +1037,7 @@
     {
       "id": "cinevibe",
       "name": "Cinevibe",
-      "description": "Cinevibe.cc website Server 1 \u2014 movies and exact TV episodes",
+      "description": "Cinevibe.cc website Server 1 — movies and exact TV episodes",
       "version": "2.0.0",
       "author": "Nuvio Team",
       "supportedTypes": [
