@@ -1,4 +1,4 @@
-// Cloudbank VidSrc v2.0.1: browser-result compatibility, original master handoff.
+// Cloudbank VidSrc v3.0.0: current HTTP API and dynamic website decoder data.
 /* VUEO_SHARED_DISCOVERY_CONTEXT_V1 */
 function vueoSharedTmdb(url, fallback) {
   function trace(stage, details) {
@@ -155,136 +155,174 @@ function cloudbankMetadataFetch(nativeFetch) {
   }
   (function(module, exports, require, fetch, self) {
 /* CLOUDBANK_UPSTREAM_SOURCE_START */
-// VidSrc v2.0.1: current website bootstrap in one browser session.
+// VidSrc v3.0.0: website-issued HTTP tokens and rotating WASM data, no WebView.
 var BASE = 'https://vidsrc.sh';
-function log(message) { console.log('[VidSrc] ' + message); }
-function sharedContext(id, type) {
-  var raw = globalThis.VUEO_DISCOVERY_CONTEXT;
-  if (typeof raw === 'string') { try { raw = JSON.parse(raw); } catch (_) { return {}; } }
-  if (!raw || typeof raw !== 'object') return {};
-  var meta = raw.tmdb || raw;
-  return String(raw.tmdbId || meta.id) === id && (!raw.mediaType || raw.mediaType === type) ? meta : {};
+var UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36';
+var keyCache = null;
+function cachedKey(tag, value) {
+  if (!/^\d{1,16}$/.test(tag) || typeof globalThis.vueoMetadataCache !== 'function') return null;
+  try {
+    var raw=globalThis.vueoMetadataCache(JSON.stringify({op:value?'put':'get',key:'vidsrc:public-decoder:'+tag,value:value?Array.from(value):undefined,ttlMs:240000}));
+    var result=typeof raw==='string'?JSON.parse(raw):raw;
+    if(!value&&Array.isArray(result)&&result.length===32&&result.every(function(n){return Number.isInteger(n)&&n>=0&&n<=255;}))return new Uint8Array(result);
+  }catch(_){}
+  return null;
 }
-function mediaKind(row) {
-  var url;
-  try { url = new URL(row.url); } catch (_) { return ''; }
-  if (!/^https?:$/.test(url.protocol) || url.username || url.password) return '';
-  var path = url.pathname, mime = String(row.mimeType || row.mime || row.contentType || '').toLowerCase();
-  if (/\.m3u8$/i.test(path) || /mpegurl/.test(mime)) return 'hls';
-  if (/\.mpd$/i.test(path) || /dash\+xml/.test(mime)) return 'dash';
-  if (/\.mp4$/i.test(path) || /^video\/mp4/.test(mime)) return 'mp4';
-  return '';
+function log(s) { console.log('[VidSrc] ' + s); }
+function b64(s) { var text = atob(s), out = new Uint8Array(text.length); for (var i = 0; i < text.length; i++) out[i] = text.charCodeAt(i); return out; }
+function chacha(enc, key) {
+  if (enc.length < 13 || enc.length > 131072) throw Error('invalid cipher size');
+  function word(a, i) { return (a[i] | a[i+1]<<8 | a[i+2]<<16 | a[i+3]<<24) >>> 0; }
+  function rot(x, n) { return (x << n) | (x >>> (32-n)); }
+  var state = new Uint32Array(16), out = new Uint8Array(enc.length-12);
+  state.set([1634760805,857760878,2036477234,1797285236]);
+  for (var i = 0; i < 8; i++) state[i+4] = word(key,i*4);
+  state[13] = word(enc,0); state[14] = word(enc,4); state[15] = word(enc,8);
+  function quarter(x,a,b,c,d) {
+    x[a]=(x[a]+x[b])>>>0; x[d]=rot(x[d]^x[a],16);
+    x[c]=(x[c]+x[d])>>>0; x[b]=rot(x[b]^x[c],12);
+    x[a]=(x[a]+x[b])>>>0; x[d]=rot(x[d]^x[a],8);
+    x[c]=(x[c]+x[d])>>>0; x[b]=rot(x[b]^x[c],7);
+  }
+  for (var pos=0; pos<out.length; pos+=64) {
+    var x=new Uint32Array(state);
+    for (var round=0;round<10;round++) {
+      quarter(x,0,4,8,12);quarter(x,1,5,9,13);quarter(x,2,6,10,14);quarter(x,3,7,11,15);
+      quarter(x,0,5,10,15);quarter(x,1,6,11,12);quarter(x,2,7,8,13);quarter(x,3,4,9,14);
+    }
+    for(var j=0;j<64&&pos+j<out.length;j++) out[pos+j]=enc[12+pos+j]^(((x[j>>>2]+state[j>>>2])>>>0)>>>((j&3)*8));
+    state[12]++;
+  }
+  var text='';for(var k=0;k<out.length;k++)text+=String.fromCharCode(out[k]);return text;
 }
-function headers(raw) {
-  var out = {};
-  if (raw && typeof raw === 'object') Object.keys(raw).forEach(function(key) {
-    if (!/^(host|connection|content-length|accept-encoding|range)$/i.test(key) &&
-        typeof raw[key] === 'string' && !/[\r\n\0]/.test(key + raw[key])) out[key] = raw[key];
+function wasmKeys(bytes) {
+  // Read public module data, never execute downloaded code. The current
+  // decryptor combines its two 32-byte data segments with XOR as its key.
+  if (bytes.length>262144 || bytes.length<8 || bytes[0]!==0 || bytes[1]!==97 || bytes[2]!==115 || bytes[3]!==109 || bytes[4]!==1) throw Error('unsupported WASM');
+  var p=8, data=[];
+  function leb(signed) {
+    var n=0,shift=0,v;
+    do {if(p>=bytes.length||shift>28)throw Error('invalid WASM integer');v=bytes[p++];n|=(v&127)<<shift;shift+=7;}while(v&128);
+    if(signed&&shift<32&&(v&64))n|=(-1)<<shift;
+    return n>>>0;
+  }
+  while(p<bytes.length) {
+    var id=bytes[p++],size=leb(false),end=p+size;
+    if(end>bytes.length)throw Error('invalid WASM section');
+    if(id===11) {
+      var count=leb(false);if(count>64)throw Error('too many data segments');
+      for(var i=0;i<count;i++) {
+        var flag=leb(false);if(flag===2)leb(false);
+        if(flag===0||flag===2){if(bytes[p++]!==65)throw Error('unsupported data offset');leb(true);if(bytes[p++]!==11)throw Error('invalid data offset');}
+        else if(flag!==1)throw Error('unsupported data segment');
+        var len=leb(false);if(p+len>end)throw Error('invalid data length');
+        if(len===32)data.push(bytes.slice(p,p+len));p+=len;
+      }
+    }
+    p=end;
+  }
+  if(data.length!==2)throw Error('website decryptor layout changed');
+  var key=new Uint8Array(32);for(var j=0;j<32;j++)key[j]=data[0][j]^data[1][j];return key;
+}
+function httpUrl(value, base) {
+  var u=new URL(value,base);if(u.protocol!=='https:'||u.username||u.password)throw Error('invalid website URL');return u;
+}
+function config(html, name) {
+  var re=new RegExp('window\\.'+name+'\\s*=\\s*(\\{[^\\n]*?\\});\\s*</script>');var m=re.exec(html);
+  if(!m||m[1].length>32768)throw Error('website '+name+' missing');return JSON.parse(m[1]);
+}
+function routes(text) {
+  var seen=Object.create(null), out=[];
+  String(text).split('\n').filter(Boolean).forEach(function(s) {
+    var u=httpUrl(s);if(seen[u.href]||!/\.m3u8$/i.test(u.pathname))return;
+    seen[u.href]=true;out.push(u.href);
   });
-  return out;
-}
-async function validateLegacy(row) {
-  // Basic bridge results omit observation flags. Check only the returned file
-  // or manifest, never a child playlist or segment, before native handoff.
-  var timer, controller = typeof AbortController === 'function' ? new AbortController() : null;
-  var timedOut = new Promise(function(resolve) {
-    timer = setTimeout(function() { if (controller) controller.abort(); resolve(false); }, 1800);
-  });
-  var task = Promise.resolve().then(async function() {
-    var h = Object.assign({}, row.headers);
-    if (row.type === 'mp4') h.Range = 'bytes=0-1023';
-    var response = await fetch(row.url, {method: 'GET', headers: h, redirect: 'follow', signal: controller ? controller.signal : undefined});
-    var ct = String(response.headers.get('content-type') || '').toLowerCase();
-    if (!response.ok || /text\/html|application\/json/.test(ct)) return false;
-    if (row.type === 'mp4') return /^video\/mp4/.test(ct) && (response.status === 200 || response.status === 206);
-    var body = String(await response.text()).replace(/^\uFEFF/, '').trim();
-    if (row.type === 'hls') return body.indexOf('#EXTM3U') === 0 && /#EXT-X-STREAM-INF:|#EXTINF:/.test(body);
-    return !/<!DOCTYPE|<!ENTITY/i.test(body) && /<(?:[\w.-]+:)?MPD\b/.test(body) && /<(?:[\w.-]+:)?Period\b/.test(body);
-  }).catch(function() { return false; });
-  var ok = await Promise.race([task, timedOut]);
-  clearTimeout(timer);
-  return ok;
+  if(!out.length||out.length>16)throw Error('decoded HLS list invalid');return out;
 }
 async function getStreams(tmdbId, mediaType, season, episode) {
-  var id = String(tmdbId || ''), type = mediaType === 'series' ? 'tv' : mediaType;
-  if (!/^[1-9]\d*$/.test(id) || ['movie', 'tv'].indexOf(type) < 0) return [];
-  if (type === 'tv' && (season === null || season === '' || typeof season === 'undefined' ||
-      episode === null || episode === '' || typeof episode === 'undefined' ||
-      !Number.isInteger(Number(season)) || Number(season) < 0 ||
-      !Number.isInteger(Number(episode)) || Number(episode) < 1)) return [];
-  if (typeof globalThis.webviewResolve !== 'function') {
-    log('NO_RESULT: browser bridge unavailable; legacy server-hash parser removed'); return [];
-  }
-  var route = BASE + '/embed/' + type + '/' + id + (type === 'tv' ? '/' + Number(season) + '/' + Number(episode) : '');
-  var started = Date.now(), meta = sharedContext(id, type);
-  log('ROUTE: v2.0.1 current website; exact TMDB=' + id + ' ' + type +
-    (type === 'tv' ? ' S' + Number(season) + 'E' + Number(episode) : '') + '; one browser session');
-  log('BOOTSTRAP: website handles iframe API, session tokens, WASM and Turnstile; verification may prevent discovery');
-  var session;
-  try {
-    session = await globalThis.webviewResolve(route, {
-      directLoad: true, referer: BASE + '/', timeoutMs: 17000, finishAfterFirstMs: 300,
-      waitForMediaReady: false, allowBlobMediaReady: false,
-      captureSessionResponses: true, captureSubtitles: false, injectAbyssHook: false,
-      suppressPopups: true, lockMainFrameHost: true, blockMatchedRequests: false,
-      match: ['.m3u8', '.mpd', '.mp4'],
-      blocked: ['doubleclick.net', 'googlesyndication.com', 'googleadservices.com'],
-      interactionTexts: ['play', 'watch now'], clickDelaysMs: [1200, 3000, 6000, 10000],
-      viewportWidth: 1080, viewportHeight: 1080, clickX: 540, clickY: 540
+  var id=String(tmdbId||''),type=mediaType==='series'?'tv':mediaType;
+  if(!/^[1-9]\d*$/.test(id)||['movie','tv'].indexOf(type)<0)return [];
+  if(type==='tv'&&(season==null||season===''||episode==null||episode===''||!Number.isInteger(Number(season))||Number(season)<0||!Number.isInteger(Number(episode))||Number(episode)<1))return [];
+  var start=Date.now(),deadline=start+18300,calls=0;
+  var timers=[],controllers=[];
+  async function request(url, referer, json, binary) {
+    var remaining=deadline-Date.now();if(remaining<100)throw Error('request budget exhausted');calls++;
+    var h={'User-Agent':UA,Referer:referer,Accept:json?'application/json':'*/*','Cache-Control':'no-store',Pragma:'no-cache'};
+    var ctrl=typeof AbortController==='function'?new AbortController():null;if(ctrl)controllers.push(ctrl);
+    var timer;
+    var timeout=new Promise(function(_,reject){timer=setTimeout(function(){if(ctrl)ctrl.abort();reject(Error('HTTP timeout'));},Math.min(6500,remaining));timers.push(timer);});
+    var task=Promise.resolve().then(async function(){
+      if(binary) {
+        // Generic opt-in binary transport. No provider/domain logic in VUEO.
+        if(typeof globalThis.__vueoNativeFetch==='function') {
+          var r=JSON.parse(await globalThis.__vueoNativeFetch(JSON.stringify({url:url,method:'GET',headers:h,redirect:'manual',responseEncoding:'base64'})));
+          if(r.status!==200)throw Error('WASM HTTP '+r.status);
+          if(r.bodyEncoding!=='base64'||r.bodyTruncated)throw Error('binary bridge update required');return b64(r.body);
+        }
+        var r=await fetch(url,{headers:h,redirect:'manual',signal:ctrl?ctrl.signal:undefined});
+        if(!r.ok)throw Error('WASM HTTP '+r.status);
+        if(typeof r.arrayBuffer!=='function')throw Error('binary bridge update required');return new Uint8Array(await r.arrayBuffer());
+      }
+      var r=await fetch(url,{headers:h,redirect:'manual',signal:ctrl?ctrl.signal:undefined});
+      if(!r.ok)throw Error('HTTP '+r.status);
+      return json?await r.json():await r.text();
     });
-  } catch (_) { log('NO_RESULT: browser session failed'); return []; }
-  var rows = session && Array.isArray(session.streams) ? session.streams : [];
-  var seen = Object.create(null), output = [], rejectedDub = 0, unknownKind = 0, rejectedObservation = 0;
-  var detailed = session && session.sessionResponseVersion === 1;
-  rows.forEach(function(row) {
-    if (!row) return;
-    var observed = row.networkObserved === true || row.responseObserved === true;
-    var hasFlags = typeof row.networkObserved === 'boolean' || typeof row.responseObserved === 'boolean';
-    if ((detailed || hasFlags) && !observed) { rejectedObservation++; return; }
-    var kind = mediaKind(row);
-    if (!kind) { unknownKind++; return; }
-    if (seen[row.url]) return;
-    var original = String(meta.original_language || '').toLowerCase();
-    var audio = String(row.audioLanguage || '').toLowerCase();
-    if (row.isDubbed === true && row.isDualAudio !== true && (!original || audio !== original)) { rejectedDub++; return; }
-    var h = headers(row.headers);
-    // Keep session-observed headers. The nested player, not the landing page,
-    // is the authoritative Referer when a host requires one.
-    if (row.referer && !Object.keys(h).some(function(k) { return k.toLowerCase() === 'referer'; }) &&
-        /^https?:\/\//i.test(row.referer) && !/[\r\n\0]/.test(row.referer)) h.Referer = row.referer;
-    seen[row.url] = true;
-    output.push({ name: 'VidSrc', title: meta.title || meta.name || 'VidSrc', serverName: 'Website',
-      url: row.url, headers: h, provider: 'vidsrc', type: kind,
-      mimeType: kind === 'hls' ? 'application/x-mpegURL' : kind === 'dash' ? 'application/dash+xml' : 'video/mp4',
-      isAdaptive: kind !== 'mp4', quality: kind !== 'mp4' ? 'Auto' : String(row.quality || 'Unknown'),
-      audioLanguage: row.audioLanguage || undefined, _legacyCheck: !observed,
-      _master: row.isMaster === true || /(?:^|\/)(?:master|index)\.m3u8(?:[?#]|$)/i.test(row.url) });
-  });
-  // Prefer an observed master; never fetch, split or filter its variants.
-  output.sort(function(a, b) { return Number(b._master) - Number(a._master); });
-  var checks = 0;
-  output = (await Promise.all(output.slice(0, 3).map(async function(row) {
-    delete row._master;
-    var needsCheck = row._legacyCheck; delete row._legacyCheck;
-    if (needsCheck) {
-      checks++;
-      var ok = await validateLegacy(row);
-      log('BASIC_MEDIA_CHECK: kind=' + row.type + ' accessible=' + ok);
-      if (!ok) return null;
+    try{return await Promise.race([task,timeout]);}finally{clearTimeout(timer);}
+  }
+  log('ROUTE: v3.0.0 HTTP only; exact TMDB='+id+' '+type+(type==='tv'?' S'+Number(season)+'E'+Number(episode):'')+'; original master HLS; no WebView');
+  try {
+    var embed=BASE+'/embed/'+type+'/'+id+(type==='tv'?'/'+Number(season)+'/'+Number(episode):'');
+    // This first API route comes from the current website's data-api attribute.
+    // TV embeds retain the exact season and episode in this URL.
+    var gateUrl=BASE+'/vs_src.php?type='+type+'&id='+id+(type==='tv'?'&season='+Number(season)+'&episode='+Number(episode):'');
+    var gate=await request(gateUrl,embed,true,false);
+    var inner=httpUrl(gate.src,BASE);
+    if(!/\/embed\//.test(inner.pathname))throw Error('unexpected player route');
+    var innerHtml=await request(inner.href,BASE+'/',false,false), cfg=config(innerHtml,'CFG');
+    var player=httpUrl(cfg.playerUrl,inner.href);
+    var playerPath='/embed/player/'+type+'/'+id+(type==='tv'?'/'+Number(season)+'/'+Number(episode):'');
+    if(player.origin!==inner.origin||player.pathname!==playerPath)throw Error('player identity mismatch');
+    var playerHtml=await request(player.href,inner.href,false,false), pc=config(playerHtml,'CONFIG');
+    if(pc.mediaType!==type||String(pc.mediaId)!==id||pc.idType!=='tmdb')throw Error('configuration identity mismatch');
+    if(type==='tv'&&(Number(pc.season)!==Number(season)||Number(pc.episode)!==Number(episode)))throw Error('episode identity mismatch');
+    var api=httpUrl(pc.api||(type==='tv'&&pc.streamBase?pc.streamBase+'&season='+Number(season)+'&episode='+Number(episode)+'&stream_urls':''),player.href);
+    if(api.hostname!=='data.vidsrc.sh'||api.pathname!=='/api.php'||api.searchParams.get('type')!==type||api.searchParams.get('tmdb')!==id)throw Error('API identity mismatch');
+    if(type==='tv'&&(api.searchParams.get('season')!==String(Number(season))||api.searchParams.get('episode')!==String(Number(episode))))throw Error('API episode mismatch');
+    if(!pc.apiToken)throw Error('website API token missing');api.searchParams.set('api_token',pc.apiToken);
+    var payload=await request(api.href,player.href,true,false);
+    if(!payload.data||!payload.data.stream_urls)throw Error('API returned no stream data');
+    var raw=payload.data.stream_urls, urls;
+    if(Array.isArray(raw))urls=routes(raw.join('\n'));
+    else {
+      var vs=payload.vs||{}, tag=String(vs.w||''),key;
+      if(keyCache&&keyCache.tag===tag&&keyCache.until>Date.now())key=keyCache.key;
+      else if((key=cachedKey(tag,null)))keyCache={tag:tag,key:key,until:Date.now()+240000};
+      else {
+        var bytes;
+        if(vs.wasm)bytes=b64(vs.wasm);
+        else {
+          var wasm=httpUrl(vs.wasm_url);
+          if(wasm.hostname!==api.hostname||!/\.wasm$/i.test(wasm.pathname))throw Error('unexpected decoder origin');
+          bytes=await request(wasm.href,player.origin+'/',false,true);
+        }
+        key=wasmKeys(bytes);keyCache={tag:tag,key:key,until:Date.now()+240000};cachedKey(tag,key);
+      }
+      urls=routes(chacha(b64(raw),key));
     }
-    return row;
-  }))).filter(Boolean);
-  var d = session && session.diagnostics || {};
-  var finish = session && ['timeout', 'load-error', 'media-ready', 'response-media', 'network-candidate', 'first-candidate'].indexOf(session.finishReason) >= 0 ? session.finishReason : 'not-provided';
-  log('SESSION: mode=' + (detailed ? 'detailed' : 'basic') + ' finish=' + finish +
-    ' pageFinished=' + (typeof d.pageFinished === 'boolean' ? d.pageFinished : 'not-provided') +
-    ' captured=' + rows.length + ' unknownKind=' + unknownKind + ' observationRejected=' + rejectedObservation +
-    ' explicitDubRejected=' + rejectedDub + ' elapsedMs=' + (Date.now() - started));
-  log('RESULT: ' + output.length + ' media sources; basicChecks=' + checks + '; master unchanged; no child/segment/subtitle fetches; playback unverified');
-  if (!output.length) log('NO_MEDIA: no eligible media after type/observation/audio/basic HTTP checks; missing diagnostics do not prove a website verification failure');
-  return output;
+    var rawMeta=globalThis.VUEO_DISCOVERY_CONTEXT;
+    if(typeof rawMeta==='string'){try{rawMeta=JSON.parse(rawMeta);}catch(_){rawMeta=null;}}
+    var meta=rawMeta&&(rawMeta.tmdb||rawMeta), title=meta&&String(rawMeta.tmdbId||meta.id)===id?(meta.title||meta.name):'';
+    log('API: website-issued token accepted; exact route verified; HLS='+urls.length+'; audio=unknown accepted');
+    log('RESULT: '+Math.min(urls.length,3)+' API HLS sources; calls='+calls+' elapsedMs='+(Date.now()-start)+'; no manifest/child/segment/subtitle checks; playback unverified');
+    return urls.slice(0,3).map(function(url,i){return {name:'VidSrc',title:title||payload.data.title||'VidSrc',serverName:'Website '+(i+1),url:url,
+      headers:{'User-Agent':UA,Referer:player.origin+'/',Origin:player.origin},type:'hls',mimeType:'application/x-mpegURL',isAdaptive:true,quality:'Auto',provider:'vidsrc'};});
+  } catch(e) {
+    var message=String(e&&e.message||'discovery failed');
+    var allowed=/^(HTTP \d+|WASM HTTP \d+|HTTP timeout|request budget exhausted|binary bridge update required|website decryptor layout changed|API returned no stream data|decoded HLS list invalid|.*identity mismatch|unexpected player route|unexpected decoder origin|website (?:CFG|CONFIG) missing|website API token missing|unsupported WASM)$/;
+    log('NO_RESULT: '+(allowed.test(message)?message:'website protocol or decoding failure')+'; calls='+calls+' elapsedMs='+(Date.now()-start));return [];
+  } finally {timers.forEach(clearTimeout);controllers.forEach(function(c){try{c.abort();}catch(_){}});}
 }
-module.exports = { getStreams: getStreams };
+module.exports={getStreams:getStreams};
 
 /* CLOUDBANK_UPSTREAM_SOURCE_END */
   })(originalModule, originalModule.exports, portableRequire, cloudbankMetadataFetch(fetch), typeof globalThis !== "undefined" ? globalThis : global);

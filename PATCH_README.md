@@ -1,5 +1,1 @@
-# VidSrc v2.0.1 correction
-
-Extract over the repository. Delete the three provider paths in DELETE_FILES.md if still present. Manifest is included. No executable deletion script or YML.
-
-Fixes rejection of basic WebView results without observation flags. A single manifest/file check validates those candidates. Original master HLS stays intact. Playback requires device testing; no VUEO changes.
+Apply these files at the Cloudbank repository root. Follow DELETE_FILES.md. VidSrc v3.0.0 requires the separate VUEO generic binary transport patch and rebuilt app. Playback remains unverified; development requests included API/media 403 responses.
