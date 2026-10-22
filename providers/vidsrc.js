@@ -1,4 +1,4 @@
-// Cloudbank VidSrc v3.0.0: current HTTP API and dynamic website decoder data.
+// Cloudbank VidSrc v3.0.1: website Origin and exact API query.
 /* VUEO_SHARED_DISCOVERY_CONTEXT_V1 */
 function vueoSharedTmdb(url, fallback) {
   function trace(stage, details) {
@@ -155,7 +155,7 @@ function cloudbankMetadataFetch(nativeFetch) {
   }
   (function(module, exports, require, fetch, self) {
 /* CLOUDBANK_UPSTREAM_SOURCE_START */
-// VidSrc v3.0.0: website-issued HTTP tokens and rotating WASM data, no WebView.
+// VidSrc v3.0.1: website request Origin and exact API query, no WebView.
 var BASE = 'https://vidsrc.sh';
 var UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36';
 var keyCache = null;
@@ -245,9 +245,10 @@ async function getStreams(tmdbId, mediaType, season, episode) {
   if(type==='tv'&&(season==null||season===''||episode==null||episode===''||!Number.isInteger(Number(season))||Number(season)<0||!Number.isInteger(Number(episode))||Number(episode)<1))return [];
   var start=Date.now(),deadline=start+18300,calls=0;
   var timers=[],controllers=[];
-  async function request(url, referer, json, binary) {
+  async function request(url, referer, json, binary, origin) {
     var remaining=deadline-Date.now();if(remaining<100)throw Error('request budget exhausted');calls++;
-    var h={'User-Agent':UA,Referer:referer,Accept:json?'application/json':'*/*','Cache-Control':'no-store',Pragma:'no-cache'};
+    var h={'User-Agent':UA,Referer:referer,Accept:json?'application/json':'*/*','Cache-Control':'no-cache',Pragma:'no-cache'};
+    if(origin)h.Origin=origin;
     var ctrl=typeof AbortController==='function'?new AbortController():null;if(ctrl)controllers.push(ctrl);
     var timer;
     var timeout=new Promise(function(_,reject){timer=setTimeout(function(){if(ctrl)ctrl.abort();reject(Error('HTTP timeout'));},Math.min(6500,remaining));timers.push(timer);});
@@ -264,12 +265,21 @@ async function getStreams(tmdbId, mediaType, season, episode) {
         if(typeof r.arrayBuffer!=='function')throw Error('binary bridge update required');return new Uint8Array(await r.arrayBuffer());
       }
       var r=await fetch(url,{headers:h,redirect:'manual',signal:ctrl?ctrl.signal:undefined});
-      if(!r.ok)throw Error('HTTP '+r.status);
+      if(!r.ok) {
+        var reason='';
+        try {
+          var failed=await r.json(), message=String(failed.error||failed.message||'').toLowerCase();
+          if(/invalid api token/.test(message))reason=' invalid-api-token';
+          else if(/expir.*token|token.*expir/.test(message))reason=' expired-token';
+          else if(/turnstile|captcha|verification/.test(message))reason=' verification-required';
+        }catch(_){}
+        throw Error('HTTP '+r.status+reason);
+      }
       return json?await r.json():await r.text();
     });
     try{return await Promise.race([task,timeout]);}finally{clearTimeout(timer);}
   }
-  log('ROUTE: v3.0.0 HTTP only; exact TMDB='+id+' '+type+(type==='tv'?' S'+Number(season)+'E'+Number(episode):'')+'; original master HLS; no WebView');
+  log('ROUTE: v3.0.1 HTTP only; exact TMDB='+id+' '+type+(type==='tv'?' S'+Number(season)+'E'+Number(episode):'')+'; website Origin and API query; original master HLS; no WebView');
   try {
     var embed=BASE+'/embed/'+type+'/'+id+(type==='tv'?'/'+Number(season)+'/'+Number(episode):'');
     // This first API route comes from the current website's data-api attribute.
@@ -288,8 +298,11 @@ async function getStreams(tmdbId, mediaType, season, episode) {
     var api=httpUrl(pc.api||(type==='tv'&&pc.streamBase?pc.streamBase+'&season='+Number(season)+'&episode='+Number(episode)+'&stream_urls':''),player.href);
     if(api.hostname!=='data.vidsrc.sh'||api.pathname!=='/api.php'||api.searchParams.get('type')!==type||api.searchParams.get('tmdb')!==id)throw Error('API identity mismatch');
     if(type==='tv'&&(api.searchParams.get('season')!==String(Number(season))||api.searchParams.get('episode')!==String(Number(episode))))throw Error('API episode mismatch');
-    if(!pc.apiToken)throw Error('website API token missing');api.searchParams.set('api_token',pc.apiToken);
-    var payload=await request(api.href,player.href,true,false);
+    if(!pc.apiToken)throw Error('website API token missing');
+    // Match the site's withApiToken(): do not serialize searchParams and
+    // rewrite its bare stream_urls flag into stream_urls=.
+    var apiRequest=api.href+(api.search?'&':'?')+'api_token='+encodeURIComponent(pc.apiToken);
+    var payload=await request(apiRequest,player.origin+'/',true,false,player.origin);
     if(!payload.data||!payload.data.stream_urls)throw Error('API returned no stream data');
     var raw=payload.data.stream_urls, urls;
     if(Array.isArray(raw))urls=routes(raw.join('\n'));
@@ -303,7 +316,7 @@ async function getStreams(tmdbId, mediaType, season, episode) {
         else {
           var wasm=httpUrl(vs.wasm_url);
           if(wasm.hostname!==api.hostname||!/\.wasm$/i.test(wasm.pathname))throw Error('unexpected decoder origin');
-          bytes=await request(wasm.href,player.origin+'/',false,true);
+          bytes=await request(wasm.href,player.origin+'/',false,true,player.origin);
         }
         key=wasmKeys(bytes);keyCache={tag:tag,key:key,until:Date.now()+240000};cachedKey(tag,key);
       }
@@ -318,7 +331,7 @@ async function getStreams(tmdbId, mediaType, season, episode) {
       headers:{'User-Agent':UA,Referer:player.origin+'/',Origin:player.origin},type:'hls',mimeType:'application/x-mpegURL',isAdaptive:true,quality:'Auto',provider:'vidsrc'};});
   } catch(e) {
     var message=String(e&&e.message||'discovery failed');
-    var allowed=/^(HTTP \d+|WASM HTTP \d+|HTTP timeout|request budget exhausted|binary bridge update required|website decryptor layout changed|API returned no stream data|decoded HLS list invalid|.*identity mismatch|unexpected player route|unexpected decoder origin|website (?:CFG|CONFIG) missing|website API token missing|unsupported WASM)$/;
+    var allowed=/^(HTTP \d+(?: invalid-api-token| expired-token| verification-required)?|WASM HTTP \d+|HTTP timeout|request budget exhausted|binary bridge update required|website decryptor layout changed|API returned no stream data|decoded HLS list invalid|.*identity mismatch|unexpected player route|unexpected decoder origin|website (?:CFG|CONFIG) missing|website API token missing|unsupported WASM)$/;
     log('NO_RESULT: '+(allowed.test(message)?message:'website protocol or decoding failure')+'; calls='+calls+' elapsedMs='+(Date.now()-start));return [];
   } finally {timers.forEach(clearTimeout);controllers.forEach(function(c){try{c.abort();}catch(_){}});}
 }

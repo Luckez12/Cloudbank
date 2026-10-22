@@ -1,6 +1,6 @@
 {
   "name": "Cloudbank",
-  "version": "1.20.77",
+  "version": "1.20.78",
   "scrapers": [
     {
       "id": "kisskh",
@@ -677,7 +677,7 @@
       "id": "vidsrc",
       "name": "VidSrc",
       "description": "HTTP-only website API; rotating public WASM decoder data; original master HLS unchanged",
-      "version": "3.0.0",
+      "version": "3.0.1",
       "author": "Nuvio Team",
       "supportedTypes": [
         "movie",
@@ -700,7 +700,7 @@
         "tv"
       ],
       "upstreamVersion": "1.0.0",
-      "notes": "Current vidsrc.sh HTTP bootstrap with fresh website-issued API token and exact TMDB/episode identity checks. No WebView, title search, master/child/segment/subtitle HTTP checks or signed URL cache. Unknown audio accepted, not independently verified. Requires generic small-binary PluginHttp transport update for current WASM URL responses. API 200 and decryption verified in development; media host returned 403 in development; native device playback unverified.",
+      "notes": "Current vidsrc.sh HTTP bootstrap with fresh website-issued API token and exact TMDB/episode identity checks. No WebView, title search, master/child/segment/subtitle HTTP checks or signed URL cache. Unknown audio accepted, not independently verified. Requires generic small-binary PluginHttp transport update for current WASM URL responses. API 200 and decryption verified in development; media host returned 403 in development; native device playback unverified. v3.0.1 matches cross-origin API/WASM Origin, browser no-cache request headers and exact bare stream_urls query flag; classifies sanitized token/verification errors. Requires the same previously supplied generic binary support; no new VUEO change.",
       "sourceRepository": "https://github.com/D3adlyRocket/All-in-One-Nuvio",
       "sourceCommit": "3f09a6ff4360498895e622877af7a32212f75038",
       "runtimeModules": []

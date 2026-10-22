@@ -14,7 +14,7 @@ function env(type='movie',id='12345',season=1,episode=2,fail=''){
  const ctx={module:{exports:{}},URL,Uint8Array,Uint32Array,setTimeout,clearTimeout,AbortController,
   atob:s=>Buffer.from(s,'base64').toString('binary'),console:{log:s=>logs.push(s)},
   webviewResolve(){throw Error('WebView must never be used');},
-  __vueoNativeFetch:async raw=>{const r=JSON.parse(raw);calls.push(r);assert.equal(r.responseEncoding,'base64');assert.equal(new URL(r.url).hostname,'data.vidsrc.sh');return JSON.stringify({status:200,body:wasm.toString('base64'),bodyEncoding:fail==='oldbridge'?undefined:'base64'});},
+  __vueoNativeFetch:async raw=>{const r=JSON.parse(raw);calls.push(r);assert.equal(r.responseEncoding,'base64');assert.equal(new URL(r.url).hostname,'data.vidsrc.sh');assert.equal(r.headers.Origin,'https://player.example');return JSON.stringify({status:200,body:wasm.toString('base64'),bodyEncoding:fail==='oldbridge'?undefined:'base64'});},
   fetch:async (url,opts)=>{
    const u=new URL(url);calls.push({url,opts});assert.equal(opts.redirect,'manual');
    let body;
@@ -27,9 +27,13 @@ function env(type='movie',id='12345',season=1,episode=2,fail=''){
     if(type==='movie')config.api='https://data.vidsrc.sh/api.php?type=movie&tmdb='+id+'&stream_urls';else config.streamBase='https://data.vidsrc.sh/api.php?type=tv&tmdb='+id;
     body='<script>window.CONFIG = '+JSON.stringify(config)+';</script>';
    }else if(u.pathname==='/api.php'){
+    assert.equal(opts.headers.Origin,'https://player.example');
+    assert.equal(opts.headers.Referer,'https://player.example/');
+    assert.equal(opts.headers['Cache-Control'],'no-cache');
+    assert.ok(url.includes('&stream_urls&api_token='),'Preserve the original bare API flag');
     assert.equal(u.searchParams.get('api_token'),'one-use-fixture');assert.ok(u.searchParams.has('stream_urls'));
     if(type==='tv'){assert.equal(u.searchParams.get('season'),''+season);assert.equal(u.searchParams.get('episode'),''+episode);}
-    if(fail==='auth')return {ok:false,status:403};body=payload;
+    if(fail==='auth')return {ok:false,status:403,json:async()=>({error:'invalid api token'})};body=payload;
    }else throw Error('Unexpected HTTP request: '+u.origin+u.pathname);
    return {ok:true,status:200,json:async()=>body,text:async()=>typeof body==='string'?body:JSON.stringify(body)};
   }};
@@ -44,7 +48,7 @@ function env(type='movie',id='12345',season=1,episode=2,fail=''){
  assert.equal((await tv.provider.getStreams('67890','tv',null,7)).length,0);
  const mismatch=env('movie','12345',1,2,'identity');assert.equal((await mismatch.provider.getStreams('12345','movie')).length,0);assert.equal(mismatch.calls.length,3);
  const old=env('movie','12345',1,2,'oldbridge');assert.equal((await old.provider.getStreams('12345','movie')).length,0);assert.ok(old.logs.some(x=>x.includes('binary bridge update required')));
- const denied=env('movie','12345',1,2,'auth');assert.equal((await denied.provider.getStreams('12345','movie')).length,0);assert.ok(denied.logs.some(x=>x.includes('HTTP 403')));
+ const denied=env('movie','12345',1,2,'auth');assert.equal((await denied.provider.getStreams('12345','movie')).length,0);assert.ok(denied.logs.some(x=>x.includes('HTTP 403 invalid-api-token')));
  // Compare the public website's actual WASM algorithm when the local audit
  // download exists; private response URLs and tokens are never fixtures.
  const c={module:{exports:{}},Uint8Array,Uint32Array};vm.runInNewContext(helper+'\nmodule.exports={wasmKeys:wasmKeys,chacha:chacha};',c);
