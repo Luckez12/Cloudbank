@@ -1,6 +1,6 @@
 {
   "name": "Cloudbank",
-  "version": "1.20.81",
+  "version": "1.20.82",
   "scrapers": [
     {
       "id": "kisskh",
@@ -708,8 +708,8 @@
     {
       "id": "vixsrc",
       "name": "VixSrc",
-      "description": "VixSrc - The best place to watch movies and TV shows online for free. Stream in 1080p HD",
-      "version": "1.1.0",
+      "description": "VixSrc original adaptive master HLS through the current website API and embed.",
+      "version": "2.0.0",
       "author": "Nuvio Team",
       "supportedTypes": [
         "movie",
@@ -718,7 +718,6 @@
       "filename": "providers/vixsrc.js",
       "enabled": true,
       "formats": [
-        "mp4",
         "m3u8"
       ],
       "logo": "https://i.postimg.cc/1tHrBvzs/vixsrc.png",
@@ -732,7 +731,7 @@
         "tv"
       ],
       "upstreamVersion": "1.0.0",
-      "notes": "Imported from D3adlyRocket/All-in-One-Nuvio at 3f09a6ff4360498895e622877af7a32212f75038. Cloudbank adapter preserves upstream extraction/settings, uses shared TMDB detail metadata when available, caps async result wait at 19s, and returns valid stream arrays. Playback and host settings support require app testing. Optional Node SOCKS proxy is unavailable in embedded runtime; native fetch remains the fallback. VixSrc/V2 merged: official API/embed first, direct page then original custom-domain API fallback; robust scoped signed-payload parsing, master HLS verification, bounded English subtitle attachment; native fetch only. Live playback unverified.",
+      "notes": "Rebuilt current website flow: exact TMDB movie/TV API to same-origin mapped embed, scoped signed master parsing and current website h/lang construction. Two HTTP reads only; no dead custom-domain/direct-page fallback, WebView, media/child/segment probes, external subtitle requests or signed URL cache. Original master retained with adaptive quality/audio options; audio unverified/unknown accepted. Live audit returned HTTP 200 HLS with three variants; Android playback still requires device testing.",
       "sourceRepository": "https://github.com/D3adlyRocket/All-in-One-Nuvio",
       "sourceCommit": "3f09a6ff4360498895e622877af7a32212f75038",
       "runtimeModules": []

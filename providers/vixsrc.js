@@ -84,7 +84,7 @@ function cloudbankWrapProvider(provider, providerId, supportedTypes) {
     var args = Array.prototype.slice.call(arguments);
     var type = mediaType === "series" ? "tv" : mediaType;
     if (supportedTypes.indexOf(type) === -1 || !String(tmdbId || "").trim()) return Promise.resolve([]);
-    if (type === "tv" && (!Number.isInteger(Number(season)) || Number(season) < 0 ||
+    if (type === "tv" && (season == null || season === "" || episode == null || episode === "" || !Number.isInteger(Number(season)) || Number(season) < 0 ||
         !Number.isInteger(Number(episode)) || Number(episode) < 1)) return Promise.resolve([]);
     args[0] = String(tmdbId);
     args[1] = type;
@@ -153,149 +153,123 @@ function cloudbankMetadataFetch(nativeFetch) {
   }
   (function(module, exports, require, fetch, self) {
 /* CLOUDBANK_UPSTREAM_SOURCE_START */
-/* Castle-style consolidation: original API/embed flow + V2 direct page flow.
- * Standalone, native-fetch runtime; no Node proxy dependencies or HTML execution.
+/* VixSrc v2.0.0: current website API -> embed -> original master HLS.
+ * No WebView, playlist probes, variant splitting, external subtitles or fallback hosts.
  */
 var VIXSRC_BASE = 'https://vixsrc.to';
-var VIXSRC_LEGACY_BASE = 'https://komiknostalgia.id';
 var VIXSRC_UA = 'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36';
+function vixsrcLog(message) { console.log('[VixSrc] ' + message); }
 function vixsrcBounded(run, ms) {
-  if (ms <= 0) return Promise.reject(new Error('VixSrc budget exhausted'));
   return new Promise(function(resolve, reject) {
-    var timer = setTimeout(function() { reject(new Error('VixSrc request timed out')); }, ms);
+    var timer = setTimeout(function() { reject(new Error('request timeout')); }, ms);
     Promise.resolve().then(run).then(function(value) { clearTimeout(timer); resolve(value); }, function(error) { clearTimeout(timer); reject(error); });
   });
 }
 function vixsrcUrl(value, base) {
-  try { var url = new URL(value, base); return /^https?:$/.test(url.protocol) ? url.toString() : null; } catch (_) { return null; }
+  try {
+    var url = new URL(value, base);
+    return url.protocol === 'https:' && url.origin === VIXSRC_BASE && !url.username && !url.password ? url : null;
+  } catch (_) { return null; }
 }
-function vixsrcRead(url, headers, deadline, json) {
+function vixsrcHeaders(referer, api) {
+  return { 'User-Agent': VIXSRC_UA, Referer: referer,
+    Accept: api ? 'application/json, text/plain, */*' : 'text/html,application/xhtml+xml;q=0.9,*/*;q=0.8',
+    'Accept-Language': 'en-US,en;q=0.9' };
+}
+function vixsrcRead(url, referer, api) {
   return vixsrcBounded(function() {
-    return fetch(url, { headers: headers }).then(function(response) {
-      if (!response.ok) throw new Error('HTTP ' + response.status);
-      return (json ? response.json() : response.text()).then(function(body) { return { body: body, url: response.url || url }; });
+    return fetch(url, { headers: vixsrcHeaders(referer, api) }).then(function(response) {
+      if (!response.ok) throw new Error('HTTP ' + response.status + ' at ' + (api ? 'API' : 'embed'));
+      var finalUrl = vixsrcUrl(response.url || url, url);
+      if (!finalUrl || finalUrl.pathname !== new URL(url).pathname) throw new Error('unexpected response route');
+      return (api ? response.json() : response.text()).then(function(body) { return { body: body, url: finalUrl.toString() }; });
     });
-  }, Math.min(4500, deadline - Date.now()));
+  }, 6000);
 }
-function vixsrcHeaders(referer, playlist) {
-  var headers = { 'User-Agent': VIXSRC_UA, 'Referer': referer, 'Accept': playlist ? '*/*' : 'text/html,application/json;q=0.9,*/*;q=0.8', 'Accept-Language': 'en-US,en;q=0.9' };
-  if (playlist) { try { headers.Origin = new URL(referer).origin; } catch (_) {} }
-  return headers;
-}
-// Read JS string literals without evaluating a script. Preserve escaped URLs/tokens.
+// Read only literal strings/numbers inside the named inline assignment; never eval website code.
 function vixsrcLiteral(value) {
   return value.replace(/\\u([\da-f]{4})|\\x([\da-f]{2})|\\([\s\S])/gi, function(_, unicode, hex, escaped) {
     if (unicode || hex) return String.fromCharCode(parseInt(unicode || hex, 16));
     return ({ n: '\n', r: '\r', t: '\t' })[escaped] || escaped;
-  }).replace(/&amp;/g, '&');
+  });
+}
+function vixsrcObject(text, start) {
+  var depth = 0, quote = '', escaped = false;
+  for (var i = start; i < text.length; i++) {
+    var c = text[i];
+    if (quote) { if (escaped) escaped = false; else if (c === '\\') escaped = true; else if (c === quote) quote = ''; }
+    else if (c === '"' || c === "'") quote = c;
+    else if (c === '{') depth++;
+    else if (c === '}' && --depth === 0) return text.slice(start, i + 1);
+  }
+  return null;
 }
 function vixsrcField(block, field) {
   var pattern = new RegExp('(?:[\'\"]?' + field + '[\'\"]?)\\s*:\\s*(?:\'((?:\\\\.|[^\'\\\\])*)\'|\"((?:\\\\.|[^\"\\\\])*)\"|(\\d+))', 'i');
   var match = pattern.exec(block);
   return match ? vixsrcLiteral(match[1] != null ? match[1] : match[2] != null ? match[2] : match[3]) : null;
 }
-function vixsrcMasterBlock(html) {
-  var start = /(?:window\s*\.\s*masterPlaylist|window\s*\[\s*['"]masterPlaylist['"]\s*\]|\bmasterPlaylist)\s*=\s*\{/.exec(html);
-  if (!start) return null;
-  var offset = start.index + start[0].length - 1, depth = 0, quote = null, escaped = false;
-  for (var i = offset; i < html.length; i++) {
-    var c = html[i];
-    if (quote) { if (escaped) escaped = false; else if (c === '\\') escaped = true; else if (c === quote) quote = null; }
-    else if (c === '"' || c === "'") quote = c;
-    else if (c === '{') depth++;
-    else if (c === '}' && --depth === 0) return html.slice(offset, i + 1);
-  }
-  return null;
-}
-function vixsrcExtract(html, pageUrl) {
-  if (typeof html !== 'string') return null;
-  var block = vixsrcMasterBlock(html), raw, token, expires;
-  if (block) {
-    raw = vixsrcField(block, 'url'); token = vixsrcField(block, 'token'); expires = vixsrcField(block, 'expires');
-    var master = raw && vixsrcUrl(raw, pageUrl);
-    if (master) {
-      var parsed = new URL(master);
-      if (token != null) parsed.searchParams.set('token', token);
-      if (expires != null) parsed.searchParams.set('expires', expires);
-      // Incomplete signed payloads must not fall through to an unsigned URL.
-      if (!parsed.searchParams.get('token') || !parsed.searchParams.get('expires')) return null;
-      parsed.searchParams.set('h', '1'); parsed.searchParams.set('lang', 'en');
-      return parsed.toString();
+function vixsrcMaster(html, pageUrl, videoId) {
+  var scripts = String(html).match(/<script\b(?![^>]*\bsrc\s*=)[^>]*>[\s\S]*?<\/script\s*>/gi) || [];
+  for (var i = 0; i < scripts.length; i++) {
+    var match = /window\s*(?:\.\s*masterPlaylist|\[\s*['"]masterPlaylist['"]\s*\])\s*=\s*\{/.exec(scripts[i]);
+    if (!match) continue;
+    var block = vixsrcObject(scripts[i], match.index + match[0].length - 1);
+    if (!block) return null;
+    var paramsMatch = /\bparams\s*:\s*\{/.exec(block);
+    if (!paramsMatch) return null;
+    var params = vixsrcObject(block, paramsMatch.index + paramsMatch[0].length - 1);
+    var master = vixsrcUrl(vixsrcField(block, 'url'), pageUrl);
+    if (!master || master.pathname !== '/playlist/' + videoId || !params) return null;
+    var pair = /(?:'((?:\\.|[^'\\])*)'|"((?:\\.|[^"\\])*)"|([a-zA-Z_$][\w$]*))\s*:\s*(?:'((?:\\.|[^'\\])*)'|"((?:\\.|[^"\\])*)"|(\d+))/g;
+    var item;
+    while ((item = pair.exec(params))) {
+      var key = vixsrcLiteral(item[1] != null ? item[1] : item[2] != null ? item[2] : item[3]);
+      var value = vixsrcLiteral(item[4] != null ? item[4] : item[5] != null ? item[5] : item[6]);
+      if (value) master.searchParams.append(key, value);
     }
-    return null;
-  }
-  // Older pages can contain an already complete M3U8 URL in a script.
-  var scripts = html.match(/<script\b[^>]*>[\s\S]*?<\/script\s*>/gi) || [];
-  for (var j = 0; j < scripts.length; j++) {
-    var match = /['"]((?:https?:)?(?:\\?\/){2}(?:\\.|[^'"\s])*?\.m3u8(?:\\.|[^'"\s])*)['"]/i.exec(scripts[j]);
-    if (match) return vixsrcUrl(vixsrcLiteral(match[1]), pageUrl);
+    if (!master.searchParams.get('token') || !/^\d+$/.test(master.searchParams.get('expires') || '')) return null;
+    if (Number(master.searchParams.get('expires')) * 1000 <= Date.now()) return null;
+    // Same master construction as current vixsrc player JS; no child selection.
+    var page = new URL(pageUrl);
+    if (page.searchParams.get('cdn')) master.searchParams.append('cdn', page.searchParams.get('cdn'));
+    master.searchParams.append('h', '1');
+    master.searchParams.append('lang', page.searchParams.get('lang') || 'en');
+    return master.toString();
   }
   return null;
 }
-function vixsrcApiEmbed(payload, base) {
-  return payload && typeof payload === 'object' && typeof payload.src === 'string' ? vixsrcUrl(payload.src, base) : null;
-}
-function vixsrcSubtitles(id, type, season, episode, deadline) {
-  var url = 'https://sub.wyzie.ru/search?id=' + encodeURIComponent(id);
-  if (type === 'tv') url += '&season=' + season + '&episode=' + episode;
-  return vixsrcBounded(function() {
-    return fetch(url, { headers: { 'User-Agent': VIXSRC_UA, 'Accept': 'application/json' } }).then(function(response) {
-      if (!response.ok) return [];
-      return response.json();
-    }).then(function(rows) {
-      if (!Array.isArray(rows)) return [];
-      var seen = Object.create(null);
-      return rows.filter(function(track) {
-        if (!track || !vixsrcUrl(track.url, url)) return false;
-        var english = /^(en|eng)$/i.test(track.language || '') || /english/i.test(track.display || '');
-        if (!english || seen[track.url]) return false; seen[track.url] = true; return true;
-      }).map(function(track) { return { url: track.url, language: 'en', name: 'English' }; });
-    });
-  }, Math.min(1200, deadline - Date.now())).catch(function() { return []; });
-}
-function getStreams(tmdbId, mediaType, seasonNum, episodeNum) {
-  var deadline = Date.now() + 17500;
-  var path = mediaType === 'tv' ? '/tv/' + tmdbId + '/' + seasonNum + '/' + episodeNum : '/movie/' + tmdbId;
-  var pageUrl = VIXSRC_BASE + path;
-  var routes = [{ url: VIXSRC_BASE + '/api' + path, api: true, base: VIXSRC_BASE }, { url: pageUrl, api: false, base: VIXSRC_BASE }, { url: VIXSRC_LEGACY_BASE + '/api' + path, api: true, base: VIXSRC_LEGACY_BASE }];
-  function route(index) {
-    if (index >= routes.length || Date.now() >= deadline) return Promise.resolve([]);
-    var target = routes[index];
-    return vixsrcRead(target.url, vixsrcHeaders(target.base + '/', false), deadline, target.api).then(function(result) {
-      if (!target.api) return result;
-      var embed = vixsrcApiEmbed(result.body, result.url);
-      if (!embed) throw new Error('No API embed URL');
-      return vixsrcRead(embed, vixsrcHeaders(target.base + '/', false), deadline, false);
-    }).then(function(page) {
-      var master = vixsrcExtract(page.body, page.url);
-      if (!master) throw new Error('No playlist payload');
-      var headers = vixsrcHeaders(page.url, true);
-      return vixsrcRead(master, headers, deadline, false).then(function(playlist) {
-        if (!/^\s*#EXTM3U(?:\s|$)/.test(playlist.body)) throw new Error('Invalid HLS response');
-        return vixsrcSubtitles(tmdbId, mediaType, seasonNum, episodeNum, deadline).then(function(subtitles) {
-          // Return the master once; the player selects its audio/video variants.
-          return [{ name: 'VixSrc', title: 'Auto Quality Stream', url: playlist.url, quality: 'Auto', type: 'direct', provider: 'vixsrc', headers: headers, subtitles: subtitles, easyProxySourceUrl: page.url }];
-        });
-      });
-    }).catch(function(error) {
-      console.log('[VixSrc] Route ' + (index + 1) + ': ' + error.message);
-      return route(index + 1);
-    });
+async function getStreams(tmdbId, mediaType, seasonNum, episodeNum) {
+  var started = Date.now(), calls = 0;
+  if (!/^\d+$/.test(String(tmdbId)) || (mediaType !== 'movie' && mediaType !== 'tv')) return [];
+  if (mediaType === 'tv' && (!Number.isInteger(seasonNum) || seasonNum < 0 || !Number.isInteger(episodeNum) || episodeNum < 1)) return [];
+  var path = mediaType === 'movie' ? '/movie/' + tmdbId : '/tv/' + tmdbId + '/' + seasonNum + '/' + episodeNum;
+  var page = VIXSRC_BASE + path + '/';
+  vixsrcLog('ROUTE: v2.0.0 exact TMDB=' + tmdbId + ' ' + mediaType + (mediaType === 'tv' ? ' S' + seasonNum + 'E' + episodeNum : '') + '; API -> embed -> master; HTTP only');
+  try {
+    calls++;
+    var api = await vixsrcRead(VIXSRC_BASE + '/api' + path, page, true);
+    var embed = api.body && typeof api.body.src === 'string' ? vixsrcUrl(api.body.src, VIXSRC_BASE) : null;
+    var identity = embed && /^\/embed\/(\d+)\/?$/.exec(embed.pathname);
+    if (!identity) throw new Error('API supplied no supported embed route');
+    vixsrcLog('API: exact request mapped to website video; elapsedMs=' + (Date.now() - started));
+    calls++;
+    // Browser iframe uses referrerPolicy=origin, so reproduce its origin Referer.
+    var content = await vixsrcRead(embed.toString(), VIXSRC_BASE + '/', false);
+    var master = vixsrcMaster(content.body, content.url, identity[1]);
+    if (!master) throw new Error('embed has no complete current signed master');
+    vixsrcLog('RESULT: 1 signed master; calls=' + calls + ' elapsedMs=' + (Date.now() - started) + '; audio unverified/unknown accepted; no playlist/child/segment/subtitle fetches; playback unverified');
+    return [{ name: 'VixSrc', title: 'VixSrc', url: master, quality: 'Auto',
+      type: 'hls', format: 'hls', mimeType: 'application/x-mpegURL', isAdaptive: true, provider: 'vixsrc',
+      headers: { 'User-Agent': VIXSRC_UA, Referer: content.url, Origin: VIXSRC_BASE },
+      easyProxySourceUrl: content.url }];
+  } catch (error) {
+    // Never leak a signed URL/token through transport exception messages.
+    var message = String(error && error.message || 'resolver error');
+    var known = /^(?:HTTP \d+ at (?:API|embed)|request timeout|unexpected response route|API supplied no supported embed route|embed has no complete current signed master)$/.test(message);
+    vixsrcLog('NO_RESULT: ' + (known ? message : 'transport or response error') + '; calls=' + calls + ' elapsedMs=' + (Date.now() - started));
+    return [];
   }
-  // Fetch display metadata concurrently; its failure never blocks ID extraction.
-  var metadata = vixsrcBounded(function() {
-    return fetch('https://api.themoviedb.org/3/' + mediaType + '/' + tmdbId + '?api_key=439c478a771f35c05022f9feabcca01c').then(function(response) {
-      return response.ok ? response.json() : {};
-    });
-  }, 1200).catch(function() { return {}; });
-  return Promise.all([route(0), metadata]).then(function(results) {
-    var streams = results[0], info = results[1], title = info.title || info.name;
-    if (title) streams.forEach(function(stream) {
-      var date = info.release_date || info.first_air_date || '';
-      stream.title = mediaType === 'tv' ? title + ' S' + String(seasonNum).padStart(2, '0') + 'E' + String(episodeNum).padStart(2, '0') : title + (date ? ' (' + date.slice(0, 4) + ')' : '');
-    });
-    return streams;
-  });
 }
 module.exports = { getStreams: getStreams };
 
