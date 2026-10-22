@@ -1,6 +1,6 @@
 {
   "name": "Cloudbank",
-  "version": "1.20.79",
+  "version": "1.20.80",
   "scrapers": [
     {
       "id": "kisskh",
@@ -677,7 +677,7 @@
       "id": "vidsrc",
       "name": "VidSrc",
       "description": "Current website session; direct captured HLS handoff with no token replay or media probes",
-      "version": "3.1.0",
+      "version": "3.2.0",
       "author": "Nuvio Team",
       "supportedTypes": [
         "movie",
@@ -700,7 +700,7 @@
         "tv"
       ],
       "upstreamVersion": "1.0.0",
-      "notes": "Website runs its own tokens/verification/decoder in one browser session after native HTTP API repeatedly rejected tokens on device. Basic bridge candidates accepted without absent observation flags; explicit false detailed flags rejected. Master URL unchanged, no HTTP validation, child/segment/subtitle calls or separate API replay. Unknown audio accepted; audio and device playback unverified. Requires existing browser bridge only; generic binary transport is not used by this version.",
+      "notes": "Uses the current website in one session with generic frame-local Play selectors. Requires separate VUEO frame-interaction bridge patch. Explicit Play button clicked after document readiness; exact player iframe and bootstrap/player/API request counters logged. No coordinate clicks, separate API replay or master/child/segment/subtitle probes. Unknown audio accepted; playback and device speed unverified. No generic binary transport required by this route.",
       "sourceRepository": "https://github.com/D3adlyRocket/All-in-One-Nuvio",
       "sourceCommit": "3f09a6ff4360498895e622877af7a32212f75038",
       "runtimeModules": []

@@ -19,6 +19,8 @@ function load(streams, detailed=false){
  assert.equal(actualBasic.calls.length,1);const opts=actualBasic.calls[0].options;
  assert.equal(actualBasic.calls[0].url,'https://vidsrc.sh/embed/movie/12345');
  assert.equal(opts.waitForMediaReady,false);assert.equal(opts.blockMatchedRequests,false);assert.equal(opts.captureSessionResponses,false);assert.equal(opts.captureSubtitles,false);
+ assert.equal(opts.framePlaySelectors.join(','),'button#bigPlay');assert.equal(opts.playerFrameSelectors.join(','),'iframe#player_frame');
+ assert.equal(opts.clickDelaysMs.join(','),'0');assert.equal(opts.timeoutMs,12000);
  assert.ok(actualBasic.logs.some(x=>x.includes('pageFinished=not-provided')));
  const mixed=load([{url},{url},{url:'blob:https://player.example/fixture'},{url:'https://player.example/watch/12345'},{url:'https://media.example/segment.mp4'},{url:'https://media.example/init.mp4'},{url:'https://media.example/dub.mp4',isDubbed:true,audioLanguage:'hi'},{url:'https://media.example/dual.mp4',isDubbed:true,isDualAudio:true}]);
  assert.equal((await mixed.provider.getStreams('12345','movie')).length,2);

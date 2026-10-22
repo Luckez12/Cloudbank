@@ -1,4 +1,4 @@
-// Cloudbank VidSrc v3.1.0: one website session and direct browser media handoff.
+// Cloudbank VidSrc v3.2.0: frame-local Play interaction and direct media handoff.
 /* VUEO_SHARED_DISCOVERY_CONTEXT_V1 */
 function vueoSharedTmdb(url, fallback) {
   function trace(stage, details) {
@@ -155,7 +155,7 @@ function cloudbankMetadataFetch(nativeFetch) {
   }
   (function(module, exports, require, fetch, self) {
 /* CLOUDBANK_UPSTREAM_SOURCE_START */
-// VidSrc v3.1.0: one website session; direct captured media handoff.
+// VidSrc v3.2.0: frame-local Play activation and direct captured media handoff.
 var BASE = 'https://vidsrc.sh';
 function log(message) { console.log('[VidSrc] ' + message); }
 function sharedContext(id, type) {
@@ -196,23 +196,34 @@ async function getStreams(tmdbId, mediaType, season, episode) {
   }
   var route = BASE + '/embed/' + type + '/' + id + (type === 'tv' ? '/' + Number(season) + '/' + Number(episode) : '');
   var started = Date.now(), meta = sharedContext(id, type);
-  log('ROUTE: v3.1.0 website session; exact TMDB=' + id + ' ' + type +
+  log('ROUTE: v3.2.0 website session; exact TMDB=' + id + ' ' + type +
     (type === 'tv' ? ' S' + Number(season) + 'E' + Number(episode) : '') + '; one browser session');
   log('BOOTSTRAP: website handles iframe API, session tokens, WASM and Turnstile; verification may prevent discovery');
   var session;
   try {
     session = await globalThis.webviewResolve(route, {
-      directLoad: true, referer: BASE + '/', timeoutMs: 10000, finishAfterFirstMs: 300,
+      directLoad: true, referer: BASE + '/', timeoutMs: 12000, finishAfterFirstMs: 300,
       waitForMediaReady: false, allowBlobMediaReady: false,
       captureSessionResponses: false, captureSubtitles: false, injectAbyssHook: false,
       suppressPopups: true, lockMainFrameHost: true, blockMatchedRequests: false,
       match: ['.m3u8', '.mpd', '.mp4'],
       blocked: ['doubleclick.net', 'googlesyndication.com', 'googleadservices.com'],
-      interactionTexts: ['play', 'watch now'], clickDelaysMs: [1200, 3000, 6000, 10000],
+      framePlaySelectors: ['button#bigPlay'], playerFrameSelectors: ['iframe#player_frame'],
+      stagePathPrefixes: {bootstrap: '/vs_src.php', player: '/embed/player/', api: '/api.php'},
+      interactionTexts: [], clickDelaysMs: [0],
       viewportWidth: 1080, viewportHeight: 1080, clickX: 540, clickY: 540
     });
   } catch (_) { log('NO_RESULT: browser session failed'); return []; }
   var rows = session && Array.isArray(session.streams) ? session.streams : [];
+  var frame = session && session.frameInteraction;
+  if (frame && frame.version === 1) {
+    function count(value) { return typeof value === 'number' && Number.isFinite(value) ? Math.max(0, Math.min(10000, Math.floor(value))) : 0; }
+    var requests = frame.requests || {}, errors = frame.errors || {};
+    log('FRAME_FLOW: hook=' + (frame.hookSupported === true) + ' readyFrames=' + count(frame.readyFrames) +
+      ' playClicks=' + count(frame.playClicks) + ' playerFrames=' + count(frame.playerFrames) +
+      ' bootstrapRequests=' + count(requests.bootstrap) + ' playerRequests=' + count(requests.player) +
+      ' apiRequests=' + count(requests.api) + ' apiHttpError=' + count(errors.api));
+  } else log('FRAME_FLOW: frame interaction bridge unavailable; install separate VUEO frame-play patch');
   var seen = Object.create(null), output = [], rejectedDub = 0, unknownKind = 0, rejectedObservation = 0;
   var detailed = session && session.sessionResponseVersion === 1;
   rows.forEach(function(row) {
