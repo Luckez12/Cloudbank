@@ -1,2 +1,2 @@
-// Compatibility entry for the replaced browser provider test.
-require("./vidsrc-http.cjs");
+// Compatibility entry after the session-only rebuild.
+require("./vidsrc-session.cjs");
