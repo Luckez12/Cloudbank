@@ -1,9 +1,0 @@
-providers/dahmermovies.js
-providers/dahmermovies-4k.js
-providers/torrentio.js
-providers/ctgmovies.js
-providers/allwish.js
-tests/dahmer-browser-handoff.cjs
-tests/dahmer-consolidated.cjs
-tests/dahmer-get-validation.cjs
-scripts/cleanup-dahmer-allwish.cjs
