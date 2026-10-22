@@ -1,4 +1,4 @@
-/* VidRock 2.1.0 — authenticated HLS, segment checks and bounded alternative collection. */
+/* VidRock 3.0.0 — parallel sources, reusable public rendition metadata and website subtitles. */
 /* VUEO_SHARED_DISCOVERY_CONTEXT_V1 */
 function vueoSharedTmdb(url, fallback) {
   function trace(stage, details) {
@@ -80,6 +80,8 @@ function buildTitleProfile(tmdb) {
   'use strict';
   var BASE = 'https://vidrock.net';
   var UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36';
+  // Public website protocol key, verified from /assets/index-BWWyXXb7.js; refreshed on GCM mismatch.
+  var BOOTSTRAP_KEY = '7f3e9c2a8b5d1f4e6a9c3b7d2e5f8a1c4b6d9e2f5a8c1b4d7e9f2a5c8b1d4e7f';
   var localKey = null;
   var languages = {en:'english',ja:'japanese',ko:'korean',zh:'chinese,mandarin,cantonese',hi:'hindi',ta:'tamil',te:'telugu',ms:'malay',id:'indonesian',fr:'french',de:'german',es:'spanish',pt:'portuguese',ru:'russian',it:'italian',ar:'arabic',th:'thai',vi:'vietnamese',ml:'malayalam',bn:'bengali',tr:'turkish'};
   function log(s) { console.log('[VidRock] ' + s); }
@@ -101,14 +103,49 @@ function buildTitleProfile(tmdb) {
     return {allowed:allowed,languages:codes,status:explicitOriginal?'original':!codes.length||!original?'unknown':codes.indexOf(original)>=0?(multi||codes.length>1?'dual':'original'):'unknown',label:multi?'Multi Audio (API label)':codes.length?codes.map(function(k){return languages[k].split(',')[0];}).join(' + ')+' (API label)':'Audio unverified'};
   }
   function quality(w,h) { return w>=3840||h>=2160?2160:w>=2560||h>=1440?1440:w>=1920||h>=1080?1080:w>=1280||h>=720?720:0; }
-  function cache(op,value) {
+  var localMetadata=Object.create(null),metadataOrder=[];
+  function cache(op,value,name,ttl) {
+    name=name||'vidrock:v2:public-key:'+BASE;ttl=ttl||300000;
+    var nativeValue=null;
     try { if(typeof globalThis.vueoMetadataCache==='function'){
-      var raw=globalThis.vueoMetadataCache(JSON.stringify({op:op,key:'vidrock:v2:public-key:'+BASE,value:value,ttlMs:300000}));
-      return typeof raw==='string'?JSON.parse(raw):raw;
-    }} catch (_) {} return null;
+      var raw=globalThis.vueoMetadataCache(JSON.stringify({op:op,key:name,value:value,ttlMs:ttl}));
+      nativeValue=typeof raw==='string'?JSON.parse(raw):raw;
+    }} catch (_) {}
+    if(op==='get'){
+      if(nativeValue&&typeof nativeValue==='object')return nativeValue;
+      var entry=localMetadata[name];
+      if(entry&&Date.now()>=entry.at&&Date.now()-entry.at<entry.ttl)return JSON.parse(entry.json);
+      delete localMetadata[name];return null;
+    }
+    if(op==='remove'){delete localMetadata[name];return nativeValue;}
+    if(op==='put'){
+      var json;try{json=JSON.stringify(value);}catch(_){return null;}
+      if(json.length<=20000){localMetadata[name]={json:json,at:Date.now(),ttl:Math.min(ttl,300000)};metadataOrder=metadataOrder.filter(function(k){return k!==name;});metadataOrder.push(name);while(metadataOrder.length>32)delete localMetadata[metadataOrder.shift()];}
+    }return nativeValue;
+  }
+  function hash(text){var h=2166136261;for(var i=0;i<text.length;i++){h^=text.charCodeAt(i);h=Math.imul(h,16777619);}return (h>>>0).toString(16);}
+  function reusableVariant(root,v){
+    try{var a=new URL(root),b=new URL(v.url),directory=a.pathname.slice(0,a.pathname.lastIndexOf('/')+1);
+      return !v.audioGroup&&a.protocol==='https:'&&b.protocol==='https:'&&!a.username&&!b.username&&!a.password&&!b.password&&!a.search&&!b.search&&!a.hash&&!b.hash&&a.origin===b.origin&&b.pathname.indexOf(directory)===0&&/\.m3u8$/i.test(a.pathname)&&/\.m3u8$/i.test(b.pathname)&&a.href!==b.href&&a.href.length<2048&&b.href.length<2048&&Number(v.quality)>=720&&Number(v.quality)<=4320;
+    }catch(_){return false;}
   }
   function headers() { return {'User-Agent':UA,Referer:BASE+'/',Origin:BASE}; }
-  async function get(state,url,binary) {
+  function get(state,url,binary,timeoutMs) {
+    if(state.finished)return Promise.reject(Error('finished'));
+    var key=(binary?'bytes:':'text:')+url;
+    if(!state.inflight)state.inflight=Object.create(null);
+    if(!state.reads)state.reads=Object.create(null);
+    if(!binary&&state.reads[url]){state.reused++;return Promise.resolve(state.reads[url]);}
+    if(state.inflight[key]){state.reused++;return state.inflight[key];}
+    var pending=request(state,url,binary,timeoutMs).then(function(result){
+      if(!state.finished&&!binary&&result.text&&result.text.length<=50000&&/^\s*(?:#EXTM3U|\{|\[)/.test(result.text))state.reads[url]=result;
+      return result;
+    });
+    state.inflight[key]=pending;
+    function clear(){if(state.inflight[key]===pending)delete state.inflight[key];}
+    pending.then(clear,clear);return pending;
+  }
+  async function request(state,url,binary,timeoutMs) {
     if(state.finished||Date.now()>state.deadline||state.calls>=24)throw Error('request budget');
     state.calls++;
     var h=headers();if(binary){h.Range='bytes=0-8191';h['Accept-Encoding']='identity';}
@@ -129,13 +166,14 @@ function buildTitleProfile(tmdb) {
       }else result.text=await response.text();
       if(result.text&&result.text.length>(binary?16*1024*1024:2*1024*1024))throw Error('response too large');
       if(state.finished)throw Error('finished');return result;
-    })(),new Promise(function(_,reject){requestTimer=setTimeout(function(){if(controller)controller.abort();reject(Error('HTTP timeout'));},Math.min(new URL(url).origin===BASE?10000:binary?5500:7000,Math.max(1,state.deadline-Date.now())));}),state.stopped.then(function(){if(controller)controller.abort();throw Error('finished');})]);}
+    })(),new Promise(function(_,reject){requestTimer=setTimeout(function(){if(controller)controller.abort();reject(Error('HTTP timeout'));},Math.min(timeoutMs||(new URL(url).origin===BASE?10000:binary?5500:7000),Math.max(1,state.deadline-Date.now())));}),state.stopped.then(function(){if(controller)controller.abort();throw Error('finished');})]);}
     finally{if(requestTimer)clearTimeout(requestTimer);}
   }
 
   async function key(state,force) {
     var c=!force&&(localKey||cache('get'));
     if(c&&c.origin===BASE&&/^[0-9a-f]{64}$/i.test(c.hex)&&Date.now()-c.at>=0&&Date.now()-c.at<300000)return {hex:c.hex,cached:true};
+    if(!force)return {hex:BOOTSTRAP_KEY,cached:false,bootstrap:true};
     var home=await get(state,BASE+'/',false),scripts=[],m;
     var re=/<script\b[^>]*\bsrc=["']([^"']+)["'][^>]*>/gi;
     while((m=re.exec(home.text||''))){var u=https(m[1],BASE);if(u&&new URL(u).origin===BASE&&/\/assets\/[^?#]+\.js(?:\?|$)/.test(u))scripts.push(u);}
@@ -228,7 +266,29 @@ function buildTitleProfile(tmdb) {
     if(encrypted&&text.length>=16)return {evidence:'encrypted HTTP payload; binary API unavailable',size:null};
     throw Error('segment transport not verified');
   }
+  async function verifyVariant(state,row,root,manifest,v){
+    var media=manifest,mediaURL=root.url;
+    if(v.url!==root.url){var child=await get(state,v.url,false);mediaURL=child.url;media=playlist(child.text,mediaURL);}
+    if(!media.segments.length)throw Error('media playlist empty');
+    if(!v.quality&&!root.binaryCapable)throw Error('resolution not verified; binary API unavailable');
+    var external=manifest.tracks.filter(function(t){return t.TYPE==='AUDIO'&&t['GROUP-ID']===v.audioGroup&&t.URI;});
+    if(external.length)throw Error('external-audio rendition not supported by this direct route');
+    if(media.init)sample(await get(state,media.init,true),false);
+    if(media.encrypted){if(!media.key)throw Error('missing AES key URL');var kr=await get(state,media.key,true);if(kr.bytes?kr.bytes.length!==16:!kr.text||/^\s*</.test(kr.text))throw Error('invalid AES key');}
+    var proof=sample(await get(state,media.segments[0],true),media.encrypted),dims=proof.size,q=dims?quality(dims.width,dims.height):v.quality;
+    if(q<720)throw Error('resolution not verified at 720p+');
+    var codec=dims?dims.codec:/avc1|avc3/i.test(v.codecs)?'h264':/hvc1|hev1/i.test(v.codecs)?'hevc':'unknown';
+    log('MEDIA: server='+clean(row.name)+' '+q+'p; '+proof.evidence+'; codec='+codec+'; MIME=HLS');
+    return {name:'VidRock',title:state.title+'\n'+q+'p | '+row.audio.label+'\n'+clean(row.name),url:mediaURL,mimeType:'application/x-mpegURL',type:'hls',isHls:true,quality:q+'p',videoCodec:codec,codecEvidence:dims?'transport-SPS':codec!=='unknown'?'HLS-codecs':'unknown',audioStatus:row.audio.status,audioLanguages:row.audio.languages,language:row.audio.languages.length===1?row.audio.languages[0]:'',audioEvidence:'API language label; not a probe of actual tracks',provider:'vidrock',serverName:clean(row.name),headers:headers(),subtitles:[],behaviorHints:{notWebReady:true}};
+  }
   async function resolveRoute(state,row){
+    var cacheKey='vidrock:v3:variant:'+hash(row.url),saved=cache('get',null,cacheKey);
+    if(saved&&saved.schema===1&&saved.root===row.url&&Date.now()>=saved.at&&Date.now()-saved.at<60000&&saved.variant&&reusableVariant(row.url,saved.variant)){
+      try{
+        var cached=await verifyVariant(state,row,{url:row.url,binaryCapable:false},{tracks:[]},saved.variant);
+        state.variantHits++;log('VARIANT_CACHE: hit server='+clean(row.name)+'; child and segment rechecked');return cached;
+      }catch(e){if(state.finished)return null;cache('remove',null,cacheKey);log('VARIANT_CACHE: stale server='+clean(row.name)+'; refreshing master');}
+    }
     var root=await get(state,row.url,false),manifest,rootURL=root.url,hint=0;
     if(/^\s*\[/.test(root.text||'')){
       var choices=JSON.parse(root.text).filter(function(x){return x&&Number(x.resolution)>=720&&https(x.url);}).sort(function(a,b){return b.resolution-a.resolution;});
@@ -240,44 +300,75 @@ function buildTitleProfile(tmdb) {
     if(!manifest.variants.length)variants=[{url:rootURL,quality:hint,codecs:'',audioGroup:''}];
     for(var i=0;i<Math.min(variants.length,2);i++){
       try{
-        var v=variants[i],media=manifest,mediaURL=rootURL;
-        if(v.url!==rootURL){var child=await get(state,v.url,false);mediaURL=child.url;media=playlist(child.text,mediaURL);}
-        if(!media.segments.length)throw Error('media playlist empty');
-        if(!v.quality&&!root.binaryCapable)throw Error('resolution not verified; binary API unavailable');
-        var external=manifest.tracks.filter(function(t){return t.TYPE==='AUDIO'&&t['GROUP-ID']===v.audioGroup&&t.URI;});
-        if(external.length)throw Error('external-audio rendition not supported by this direct route');
-        if(media.init)sample(await get(state,media.init,true),false);
-        if(media.encrypted){if(!media.key)throw Error('missing AES key URL');var kr=await get(state,media.key,true);if(kr.bytes?kr.bytes.length!==16:!kr.text||/^\s*</.test(kr.text))throw Error('invalid AES key');}
-        var proof=sample(await get(state,media.segments[0],true),media.encrypted),dims=proof.size,q=dims?quality(dims.width,dims.height):v.quality;
-        if(q<720)throw Error('resolution not verified at 720p+');
-        var codec=dims?dims.codec:/avc1|avc3/i.test(v.codecs)?'h264':/hvc1|hev1/i.test(v.codecs)?'hevc':'unknown';
-        log('MEDIA: server='+clean(row.name)+' '+q+'p; '+proof.evidence+'; codec='+codec+'; MIME=HLS');
-        return {name:'VidRock',title:state.title+'\n'+q+'p | '+row.audio.label+'\n'+clean(row.name),url:mediaURL,mimeType:'application/x-mpegURL',type:'hls',isHls:true,quality:q+'p',videoCodec:codec,codecEvidence:dims?'transport-SPS':codec!=='unknown'?'HLS-codecs':'unknown',audioStatus:row.audio.status,audioLanguages:row.audio.languages,language:row.audio.languages.length===1?row.audio.languages[0]:'',audioEvidence:'API language label; not a probe of actual tracks',provider:'vidrock',serverName:clean(row.name),headers:headers(),subtitles:[],behaviorHints:{notWebReady:true}};
+        var v=variants[i],item=await verifyVariant(state,row,root,manifest,v);
+        if(row.url===rootURL&&reusableVariant(row.url,v))cache('put',{schema:1,root:row.url,at:Date.now(),variant:{url:v.url,quality:parseInt(item.quality),codecs:v.codecs||'',audioGroup:v.audioGroup||''}},cacheKey,60000);
+        return item;
       }catch(error){if(state.finished)return null;log('SKIP: server='+clean(row.name)+' rendition='+(variants[i].quality||'unknown')+'p reason='+safeReason(error));}
+    }return null;
+  }
+  function subtitleRows(payload,base,original){
+    var rows=[],lists=['subtitles','data','results','items','list'];
+    if(Array.isArray(payload))rows=payload;
+    else if(payload&&typeof payload==='object'){
+      for(var i=0;i<lists.length;i++)if(Array.isArray(payload[lists[i]])){rows=payload[lists[i]];break;}
+      if(!rows.length)Object.keys(payload).forEach(function(k){var v=payload[k];if(v&&typeof v==='object'&&(v.url||v.file))rows.push(Object.assign({label:k},v));});
     }
-    return null;
+    var unique=Object.create(null),groups=Object.create(null),order=[],extras=[];
+    rows.slice(0,200).forEach(function(r){
+      if(!r||typeof r!=='object')return;
+      var url=https(r.url||r.file||r.src,base);if(!url||unique[url])return;
+      var pathname=new URL(url).pathname.toLowerCase(),mime=/\.vtt$/.test(pathname)?'text/vtt':/\.srt$/.test(pathname)?'application/x-subrip':/\.(?:ass|ssa)$/.test(pathname)?'text/x-ssa':'';
+      if(!mime)return;
+      var label=clean(r.label||r.language||r.lang||'Unknown'),raw=clean(r.language||r.lang||r.srclang||label).replace(/\s+\d+$/,'').replace(/\s*\[(?:cc|sdh)\]$/i,'').trim(),code=lang(raw)||raw.toLowerCase()||'und',group=code;
+      unique[url]=true;
+      var item={url:url,language:code,label:label,name:label,mimeType:mime,headers:headers()},plain=!/\s+\d+$/.test(label);
+      if(!groups[group]){order.push(group);groups[group]={item:item,plain:plain};}
+      else if(plain&&!groups[group].plain){extras.push(groups[group].item);groups[group]={item:item,plain:plain};}else extras.push(item);
+    });
+    order.sort(function(a,b){return (a===original?0:1)-(b===original?0:1);});
+    return order.map(function(k){return groups[k].item;}).concat(extras).slice(0,32);
+  }
+  function cacheableSubtitle(item){try{var u=new URL(item.url);return u.protocol==='https:'&&!u.username&&!u.password&&!u.search&&!u.hash&&/\.(?:vtt|srt|ass|ssa)$/i.test(u.pathname);}catch(_){return false;}}
+  async function loadSubtitles(state,path){
+    var cacheKey='vidrock:v3:subtitles:'+path,saved=cache('get',null,cacheKey);
+    if(saved&&saved.schema===1&&saved.path===path&&Date.now()>=saved.at&&Date.now()-saved.at<60000&&Array.isArray(saved.items)&&saved.items.length&&saved.items.length<=32&&saved.items.every(cacheableSubtitle)){
+      state.subtitles=saved.items.map(function(item){return Object.assign({},item,{name:item.label,headers:headers()});});state.subtitleStatus='cached';log('SUBTITLES: cache hit tracks='+state.subtitles.length);return;
+    }
+    for(var version=1;version<=2&&!state.finished;version++){
+      try{
+        var url='https://sub.vdrk.site/v'+version+'/'+path,response=await get(state,url,false,8000),items=subtitleRows(JSON.parse(response.text),response.url,state.original||'');
+        if(items.length){
+          state.subtitles=items;state.subtitleStatus='ready';
+          if(items.every(cacheableSubtitle))cache('put',{schema:1,path:path,at:Date.now(),items:items.map(function(item){return {url:item.url,language:item.language,label:item.label,mimeType:item.mimeType};})},cacheKey,60000);
+          log('SUBTITLES: website v'+version+' tracks='+items.length+'; language variety before duplicates');return;
+        }
+      }catch(e){if(state.finished)return;}
+    }
+    if(!state.finished){state.subtitleStatus='none';log('SUBTITLES: no eligible website sidecars returned');}
   }
   function safeReason(error){return String(error&&error.message||'request failed').replace(/https?:\/\/\S+/g,'<url>').slice(0,160);}
   async function run(id,type,season,episode){
     type=type==='series'?'tv':type;
     if(!/^[1-9]\d*$/.test(String(id))||['movie','tv'].indexOf(type)<0||type==='tv'&&(!Number.isInteger(Number(season))||Number(season)<0||season==null||!Number.isInteger(Number(episode))||Number(episode)<1))return [];
-    var started=Date.now(),state={calls:0,deadline:started+17500,finished:false,title:'TMDB '+id},timer,collectionTimer;
+    var started=Date.now(),state={calls:0,reused:0,variantHits:0,subtitles:[],subtitleStatus:'pending',deadline:started+17500,finished:false,title:'TMDB '+id},timer;
     state.stopped=new Promise(function(done){state.stop=done;});
-    log('ROUTE: v2.1.0 website exact TMDB '+id+' '+type+(type==='tv'?' S'+Number(season)+'E'+Number(episode):'')+'; original/dual/unknown; minimum 720p; parallel routes=3; alternatives wait=1500ms; no VUEO changes');
+    log('ROUTE: v3.0.0 website exact TMDB '+id+' '+type+(type==='tv'?' S'+Number(season)+'E'+Number(episode):'')+'; original/dual/unknown; minimum 720p; parallel routes=3; retain completed alternatives; no VUEO changes');
     try{
-      var route=BASE+'/api/'+(type==='movie'?'movie/'+id:'tv/'+id+'/'+Number(season)+'/'+Number(episode));
+      var path=type==='movie'?'movie/'+id:'tv/'+id+'/'+Number(season)+'/'+Number(episode),route=BASE+'/api/'+path;
+      loadSubtitles(state,path).catch(function(){});
       var metadataURL='https://api.themoviedb.org/3/'+type+'/'+id+'?api_key=1865f43a0549ca50d341dd9ab8b29f49';
       var metaTask=vueoSharedTmdb(metadataURL,async function(){var r=await get(state,metadataURL,false);return JSON.parse(r.text);}).catch(function(){return {};});
       var timeout=new Promise(function(_,reject){timer=setTimeout(function(){state.finished=true;reject(Error('request deadline'));},17500);});
       var values=await Promise.race([Promise.all([get(state,route,false),key(state,false),metaTask]),timeout]);
-      var payload=JSON.parse(values[0].text),keyInfo=values[1],meta=values[2]||{},original=lang(meta.original_language||'');state.title=clean(buildTitleProfile(meta).title)||state.title;
+      var payload=JSON.parse(values[0].text),keyInfo=values[1],meta=values[2]||{},original=lang(meta.original_language||'');state.title=clean(buildTitleProfile(meta).title)||state.title;state.original=original;
       var entries=Object.keys(payload||{}).filter(function(n){return payload[n]&&typeof payload[n]==='object'&&payload[n].url;}).slice(0,8);
       var rows=[],errors=0;
-      function decodeRows(){rows=[];errors=0;entries.forEach(function(n){var a=audio(payload[n].language,original);if(!a.allowed){log('AUDIO: excluded explicit foreign-language source '+clean(n));return;}try{rows.push({name:n,url:decrypt(payload[n].url,keyInfo.hex),audio:a});}catch(_){errors++;}});}
+      function decodeRows(){rows=[];errors=0;var seen=Object.create(null);entries.forEach(function(n){var a=audio(payload[n].language,original);if(!a.allowed){log('AUDIO: excluded explicit foreign-language source '+clean(n));return;}try{var url=decrypt(payload[n].url,keyInfo.hex);if(!seen[url]){seen[url]=true;rows.push({name:n,url:url,audio:a});}}catch(_){errors++;}});}
       decodeRows();
-      if(!rows.length&&errors&&keyInfo.cached){cache('remove');localKey=null;keyInfo=await key(state,true);decodeRows();}
-      log('DISCOVERY: keyCache='+(keyInfo.cached?'hit':'miss')+'; elapsedMs='+(Date.now()-started));
-      log('API: candidates='+entries.length+' eligibleAudio='+rows.length+' authenticationFailures='+errors+' original='+(original||'unknown'));
+      if(!rows.length&&errors&&(keyInfo.cached||keyInfo.bootstrap)){cache('remove');localKey=null;keyInfo=await key(state,true);decodeRows();}
+      if(rows.length&&keyInfo.bootstrap){localKey={origin:BASE,hex:keyInfo.hex,at:Date.now()};cache('put',localKey);}
+      log('DISCOVERY: keyCache='+(keyInfo.cached?'hit':keyInfo.bootstrap?'website-bootstrap':'refreshed')+' scope='+(typeof globalThis.vueoMetadataCache==='function'?'app-memory':'runtime-only')+'; elapsedMs='+(Date.now()-started));
+      log('API: candidates='+entries.length+' eligibleUniqueRoutes='+rows.length+' authenticationFailures='+errors+' original='+(original||'unknown'));
       var found=[],index=0,firstSourceMs=null,hostStarted=Date.now(),active=0,peak=0,collectionReason='all routes finished',completeCollection;
       var collection=new Promise(function(done){completeCollection=done;});
       async function worker(){while(index<rows.length&&found.length<3&&!state.finished){
@@ -285,11 +376,7 @@ function buildTitleProfile(tmdb) {
         try{var item=await resolveRoute(state,row);
           if(item&&!state.finished&&!found.some(function(x){return x.url===item.url;})){
             found.push(item);
-            if(firstSourceMs===null){
-              firstSourceMs=Date.now()-started;
-              log('FIRST_SOURCE: elapsedMs='+firstSourceMs+'; alternativesWaitMs=1500');
-              collectionTimer=setTimeout(function(){collectionReason='alternative wait elapsed';state.finished=true;state.stop();completeCollection();},Math.min(1500,Math.max(0,state.deadline-Date.now())));
-            }
+            if(firstSourceMs===null){firstSourceMs=Date.now()-started;log('FIRST_SOURCE: elapsedMs='+firstSourceMs+'; remaining routes continue');}
             if(found.length>=3){collectionReason='source limit';state.finished=true;state.stop();completeCollection();}
           }
         }catch(e){if(!state.finished)log('SKIP: server='+clean(row.name)+' reason='+safeReason(e));}
@@ -297,9 +384,11 @@ function buildTitleProfile(tmdb) {
       }}
       try{await Promise.race([Promise.all([worker(),worker(),worker()]),collection,timeout]);}catch(e){if(!state.finished)throw e;collectionReason='total budget elapsed';log('BUDGET: returning completed routes');}
       state.finished=true;var result=found.sort(function(a,b){return (a.videoCodec==='h264'?0:1)-(b.videoCodec==='h264'?0:1)||parseInt(b.quality)-parseInt(a.quality);}).slice(0,3);
-      log('TIMING: firstSourceMs='+(firstSourceMs===null?'none':firstSourceMs)+' preHostMs='+(hostStarted-started)+' hostMs='+(Date.now()-hostStarted)+' totalMs='+(Date.now()-started)+' peakRoutes='+peak+' finish='+collectionReason);
+      result.forEach(function(item){item.subtitles=state.subtitles.slice();});
+      log('SUBTITLE_RESULT: tracks='+state.subtitles.length+' status='+state.subtitleStatus+'; no extra wait after media');
+      log('TIMING: firstSourceMs='+(firstSourceMs===null?'none':firstSourceMs)+' preHostMs='+(hostStarted-started)+' hostMs='+(Date.now()-hostStarted)+' totalMs='+(Date.now()-started)+' peakRoutes='+peak+' reusedReads='+state.reused+' variantHits='+state.variantHits+' finish='+collectionReason);
       log('RESULT: '+result.length+' segment-checked HLS sources; calls='+state.calls+'; playback requires device test');return result;
-    }catch(e){log('NO_RESULT: '+safeReason(e)+'; calls='+state.calls);return [];}finally{state.finished=true;state.stop();if(timer)clearTimeout(timer);if(collectionTimer)clearTimeout(collectionTimer);}
+    }catch(e){log('NO_RESULT: '+safeReason(e)+'; calls='+state.calls);return [];}finally{state.finished=true;state.stop();if(timer)clearTimeout(timer);}
   }
   module.exports={getStreams:run};
   if(typeof globalThis!=='undefined')globalThis.getStreams=run;

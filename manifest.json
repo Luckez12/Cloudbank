@@ -1,6 +1,6 @@
 {
   "name": "Cloudbank",
-  "version": "1.20.71",
+  "version": "1.20.72",
   "scrapers": [
     {
       "id": "kisskh",
@@ -612,8 +612,8 @@
     {
       "id": "vidrock",
       "name": "VidRock",
-      "description": "Website API HLS streams, 720p+; bounded wait for alternative sources",
-      "version": "2.1.0",
+      "description": "Website API HLS, 720p+, parallel sources, public metadata reuse and website subtitles",
+      "version": "3.0.0",
       "author": "Nuvio Team",
       "supportedTypes": [
         "movie",
@@ -635,7 +635,7 @@
         "tv"
       ],
       "upstreamVersion": "1.0.0",
-      "notes": "Rebuilt from current vidrock.net website API and public bundle. Authenticated AES-256-GCM URLs; exact TMDB movie/TV/episode routing; explicit HLS MIME and headers; selected 720p+ media playlists; first-segment transport checks reject PNG-prefixed/image/HTML payloads. Binary-capable runtimes additionally inspect TS SPS; existing text-only VUEO runtime requires playlist resolution evidence. Up to three parallel routes; bounded requests. Audio is API label evidence only. Device playback still requires testing. v2.1.0: returns completed sources at most 1500ms after the first validated source, or sooner when routes finish/three sources are ready. Slower alternatives may be omitted. Keeps all HLS, quality, audio and segment checks. Releases pending JS waits, aborts fetch where supported, prevents late retries/results/logs and reports first-source/total timings. Native in-flight HTTP cancellation depends on runtime support. Public-key cache behavior unchanged; no playback-URL cache. Deterministic timing replay is a benchmark, not a device speed guarantee.",
+      "notes": "v3.0.0 replaces the 1.5 second alternative cutoff with collection of all completed routes, up to three sources, within the existing 17.5 second deadline. The current public website AES-GCM protocol key is bundled to skip homepage/bundle lookups on the normal cold path; authenticated URL mismatch refreshes it from the website once. Public-key cache remains process scoped through the existing optional metadata bridge. Exact duplicate routes/reads are coalesced. Validated public same-directory m3u8 rendition metadata is cached for 60 seconds only when both URLs have no query/fragment; each use fetches the child playlist and probes its segment again, with fresh-master fallback on failure. Opaque/signed media routes are not cached. Website subtitle lists are fetched in parallel with v1 then v2 fallback; public no-query sidecar metadata may be reused for 60 seconds. Language variety is prioritized before alternate tracks within the 32-track app limit. Slow subtitle APIs do not add a post-media wait. Existing HLS MIME/headers, audio-label policy and segment/quality checks are retained. No VUEO application changes or title/device exceptions. Website API/host availability controls source count. Native playback and subtitle timing require device testing.",
       "sourceRepository": "https://github.com/D3adlyRocket/All-in-One-Nuvio",
       "sourceCommit": "3f09a6ff4360498895e622877af7a32212f75038",
       "runtimeModules": []

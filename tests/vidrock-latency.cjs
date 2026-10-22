@@ -1,53 +1,56 @@
-// Deterministic virtual time. Synthetic HLS and TS-prefix fixtures only.
+// Virtual-time checks; synthetic HLS/TS/subtitle fixtures, no real media or movie IDs.
 const fs=require('fs'),path=require('path'),vm=require('vm'),assert=require('assert'),crypto=require('crypto');
-const source=fs.readFileSync(path.join(__dirname,'../providers/vidrock.js'),'utf8');
-const key='0123456789abcdef'.repeat(4);
-function seal(url){const iv=crypto.randomBytes(12),c=crypto.createCipheriv('aes-256-gcm',Buffer.from(key,'hex'),iv);return Buffer.concat([iv,c.update(url),c.final(),c.getAuthTag()]).toString('base64url');}
-async function flush(){for(let i=0;i<100;i++)await Promise.resolve();}
-async function replay(src,{second=13077,badFirst=false,badSecond=false,allHung=false,allLate=false,delayFirst=6632}={}){
- let now=1000000,origin=now,serial=0,timers=new Map(),calls=[],logs=[],resolved=false,value,error;
- const timeout=(fn,ms)=>{const id=++serial;timers.set(id,{fn,at:now+Math.max(0,ms)});return id;};
- const clear=id=>timers.delete(id),wait=ms=>new Promise(done=>timeout(done,ms));
- class FakeDate extends Date{static now(){return now;}}
- const ctx={module:{exports:{}},console:{log:s=>logs.push(s)},setTimeout:timeout,clearTimeout:clear,Date:FakeDate,URL,Uint8Array,atob,VUEO_DISCOVERY_CONTEXT:{title:'Fixture',mediaType:'movie',tmdbId:55,originalLanguage:'en'},fetch:async(url,opts)=>{
-  calls.push({url,at:now-origin});assert.equal(opts.headers.Origin,'https://vidrock.net');let body,ms;
-  if(url==='https://vidrock.net/'){body='<script src="/assets/index-fixture.js"></script>';ms=1000;}
-  else if(url.includes('/assets/')){body='const websiteKey="'+key+'"; /* AES-GCM importKey decrypt */';ms=1000;}
-  else if(url.includes('/api/')){body=JSON.stringify({First:{url:seal('https://first.test/master'),language:'Unknown'},Second:{url:seal('https://second.test/master'),language:'Unknown'}});ms=2600;}
-  else{
-   const first=url.includes('first.test'),host=first?'https://first.test':'https://second.test';
-   if(allHung)return new Promise(()=>{});
-   if(url.endsWith('/master')){body='#EXTM3U\n#EXT-X-STREAM-INF:RESOLUTION=1920x800,CODECS="avc1.640028"\nvideo.m3u8';ms=first?500:second<10541?700:2894;}
-   else if(url.endsWith('/video.m3u8')){body='#EXTM3U\n#EXTINF:6,\nsegment.ts';ms=first?774:second<10541?900:5047;}
-   else if(url.endsWith('/segment.ts')){
-    assert.equal(opts.headers.Range,'bytes=0-8191');const bytes=Buffer.alloc(600);bytes[0]=71;bytes[1]=64;bytes[3]=16;bytes.set([0,0,1,103],10);
-    body=(first?badFirst:badSecond)?'<html>not a segment</html>':bytes.toString('utf8');
-    ms=(first?delayFirst:second)-(first?3874:second<10541?4200:10541);assert(ms>=0);
-   }else throw Error('Unexpected route '+host);
-   if(allLate)ms=url.endsWith('/segment.ts')?(allLate==='retain'&&first?1000:2000):6900;
+const source=fs.readFileSync(path.join(__dirname,'../providers/vidrock.js'),'utf8'),key=/BOOTSTRAP_KEY\s*=\s*'([0-9a-f]{64})'/.exec(source)[1];
+function seal(url){let iv=crypto.randomBytes(12),c=crypto.createCipheriv('aes-256-gcm',Buffer.from(key,'hex'),iv);return Buffer.concat([iv,c.update(url),c.final(),c.getAuthTag()]).toString('base64url');}
+async function flush(){for(let n=0;n<100;n++)await Promise.resolve();}
+function world(){let now=1000000,serial=0,timers=new Map(),store=new Map();return {
+ get now(){return now;},advance:n=>now+=n,timers,
+ set:(fn,ms)=>{let id=++serial;timers.set(id,{fn,at:now+Math.max(ms,0)});return id;},clear:id=>timers.delete(id),
+ async next(){await flush();let x=[...timers.entries()].sort((a,b)=>a[1].at-b[1].at||a[0]-b[0])[0];if(!x)return false;timers.delete(x[0]);now=x[1].at;x[1].fn();await flush();return true;},
+ bridge:raw=>{let r=JSON.parse(raw),old=store.get(r.key);if(old&&old.exp<=now){store.delete(r.key);old=null;}if(r.op==='get')return old?JSON.stringify(old.value):'null';if(r.op==='remove'){store.delete(r.key);return 'true';}if(r.op==='put'){store.set(r.key,{value:r.value,exp:now+Math.min(r.ttlMs,300000)});return 'true';}return 'null';}
+};}
+async function replay(src,{w=world(),bridge=true,fast=false,badFirst=false,badSecond=false,stale=false,duplicate=false,subtitles='ready',query=false,allLate=false}={}){
+ let start=w.now,calls=[],logs=[],done=false,value,error,staleUsed=false;class ClockDate extends Date{static now(){return w.now;}}
+ const wait=n=>new Promise(resolve=>w.set(resolve,n)),prefix=Buffer.alloc(600);prefix[0]=71;prefix[1]=64;prefix[3]=16;prefix.set([0,0,1,103],10);
+ const ctx={module:{exports:{}},URL,Uint8Array,atob,Date:ClockDate,setTimeout:w.set,clearTimeout:w.clear,console:{log:x=>logs.push(x)},VUEO_DISCOVERY_CONTEXT:{title:'Fixture',mediaType:'movie',tmdbId:55,originalLanguage:'en'},fetch:async(url,opts)=>{
+  calls.push(url);assert.equal(opts.headers.Origin,'https://vidrock.net');let ms,body,status=200;
+  if(url==='https://vidrock.net/'){ms=1000;body='<script src="/assets/index-fixture.js"></script>';}
+  else if(url.includes('/assets/')){ms=1600;body='const publicKey="'+key+'"; /* AES-GCM importKey decrypt */';}
+  else if(url.includes('/api/')){ms=1000;let first='https://first.test/token',second=duplicate?first:'https://second.test/master.m3u8'+(query?'?signature=temporary':'');body=JSON.stringify({First:{url:seal(first),language:'Unknown'},Second:{url:seal(second),language:'Unknown'}});}
+  else if(url.startsWith('https://sub.vdrk.site/')){
+   if(subtitles==='hang')return new Promise(()=>{});
+   ms=500;status=subtitles==='fallback'&&url.includes('/v1/')?404:200;
+   body=JSON.stringify(subtitles==='none'?[]:[{label:'English 2',file:'https://caption.test/English%202.vtt'},{label:'English',file:'https://caption.test/English.vtt'},{label:'Malay',file:'https://caption.test/Malay.vtt'}]);
+  }else{
+   let first=url.includes('first.test');
+   if(url.includes('/master.m3u8')||url.endsWith('/token')){ms=first?500:2894;body='#EXTM3U\n#EXT-X-STREAM-INF:RESOLUTION=1920x800,CODECS="avc1.640028"\n'+(stale&&!first?'new-video.m3u8':'video.m3u8');}
+   else if(url.endsWith('/video.m3u8')||url.endsWith('/new-video.m3u8')){ms=first?774:5047;body='#EXTM3U\n#EXTINF:6,\nsegment.ts';if(stale&&!first&&url.endsWith('/video.m3u8')&&!staleUsed){staleUsed=true;ms=100;status=404;}}
+   else if(url.endsWith('/segment.ts')){assert.equal(opts.headers.Range,'bytes=0-8191');ms=first?2758:2536;body=(first?badFirst:badSecond)?'<html>error</html>':prefix.toString('utf8');}
+   else throw Error('Unexpected synthetic request');
+   if(fast)ms=first?50:75;if(allLate)ms=url.endsWith('/segment.ts')?(allLate==='retain'&&first?2600:3700):6900;
   }
-  await wait(ms);return {ok:true,status:200,url,headers:{get:()=> 'text/html'},text:async()=>body};
+  await wait(ms);return {ok:status===200,status,url,headers:{get:()=> 'text/html'},text:async()=>body};
  }};
- vm.createContext(ctx);vm.runInContext(src,ctx);
- ctx.module.exports.getStreams('55','movie').then(x=>{value=x;resolved=true;},e=>{error=e;resolved=true;});
- async function next(){await flush();let entry=[...timers.entries()].sort((a,b)=>a[1].at-b[1].at||a[0]-b[0])[0];if(!entry)return false;timers.delete(entry[0]);now=entry[1].at;entry[1].fn();await flush();return true;}
- await flush();for(let n=0;!resolved&&n<300;n++){if(!await next())throw Error('No timer can complete request');}
- assert(resolved,'request must finish');if(error)throw error;const elapsed=now-origin;
- // Simulate late native fetch completions: no additional requests/logs or result mutations.
- await flush();const count=value.length,requestCount=calls.length,logCount=logs.length;
- for(let n=0;timers.size&&n<300;n++)await next();
- assert.equal(value.length,count);assert.equal(calls.length,requestCount);assert.equal(logs.length,logCount);
- assert(![...timers.values()].some(x=>x.at>now),'provider must clean up its timers');
- return {elapsed,count,calls:calls.length,logs};
+ if(bridge)ctx.vueoMetadataCache=w.bridge;vm.createContext(ctx);vm.runInContext(src,ctx);
+ ctx.module.exports.getStreams('55','movie').then(x=>{done=true;value=x;},e=>{done=true;error=e;});await flush();
+ for(let n=0;!done&&n<300;n++)if(!await w.next())throw Error('Request stalled');assert(done);if(error)throw error;let elapsed=w.now-start;
+ await flush();let count=value.length,requests=calls.length,logCount=logs.length;for(let n=0;w.timers.size&&n<300;n++)await w.next();
+ assert.equal(value.length,count);assert.equal(calls.length,requests);assert.equal(logs.length,logCount);assert.equal(w.timers.size,0);
+ return {elapsed,count,calls,logs,sources:value,w};
 }
 (async()=>{
- const slow=await replay(source);assert.equal(slow.count,1);assert.equal(slow.elapsed,8132);assert(slow.logs.some(x=>x.includes('firstSourceMs=6632')));assert(slow.logs.some(x=>x.includes('finish=alternative wait elapsed')));
- const together=await replay(source,{second:7500});assert.equal(together.count,2);assert.equal(together.elapsed,7500);
- const invalid=await replay(source,{badFirst:true});assert.equal(invalid.count,1);assert.equal(invalid.elapsed,13077);assert(invalid.logs.some(x=>x.includes('firstSourceMs=13077')));
- const failed=await replay(source,{badFirst:true,badSecond:true});assert.equal(failed.count,0);assert(!failed.logs.some(x=>x.includes('FIRST_SOURCE')));
- const stalled=await replay(source,{allHung:true});assert.equal(stalled.count,0);assert(stalled.elapsed<=17500);
- const deadline=await replay(source,{allLate:true});assert.equal(deadline.count,0);assert.equal(deadline.elapsed,17500);
- const retained=await replay(source,{allLate:'retain'});assert.equal(retained.count,1);assert.equal(retained.elapsed,17500);
- if(process.env.VIDROCK_BASELINE){const old=await replay(fs.readFileSync(process.env.VIDROCK_BASELINE,'utf8'));assert.equal(old.count,2);assert.equal(old.elapsed,13077);console.log('REPLAY comparison: baseline='+old.elapsed+'ms / '+old.count+' sources; new='+slow.elapsed+'ms / '+slow.count+' source; '+Math.round((1-slow.elapsed/old.elapsed)*100)+'% faster.');}
- console.log('PASS: return first validated source +1500ms; retain timely alternatives; invalid first segment does not start grace; no-source/full deadline; no late mutation, requests or logs; timer cleanup.');
+ let w=world(),cold=await replay(source,{w});assert.equal(cold.count,2);assert.equal(cold.elapsed,11477);assert(cold.logs.some(x=>x.includes('keyCache=website-bootstrap')));assert(cold.calls.includes('https://second.test/master.m3u8'));assert(cold.sources.every(x=>x.subtitles.some(s=>s.language==='en')&&x.subtitles.some(s=>s.language==='ms')));
+ w.advance(10);let warm=await replay(source,{w});assert.equal(warm.count,2);assert.equal(warm.elapsed,8583);assert(warm.logs.some(x=>x.includes('keyCache=hit')));assert(warm.logs.some(x=>x.includes('variantHits=1')));assert(!warm.calls.includes('https://vidrock.net/'));assert(!warm.calls.includes('https://second.test/master.m3u8'));assert(warm.calls.includes('https://second.test/video.m3u8'));assert(warm.calls.includes('https://second.test/segment.ts'));assert(!warm.calls.some(x=>x.startsWith('https://sub.vdrk.site/')));assert(warm.sources.every(x=>x.subtitles.length===3));
+ let expiredWorld=cold.w;expiredWorld.advance(61000);let expired=await replay(source,{w:expiredWorld});assert.equal(expired.count,2);assert.equal(expired.elapsed,11477);assert(expired.calls.includes('https://second.test/master.m3u8'));
+ let staleWorld=world();await replay(source,{w:staleWorld});let repaired=await replay(source,{w:staleWorld,stale:true});assert.equal(repaired.count,2);assert(repaired.logs.some(x=>x.includes('VARIANT_CACHE: stale')));assert(repaired.calls.includes('https://second.test/new-video.m3u8'));
+ let tokenWorld=world();await replay(source,{w:tokenWorld,query:true});let signed=await replay(source,{w:tokenWorld,query:true});assert(signed.calls.some(x=>x.includes('master.m3u8?signature=')));assert(signed.logs.some(x=>x.includes('variantHits=0')));
+ let fallback=await replay(source,{subtitles:'fallback'});assert.equal(fallback.count,2);assert.equal(fallback.sources[0].subtitles.length,3);assert(fallback.calls.some(x=>x.includes('/v2/movie/55')));
+ let noDelay=await replay(source,{fast:true,subtitles:'hang'});assert.equal(noDelay.count,2);assert.equal(noDelay.elapsed,1225);assert.equal(noDelay.sources[0].subtitles.length,0);
+ let invalid=await replay(source,{badFirst:true});assert.equal(invalid.count,1);assert.equal(invalid.elapsed,11477);
+ let failed=await replay(source,{badFirst:true,badSecond:true});assert.equal(failed.count,0);
+ let end=await replay(source,{allLate:true});assert.equal(end.count,0);assert.equal(end.elapsed,17500);
+ let retained=await replay(source,{allLate:'retain'});assert.equal(retained.count,1);assert.equal(retained.elapsed,17500);
+ let dup=await replay(source,{duplicate:true});assert.equal(dup.count,1);assert.equal(dup.calls.filter(x=>x==='https://first.test/token').length,1);
+ if(process.env.VIDROCK_BASELINE){let old=await replay(fs.readFileSync(process.env.VIDROCK_BASELINE,'utf8'));assert.equal(old.count,1);assert.equal(old.elapsed,8132);console.log('CONTROLLED replay: 2.1.0 cold '+old.elapsed+'ms/1 link; 3.0.0 cold '+cold.elapsed+'ms/2 links; 3.0.0 warm '+warm.elapsed+'ms/2 links.');}
+ console.log('PASS: both sources retained; public-key cache across disposable runtimes; public-rendition cache skips master only; fresh child/segment probes; expiry/stale repair; signed query excluded; subtitle payload/fallback/non-blocking; deduplication; deadlines; timer cleanup; no late requests/logs.');
 })().catch(e=>{console.error(e);process.exitCode=1});

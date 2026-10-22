@@ -1,10 +1,8 @@
-# Files to delete — NetMirror and Peachify
-
-Delete these exact files if they still exist. If already absent, no action is needed.
+# Files to delete
 
 - `providers/netmirror.js`
 - `providers/peachify.js`
 
-The included manifest 1.20.71 already removes both entries. VidRock remains at 2.1.0. Do not delete any other provider as part of this patch.
+Delete these exact files only if they still exist. Both entries are already removed from the included manifest 1.20.72. Already-absent files require no action. VidRock remains installed at 3.0.0.
 
-The existing Apply Cloudbank ZIP Patch workflow copies files only. It does not execute this list or delete existing files automatically. No deletion script or workflow change is included.
+The existing ZIP workflow copies files only; this list does not auto-delete files. No YML or deletion script is included.
