@@ -5,3 +5,4 @@ Delete these files from your repository when applying this patch. No executable 
 - `providers/uhdmovies.js`
 - `providers/vegamovies.js`
 - `providers/videasy.js`
+

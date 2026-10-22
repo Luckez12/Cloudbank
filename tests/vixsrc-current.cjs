@@ -2,7 +2,7 @@ const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/st
 const source=fs.readFileSync('providers/vixsrc.js','utf8');
 const expiry=String(Math.floor(Date.now()/1000)+3600);
 const html=`<script>window.masterPlaylist = {params: {'token':'fixture%+token', 'expires':'${expiry}', 'asn':'fixture-asn', 'empty':''}, url:'https://vixsrc.to/playlist/987654'};</script>`;
-function load({page=html,src='/embed/987654?lang=ja&cdn=fixture',apiStatus=200,embedStatus=200}={}) {
+function load({page=html,src='/embed/987654?lang=ja&cdn=fixture',apiStatus=200,embedStatus=200,vueoRuntime=false}={}) {
  const calls=[],logs=[];
  const context={module:{exports:{}},URL,setTimeout,clearTimeout,console:{log:s=>logs.push(s)},
   fetch:async(url,options)=>{
@@ -11,6 +11,10 @@ function load({page=html,src='/embed/987654?lang=ja&cdn=fixture',apiStatus=200,e
    if(calls.length===1) return {ok:apiStatus===200,status:apiStatus,url,json:async()=>({src})};
    return {ok:embedStatus===200,status:embedStatus,url,text:async()=>page};
   }};
+ if (vueoRuntime) {
+  context.__vueoUrlOp=raw=>{const {input,base}=JSON.parse(raw);const u=new URL(input,base||undefined);return JSON.stringify({href:u.href,origin:u.origin,protocol:u.protocol,hostname:u.hostname,host:u.host,port:u.port,pathname:u.pathname,search:u.search,hash:u.hash,queryPairs:Array.from(u.searchParams.entries())});};
+  vm.runInNewContext(fs.readFileSync('tests/fixtures/vixsrc-vueo-url-shim.js','utf8'),context,{timeout:1000});
+ }
  vm.runInNewContext(source,context,{timeout:1000});return {provider:context.module.exports,calls,logs};
 }
 (async()=>{
@@ -39,5 +43,10 @@ function load({page=html,src='/embed/987654?lang=ja&cdn=fixture',apiStatus=200,e
   const test=load({page});assert.equal((await test.provider.getStreams('1','movie')).length,0);
  }
  const defaults=load({src:'/embed/987654'});const result=await defaults.provider.getStreams('1','movie');assert.equal(new URL(result[0].url).searchParams.get('lang'),'en');
+ // Critical regression: VUEO's URL.searchParams is detached from URL.href.
+ // Node URL alone cannot catch tokens lost when serializing the signed master.
+ const runtime=load({vueoRuntime:true});const runtimeRows=await runtime.provider.getStreams('12345','movie');
+ assert.equal(runtimeRows.length,1);assert.equal(runtimeRows[0].url,rows[0].url,'Actual VUEO URL shim must return the same signed master as browser URL');
+ assert.equal(runtime.calls.length,2);assert.equal(new URL(runtimeRows[0].url).searchParams.get('token'),'fixture%+token');
  console.log('VixSrc current flow: two reads, exact movie/episode route, API mapping, master params/headers, adaptive output, fail-fast HTTP errors, rejected incomplete/expired/wrong-host payloads passed.');
 })().catch(e=>{console.error(e);process.exitCode=1;});

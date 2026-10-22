@@ -153,7 +153,7 @@ function cloudbankMetadataFetch(nativeFetch) {
   }
   (function(module, exports, require, fetch, self) {
 /* CLOUDBANK_UPSTREAM_SOURCE_START */
-/* VixSrc v2.0.1: current website API -> embed -> original master HLS.
+/* VixSrc v2.0.2: current website API -> embed -> original master HLS.
  * No WebView, playlist probes, variant splitting, external subtitles or fallback hosts.
  */
 var VIXSRC_BASE = 'https://vixsrc.to';
@@ -235,7 +235,11 @@ function vixsrcMaster(html, pageUrl, videoId) {
     if (page.searchParams.get('cdn')) master.searchParams.append('cdn', page.searchParams.get('cdn'));
     master.searchParams.append('h', '1');
     master.searchParams.append('lang', page.searchParams.get('lang') || 'en');
-    return master.toString();
+    // VUEO's URL compatibility layer keeps searchParams separate from href.
+    // Serialize the query explicitly instead of losing the website signature
+    // through URL.toString(). This is identical under browser/Node URL too.
+    var query = master.searchParams.toString();
+    return master.origin + master.pathname + (query ? '?' + query : '') + (master.hash || '');
   }
   return null;
 }
@@ -245,7 +249,7 @@ async function getStreams(tmdbId, mediaType, seasonNum, episodeNum) {
   if (mediaType === 'tv' && (!Number.isInteger(seasonNum) || seasonNum < 0 || !Number.isInteger(episodeNum) || episodeNum < 1)) return [];
   var path = mediaType === 'movie' ? '/movie/' + tmdbId : '/tv/' + tmdbId + '/' + seasonNum + '/' + episodeNum;
   var page = VIXSRC_BASE + path + '/';
-  vixsrcLog('ROUTE: v2.0.1 exact TMDB=' + tmdbId + ' ' + mediaType + (mediaType === 'tv' ? ' S' + seasonNum + 'E' + episodeNum : '') + '; API -> embed -> master; HTTP only; playback transport=shared');
+  vixsrcLog('ROUTE: v2.0.2 exact TMDB=' + tmdbId + ' ' + mediaType + (mediaType === 'tv' ? ' S' + seasonNum + 'E' + episodeNum : '') + '; API -> embed -> master; explicit signed query; HTTP only; playback transport=shared');
   try {
     calls++;
     var api = await vixsrcRead(VIXSRC_BASE + '/api' + path, page, true);

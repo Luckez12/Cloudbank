@@ -1,6 +1,6 @@
 {
   "name": "Cloudbank",
-  "version": "1.20.83",
+  "version": "1.20.84",
   "scrapers": [
     {
       "id": "kisskh",
@@ -709,7 +709,7 @@
       "id": "vixsrc",
       "name": "VixSrc",
       "description": "VixSrc original adaptive master HLS through the current website API and embed.",
-      "version": "2.0.1",
+      "version": "2.0.2",
       "author": "Nuvio Team",
       "supportedTypes": [
         "movie",
@@ -731,7 +731,7 @@
         "tv"
       ],
       "upstreamVersion": "1.0.0",
-      "notes": "Rebuilt current website flow: exact TMDB movie/TV API to same-origin mapped embed, scoped signed master parsing and current website h/lang construction. Two HTTP reads only; no dead custom-domain/direct-page fallback, WebView, media/child/segment probes, external subtitle requests or signed URL cache. Original master retained with adaptive quality/audio options; audio unverified/unknown accepted. Live audit returned HTTP 200 HLS with three variants; Android playback still requires device testing. v2.0.1 opts into the existing generic shared playback HTTP transport (OkHttp client reused from discovery); master URL and playback headers otherwise unchanged. Device HTTP 403 fix not yet verified.",
+      "notes": "Current website API -> mapped embed -> original adaptive master, two HTTP reads, no WebView/media probes/variants/subtitle requests or signed cache. v2.0.2 fixes a reproduced VUEO runtime compatibility bug: detached URL.searchParams mutations were lost by URL.toString(), dropping token/expires from the returned master. Signed query is now serialized explicitly, tested with the actual VUEO URL shim as well as Node URL. Existing generic shared playback HTTP transport retained. Unknown audio accepted; no provider/title/device hardcode in VUEO. Live website master returned HTTP 200 HLS; corrected Android playback still requires device testing.",
       "sourceRepository": "https://github.com/D3adlyRocket/All-in-One-Nuvio",
       "sourceCommit": "3f09a6ff4360498895e622877af7a32212f75038",
       "runtimeModules": []
