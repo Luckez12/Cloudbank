@@ -1,28 +1,24 @@
-Cloudbank 1.20.72 — VidRock 3.0.0
+Cloudbank 1.20.73 — VidRock 3.1.0 repeated-search speed update
 
-One combined ZIP: provider, manifest, DELETE_FILES.md and three standalone regression tests. No VUEO application files, dependencies, YML or executable deletion script. Apply using the existing patch workflow. NetMirror and Peachify must remain absent; if already deleted, no further deletion is needed.
+One combined patch: provider, manifest, exact delete list and regression tests. No YML, dependency, VUEO app or deletion-script change. Subtitle behavior is unchanged from v3.0.0; both the complete subtitle implementation and its standalone test are byte-identical. The media verification function is also byte-identical.
 
-Discovery and source changes
-- Removes the 1500ms post-first-source cutoff. Continues eligible routes in parallel, retaining up to three validated sources, subject to per-request timeouts and the existing 17.5s total budget. A slow/unavailable host can still yield fewer sources. Already completed sources survive the total deadline.
-- Bundles the public AES-GCM protocol key from the current website bundle /assets/index-BWWyXXb7.js. Its compatibility with the current movie API was checked with authenticated decryption. The normal cold path skips homepage and 1.27MB bundle requests. If all eligible encrypted URLs fail authentication with this bootstrap/cached key, fetch the current website key once and retry decoding. No static movie/title/device exception or VUEO hardcode is introduced.
-- Keeps the existing public-key metadata cache, 5-minute TTL and optional app-memory bridge. A cache miss after a provider-version update or process restart is normal. The bootstrap path does not require a warm cache. Diagnostics distinguish website-bootstrap, cache hit and refreshed key.
-- Collapses duplicate decrypted source URLs and shares identical in-flight reads. Small HLS/JSON reads may be reused within one invocation; media validation is retained.
-- Reuses a previously validated rendition choice for 60s only for exact same root URL, same-origin/same-directory .m3u8 paths without credentials/query/fragment or audio group. Each use still fetches the child playlist and checks its segment. A stale/failed cached route is discarded and the master fetched again. Opaque token routes are not eligible. No video payload is cached. App cache is process-local; provider-local fallback lasts only for that JS runtime.
-- Preserves explicit HLS MIME, headers, 720p minimum, audio label policy, PNG/HTML rejection, native text-prefix limitations and binary/SPS checks where available.
+What changes
+The previous rendition cache required the full master URL to match. A fresh API URL with a changed hostname/folder/token could not use that entry. v3.1.0 remembers only the relative rendition path, master filename, quality and codec metadata learned from a successfully validated master. That choice is scoped to the exact requested TMDB movie/TV/season/episode and the logical API server for 60 seconds. It is resolved against the CURRENT authenticated API URL each time. No previous hostname or folder token is copied, and there is no hardcoded 1080p/CDN/movie route.
 
-Website subtitles
-- Fetches the website v1 subtitle list concurrently with media discovery; v2 is a fallback. Subtitle requests do not add a post-media wait. A list which is not ready when media completes may be omitted; embedded captions and app subtitle features are separate.
-- Supports website array, wrapper and language-map JSON shapes, HTTPS sidecars, VTT/SRT/ASS MIME and request headers. Groups different languages before duplicate tracks within the app's 32-track limit, preferring unnumbered tracks. The inspected 66-entry website list includes English and Malay within the resulting 32-track selection. This does not synthesize or translate subtitles.
-- Public no-query subtitle-list metadata may be reused for 60s. Subtitle content/synchronization is not presumed from a language label. A live English VTT file was HTTP200 with a WEBVTT prefix; synchronization with playback needs device testing.
+Cache eligibility remains limited to HTTPS same-origin/same-directory m3u8 paths without credentials, query, fragment or separate audio group. The incoming master filename must match the learned filename. Opaque-token routes such as the previously inspected Luna routes are not eligible. Different movies, episodes and servers do not share choices.
 
-Validation and practical limits
-- npm run validate: 39 providers, manifest/file inventory matched.
+Every cache hit still fetches the current child playlist and probes its segment. If the cached path fails, the entry is removed, its per-invocation child read is invalidated, and the current master is fetched normally. TTL does not extend just because a cache hit succeeds. Completed alternatives, quality/audio rules, HLS MIME/headers, source limit, parallelism and total deadline are retained.
+
+Expected limits
+This saves a master-playlist request on eligible repeated searches, including when URL tokens or hostnames rotate. It does not remove the necessary first-search requests or Luna's opaque-token hops. Total time still waits for the slower validated route; a faster Orion does not reduce total time below Luna's completion time. This is not a fixed-seconds speed guarantee. Existing app-memory cache support is used; no new app bridge or player change.
+
+Validation
+- npm run validate: 39 providers and matching manifest inventory.
 - node --check providers/vidrock.js.
-- node tests/vidrock-website.cjs: GCM authentication/tamper, bundled-key mismatch refresh, cached-key rotation, exact routing, HLS MIME, relative redirects, native fallback, quality/audio rules and bad-payload rejection.
-- node tests/vidrock-latency.cjs: disposable-runtime cache reuse, master skip with fresh child/segment probes, expiry/stale fallback, query exclusion, subtitle parallelism/fallback/cache, deduplication, full deadline and late-work/timer cleanup.
-- node tests/vidrock-subtitles.cjs: subtitle shapes, MIME, language variety, URL/track bounds and cache scope.
-- Controlled replay of a synthetic schedule based on the earlier device log: v2.1.0 cold 8132ms/one link; v3.0.0 cold 11477ms/two links; v3.0.0 warm 8583ms/two links. The uncapped v2.0.0 replay previously took 13077ms/two links. Preserving the second source can be slower than dropping it. These are fixture results, not handset speed measurements or guarantees. Cache benefit depends on source URL shape; Luna's opaque routes do not qualify for master reuse.
-- Live checks during this update: current website/API/key inspected; the requested movie API returned one URL (Luna), not two. The provider retrieved 32 subtitle entries via v1. The video host timed out in the full live provider run, yielding zero validated video sources in that run. Playback of this update is not confirmed. The previous v2.1.0 device log did show video playback. Do not interpret API/playlist/subtitle checks as full playback or subtitle synchronization confirmation.
+- node tests/vidrock-website.cjs: existing protocol/media checks, derived paths, current URL resolution, no copied old token/host, malformed path and filename rejection.
+- node tests/vidrock-latency.cjs: fresh host/folder/token rotation, both sources retained, fresh child and segment probes, cache scope across titles/episodes, stale-HTTP and stale-segment repair, TTL, query exclusion and cleanup.
+- node tests/vidrock-subtitles.cjs: unchanged test still passes.
+- Controlled synthetic rotating-URL replay: v3.0.0 11477ms/two links; v3.1.0 8583ms/two links (25% faster). These are fixture measurements, not handset or live playback results. This patch has not been tested on the phone. The user confirmed v3.0.0 subtitle playback; that implementation is unchanged.
 
-Test on device
-Apply this combined patch, run a fresh build, search the same movie twice within one minute, and test playback plus English/Malay subtitles. Share the full provider/player log. Inspect DISCOVERY, VARIANT_CACHE, TIMING and SUBTITLE_RESULT. Source count follows the current website API and completed host checks.
+Apply and check
+Apply this ZIP, run a fresh build, then search the same title twice within one minute. Inspect VARIANT_CACHE: recipe saved/hit and TIMING variantHits. The first run after a version update starts a new cache namespace. Share the second search log to measure actual improvement.

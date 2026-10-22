@@ -1,6 +1,6 @@
 {
   "name": "Cloudbank",
-  "version": "1.20.72",
+  "version": "1.20.73",
   "scrapers": [
     {
       "id": "kisskh",
@@ -612,8 +612,8 @@
     {
       "id": "vidrock",
       "name": "VidRock",
-      "description": "Website API HLS, 720p+, parallel sources, public metadata reuse and website subtitles",
-      "version": "3.0.0",
+      "description": "Website API HLS, 720p+, reusable rendition choices with current API URLs",
+      "version": "3.1.0",
       "author": "Nuvio Team",
       "supportedTypes": [
         "movie",
@@ -635,7 +635,7 @@
         "tv"
       ],
       "upstreamVersion": "1.0.0",
-      "notes": "v3.0.0 replaces the 1.5 second alternative cutoff with collection of all completed routes, up to three sources, within the existing 17.5 second deadline. The current public website AES-GCM protocol key is bundled to skip homepage/bundle lookups on the normal cold path; authenticated URL mismatch refreshes it from the website once. Public-key cache remains process scoped through the existing optional metadata bridge. Exact duplicate routes/reads are coalesced. Validated public same-directory m3u8 rendition metadata is cached for 60 seconds only when both URLs have no query/fragment; each use fetches the child playlist and probes its segment again, with fresh-master fallback on failure. Opaque/signed media routes are not cached. Website subtitle lists are fetched in parallel with v1 then v2 fallback; public no-query sidecar metadata may be reused for 60 seconds. Language variety is prioritized before alternate tracks within the 32-track app limit. Slow subtitle APIs do not add a post-media wait. Existing HLS MIME/headers, audio-label policy and segment/quality checks are retained. No VUEO application changes or title/device exceptions. Website API/host availability controls source count. Native playback and subtitle timing require device testing.",
+      "notes": "v3.1.0 speed update only: cache the relative rendition path and quality derived from a validated master, scoped to exact TMDB movie/TV/season/episode and logical API server for 60 seconds. Resolve that path against the current authenticated API root URL rather than retaining an old hostname/token. Matching root filename, HTTPS, same-directory m3u8 paths, no query/fragment/credentials or audio group are required. Re-fetch child playlist and probe its segment each time; reload master after failed cached validation and invalidate a stale per-invocation child read before retry. No copied token, host, title or device routing rule. First searches and opaque-token sources retain their existing HTTP steps. Existing public website key bootstrap/rotation, three parallel routes, 17.5 second total budget, up to three completed sources, audio/quality/HLS/segment checks and display behavior remain. Subtitle implementation is byte-for-byte unchanged from v3.0.0, as requested. No VUEO app changes. App-memory cache availability and upstream HTTP timing determine the actual saving.",
       "sourceRepository": "https://github.com/D3adlyRocket/All-in-One-Nuvio",
       "sourceCommit": "3f09a6ff4360498895e622877af7a32212f75038",
       "runtimeModules": []

@@ -1,4 +1,4 @@
-/* VidRock 3.0.0 — parallel sources, reusable public rendition metadata and website subtitles. */
+/* VidRock 3.1.0 — reuse validated relative rendition recipes with the current API URL. */
 /* VUEO_SHARED_DISCOVERY_CONTEXT_V1 */
 function vueoSharedTmdb(url, fallback) {
   function trace(stage, details) {
@@ -281,13 +281,26 @@ function buildTitleProfile(tmdb) {
     log('MEDIA: server='+clean(row.name)+' '+q+'p; '+proof.evidence+'; codec='+codec+'; MIME=HLS');
     return {name:'VidRock',title:state.title+'\n'+q+'p | '+row.audio.label+'\n'+clean(row.name),url:mediaURL,mimeType:'application/x-mpegURL',type:'hls',isHls:true,quality:q+'p',videoCodec:codec,codecEvidence:dims?'transport-SPS':codec!=='unknown'?'HLS-codecs':'unknown',audioStatus:row.audio.status,audioLanguages:row.audio.languages,language:row.audio.languages.length===1?row.audio.languages[0]:'',audioEvidence:'API language label; not a probe of actual tracks',provider:'vidrock',serverName:clean(row.name),headers:headers(),subtitles:[],behaviorHints:{notWebReady:true}};
   }
+  function routeRecipeScope(state,row){return state.mediaPath+'|'+row.name;}
+  function renditionRecipe(root,v){
+    if(!reusableVariant(root,v))return null;
+    var a=new URL(root),b=new URL(v.url),directory=a.pathname.slice(0,a.pathname.lastIndexOf('/')+1);
+    return {rootFile:a.pathname.slice(directory.length),relative:b.pathname.slice(directory.length),quality:Number(v.quality),codecs:v.codecs||''};
+  }
+  function recipeVariant(root,recipe){
+    if(!recipe||typeof recipe.relative!=='string'||recipe.relative.length>2048||!recipe.relative||/^[\/\\]|[?#]/.test(recipe.relative))return null;
+    try{var a=new URL(root);if(a.pathname.slice(a.pathname.lastIndexOf('/')+1)!==recipe.rootFile)return null;
+      var v={url:https(recipe.relative,root),quality:Number(recipe.quality),codecs:clean(recipe.codecs).slice(0,200),audioGroup:''};
+      return reusableVariant(root,v)?v:null;
+    }catch(_){return null;}
+  }
   async function resolveRoute(state,row){
-    var cacheKey='vidrock:v3:variant:'+hash(row.url),saved=cache('get',null,cacheKey);
-    if(saved&&saved.schema===1&&saved.root===row.url&&Date.now()>=saved.at&&Date.now()-saved.at<60000&&saved.variant&&reusableVariant(row.url,saved.variant)){
+    var scope=routeRecipeScope(state,row),cacheKey='vidrock:v31:recipe:'+hash(scope),saved=cache('get',null,cacheKey),v;
+    if(saved&&saved.schema===2&&saved.scope===scope&&Date.now()>=saved.at&&Date.now()-saved.at<60000&&(v=recipeVariant(row.url,saved.recipe))){
       try{
-        var cached=await verifyVariant(state,row,{url:row.url,binaryCapable:false},{tracks:[]},saved.variant);
-        state.variantHits++;log('VARIANT_CACHE: hit server='+clean(row.name)+'; child and segment rechecked');return cached;
-      }catch(e){if(state.finished)return null;cache('remove',null,cacheKey);log('VARIANT_CACHE: stale server='+clean(row.name)+'; refreshing master');}
+        var cached=await verifyVariant(state,row,{url:row.url,binaryCapable:false},{tracks:[]},v);
+        state.variantHits++;log('VARIANT_CACHE: recipe hit server='+clean(row.name)+'; current API URL; child and segment rechecked');return cached;
+      }catch(e){if(state.finished)return null;cache('remove',null,cacheKey);if(state.reads)delete state.reads[v.url];log('VARIANT_CACHE: stale server='+clean(row.name)+'; refreshing master');}
     }
     var root=await get(state,row.url,false),manifest,rootURL=root.url,hint=0;
     if(/^\s*\[/.test(root.text||'')){
@@ -301,7 +314,8 @@ function buildTitleProfile(tmdb) {
     for(var i=0;i<Math.min(variants.length,2);i++){
       try{
         var v=variants[i],item=await verifyVariant(state,row,root,manifest,v);
-        if(row.url===rootURL&&reusableVariant(row.url,v))cache('put',{schema:1,root:row.url,at:Date.now(),variant:{url:v.url,quality:parseInt(item.quality),codecs:v.codecs||'',audioGroup:v.audioGroup||''}},cacheKey,60000);
+        var recipe=row.url===rootURL?renditionRecipe(row.url,Object.assign({},v,{quality:parseInt(item.quality)})):null;
+        if(recipe){cache('put',{schema:2,scope:scope,at:Date.now(),recipe:recipe},cacheKey,60000);log('VARIANT_CACHE: recipe saved server='+clean(row.name)+'; TTL=60s');}
         return item;
       }catch(error){if(state.finished)return null;log('SKIP: server='+clean(row.name)+' rendition='+(variants[i].quality||'unknown')+'p reason='+safeReason(error));}
     }return null;
@@ -352,9 +366,9 @@ function buildTitleProfile(tmdb) {
     if(!/^[1-9]\d*$/.test(String(id))||['movie','tv'].indexOf(type)<0||type==='tv'&&(!Number.isInteger(Number(season))||Number(season)<0||season==null||!Number.isInteger(Number(episode))||Number(episode)<1))return [];
     var started=Date.now(),state={calls:0,reused:0,variantHits:0,subtitles:[],subtitleStatus:'pending',deadline:started+17500,finished:false,title:'TMDB '+id},timer;
     state.stopped=new Promise(function(done){state.stop=done;});
-    log('ROUTE: v3.0.0 website exact TMDB '+id+' '+type+(type==='tv'?' S'+Number(season)+'E'+Number(episode):'')+'; original/dual/unknown; minimum 720p; parallel routes=3; retain completed alternatives; no VUEO changes');
+    log('ROUTE: v3.1.0 website exact TMDB '+id+' '+type+(type==='tv'?' S'+Number(season)+'E'+Number(episode):'')+'; original/dual/unknown; minimum 720p; parallel routes=3; retain completed alternatives; no VUEO changes');
     try{
-      var path=type==='movie'?'movie/'+id:'tv/'+id+'/'+Number(season)+'/'+Number(episode),route=BASE+'/api/'+path;
+      var path=type==='movie'?'movie/'+id:'tv/'+id+'/'+Number(season)+'/'+Number(episode),route=BASE+'/api/'+path;state.mediaPath=path;
       loadSubtitles(state,path).catch(function(){});
       var metadataURL='https://api.themoviedb.org/3/'+type+'/'+id+'?api_key=1865f43a0549ca50d341dd9ab8b29f49';
       var metaTask=vueoSharedTmdb(metadataURL,async function(){var r=await get(state,metadataURL,false);return JSON.parse(r.text);}).catch(function(){return {};});
