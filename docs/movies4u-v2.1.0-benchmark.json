@@ -1,0 +1,27 @@
+{
+  "test": "Replay actual saved website HTML, 20ms simulated network per HTTP call; fresh VM per run",
+  "baseline": {
+    "calls": 13,
+    "attrs": 192,
+    "domCalls": 520,
+    "parses": 9,
+    "sources": 3,
+    "elapsedMs": 251
+  },
+  "cold": {
+    "calls": 13,
+    "attrs": 24,
+    "domCalls": 157,
+    "parses": 8,
+    "sources": 3,
+    "elapsedMs": 181
+  },
+  "warm": {
+    "calls": 9,
+    "attrs": 6,
+    "domCalls": 33,
+    "parses": 6,
+    "sources": 3,
+    "elapsedMs": 66
+  }
+}

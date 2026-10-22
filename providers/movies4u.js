@@ -1,4 +1,4 @@
-/* Movies4u 2.0.2 — one website route, exact identity/episode selection, bounded media validation. */
+/* Movies4u 2.1.0 — one website route, exact identity/episode selection, bounded media validation. */
 /* VUEO_SHARED_DISCOVERY_CONTEXT_V1 */
 function vueoSharedTmdb(url, fallback) {
   function trace(stage, details) {
@@ -83,6 +83,50 @@ function buildTitleProfile(tmdb) {
   var DOMAIN_MAP='https://raw.githubusercontent.com/phisher98/TVVVV/refs/heads/main/domains.json';
   var UA='Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Mobile Safari/537.36';
   var domainCache=null;
+  var metadataCache=Object.create(null),metadataOrder=[];
+  function nativeCache(request){
+    try{if(typeof globalThis.vueoMetadataCache==='function'){
+      var raw=globalThis.vueoMetadataCache(JSON.stringify(request));return typeof raw==='string'?JSON.parse(raw):raw;
+    }}catch(_){}return null;
+  }
+  function cacheGet(key){
+    var value=nativeCache({op:'get',key:key});
+    if(value&&typeof value==='object')return value;
+    var entry=metadataCache[key],age=entry?Date.now()-entry.at:-1;
+    if(entry&&age>=0&&age<entry.ttl)return JSON.parse(entry.json);
+    delete metadataCache[key];return null;
+  }
+  function cachePut(key,value,ttl){
+    var encoded;try{encoded=JSON.stringify(value);}catch(_){return;}
+    if(encoded.length>20000||key.length>256)return;
+    ttl=Math.min(ttl,300000);metadataCache[key]={json:encoded,at:Date.now(),ttl:ttl};
+    metadataOrder=metadataOrder.filter(function(k){return k!==key;});metadataOrder.push(key);
+    while(metadataOrder.length>32)delete metadataCache[metadataOrder.shift()];
+    nativeCache({op:'put',key:key,value:value,ttlMs:ttl});
+  }
+  function cacheRemove(key){delete metadataCache[key];metadataOrder=metadataOrder.filter(function(k){return k!==key;});nativeCache({op:'remove',key:key});}
+  function publicRoute(url,check){try{var u=new URL(url);return check(url)&&!u.search&&!u.hash;}catch(_){return false;}}
+  function cachedRows(value,token,base,files,meta,type,season){
+    if(!value||value.schema!==1||value.token!==token||!Array.isArray(value.rows)||!value.rows.length||value.rows.length>4)return null;
+    try{if(new URL(value.postURL).origin!==new URL(base).origin)return null;}catch(_){return null;}
+    var rows=[];
+    for(var i=0;i<value.rows.length;i++){
+      var row=value.rows[i];
+      if(!row||!publicRoute(row.url,files?hubURL:archiveURL)||[720,1080,1440,2160].indexOf(row.quality)<0||typeof row.postTitle!=='string'||row.postTitle.length>1500||typeof row.postYear!=='string')return null;
+      if(files&&!publicRoute(row.ref,archiveURL))return null;
+      if(type==='tv'&&seasonValue(row.postTitle)!==season)return null;
+      var audio=audioPolicy(row.postTitle,meta.original_language||'');if(!audio.allowed)return null;
+      var hint=row.codecInfo||{};if(['h264','hevc','unknown'].indexOf(hint.codec)<0)return null;
+      rows.push({url:row.url,ref:row.ref,quality:row.quality,audio:audio,label:clean(row.label).slice(0,1500),postTitle:row.postTitle,postYear:row.postYear,codecInfo:{codec:hint.codec,bitDepth:hint.bitDepth===10?10:hint.bitDepth===8?8:null}});
+    }
+    return rows;
+  }
+  function cacheRows(key,token,postURL,rows,ttl){
+    if(!rows.length||rows.length>4||rows.some(function(row){return !publicRoute(row.url,hubURL)&&!publicRoute(row.url,archiveURL)||row.ref&&!publicRoute(row.ref,archiveURL);}))return;
+    var data=rows.map(function(row){return {url:row.url,ref:row.ref,quality:row.quality,label:row.label,codecInfo:row.codecInfo,postTitle:row.postTitle,postYear:row.postYear};});
+    cachePut(key,{schema:1,token:token,postURL:postURL,rows:data},ttl);
+  }
+
   var LANG={en:['english'],hi:['hindi'],ko:['korean'],ja:['japanese'],zh:['chinese','mandarin','cantonese'],ta:['tamil'],te:['telugu'],ml:['malayalam'],kn:['kannada'],bn:['bengali','bangla'],ms:['malay'],id:['indonesian'],fr:['french'],de:['german'],es:['spanish'],it:['italian'],pt:['portuguese'],th:['thai'],tr:['turkish'],ar:['arabic'],ru:['russian'],vi:['vietnamese'],tl:['filipino','tagalog'],pa:['punjabi'],mr:['marathi']};
   function log(s){console.log('[Movies4u] '+s);}
   function clean(s){return String(s||'').replace(/\s+/g,' ').trim();}
@@ -160,7 +204,7 @@ function buildTitleProfile(tmdb) {
   function pageTitle($){return clean($('meta[property="og:title"]').attr('content')||$('title').text()||$('h1.entry-title').first().text()).replace(/\s*[-–]\s*Movies4u.*$/i,'');}
   function pageIdentity($,meta,type,season){
     var title=pageTitle($),imdb=(meta.external_ids||{}).imdb_id||meta.imdb_id||'',ids=[];
-    $('a[href]').each(function(_,e){
+    $('a[href*="imdb.com/title/"]').each(function(_,e){
       try{var u=new URL($(e).attr('href')),m=/^\/title\/(tt\d+)(?:\/|$)/.exec(u.pathname);
         if(/^(?:www\.)?imdb\.com$/i.test(u.hostname)&&m&&ids.indexOf(m[1])<0)ids.push(m[1]);
       }catch(_){}
@@ -190,8 +234,8 @@ function buildTitleProfile(tmdb) {
     }
     return clean(box.text());
   }
-  function parsePost(html,base,meta,type,season){
-    var $=$lib.load(html),title=verifyPage($,meta,type,season),rows=[],seen=Object.create(null);
+  function parsePost(html,base,meta,type,season,document,identity){
+    var $=document||$lib.load(html),title=identity&&identity.valid?identity.title:verifyPage($,meta,type,season),rows=[],seen=Object.create(null);
     if(!title)return [];
     var audio=audioPolicy(title,meta.original_language||'');if(!audio.allowed)return [];
     $('.download-links-div a[href]').each(function(_,a){
@@ -216,8 +260,10 @@ function buildTitleProfile(tmdb) {
     if(!(exactTitle(title,meta)||source.postTitle&&titleOf(title)===titleOf(source.postTitle))||yearOf(title)!==source.postYear||(type==='tv'&&seasonValue(title)!==season))return [];
     $('.download-links-div a[href]').each(function(_,a){
       if(!visible($,a))return;
-      var href=abs($(a).attr('href'),base),label=blockLabel($,a);
-      if(!hubURL(href)||seen[href]||/\b(?:zip|pack)\b/i.test(label))return;
+      var href=abs($(a).attr('href'),base);
+      if(!hubURL(href)||seen[href])return;
+      var label=blockLabel($,a);
+      if(/\b(?:zip|pack)\b/i.test(label))return;
       if(type==='tv'){
         var ep=episodeHeading(label);if(!ep||ep.episode!==episode||(ep.season!==null&&ep.season!==season))return;
       }
@@ -287,14 +333,26 @@ function buildTitleProfile(tmdb) {
       return vueoSharedTmdb(endpoint,function(){return request(endpoint).then(function(r){return JSON.parse(r.text);});});
     }
     async function domain(){
-      if(domainCache&&Date.now()-domainCache.at<1800000)return domainCache.url;
-      try{var d=JSON.parse((await request(DOMAIN_MAP,FALLBACK+'/',false,2000)).text),value=allowedDomain(d.movies4u);if(value){domainCache={url:value,at:Date.now()};return value;}}catch(_){log('DOMAIN: map unavailable; using tested fallback');}
+      if(domainCache&&Date.now()-domainCache.at<300000)return domainCache.url;
+      var cachedDomain=cacheGet('m4u:domain');
+      if(cachedDomain&&allowedDomain(cachedDomain.url)){domainCache={url:allowedDomain(cachedDomain.url),at:Date.now()};return domainCache.url;}
+      try{var d=JSON.parse((await request(DOMAIN_MAP,FALLBACK+'/',false,2000)).text),value=allowedDomain(d.movies4u);if(value){domainCache={url:value,at:Date.now()};cachePut('m4u:domain',{url:value},300000);return value;}}catch(_){log('DOMAIN: map unavailable; using tested fallback');}
       return FALLBACK;
     }
     try{
       var values=await Promise.all([metadata(),domain()]),meta=values[0],base=values[1],aliases=buildTitleProfile(meta).aliases.slice(0,2),page=null,archives=[],sources=[];
-      log('ROUTE: v2.0.2 '+new URL(base).hostname+'; IMDb-first identity; H.264 first; alternatives up to 3; parallel routes=3; one engine; original/dual-including-original/unknown; minimum 720p');
-      var imdb=(meta.external_ids||{}).imdb_id||meta.imdb_id,queries=imdb?[imdb,aliases[0]]:aliases,visited=Object.create(null),postAttempts=0;
+      log('ROUTE: v2.1.0 '+new URL(base).hostname+'; IMDb-first identity; H.264 first; alternatives up to 3; parallel routes=3; one engine; original/dual-including-original/unknown; minimum 720p');
+      var imdb=(meta.external_ids||{}).imdb_id||meta.imdb_id;
+      var token=JSON.stringify([String(id),type,season||0,episode||0,imdb||'',meta.title||meta.name||'',meta.release_date||meta.first_air_date||'',meta.original_language||'']);
+      var cacheKey='m4u:2.1:'+new URL(base).hostname+':'+type+':'+id+':'+(season||0)+':'+(episode||0)+':'+(meta.original_language||'?');
+      var fileEntry=cacheGet(cacheKey+':files'),cachedFiles=cachedRows(fileEntry,token,base,true,meta,type,season);
+      if(cachedFiles){sources=cachedFiles;page={url:fileEntry.postURL};log('CACHE: file routes hit; fresh host/token/media requests required');}
+      else{
+        var routeEntry=cacheGet(cacheKey+':post'),cachedPost=cachedRows(routeEntry,token,base,false,meta,type,season);
+        if(cachedPost){archives=cachedPost;page={url:routeEntry.postURL};log('CACHE: verified post routes hit; refreshing file list');}
+      }
+      log('CACHE_SCOPE: '+(typeof globalThis.vueoMetadataCache==='function'?'app-memory':'runtime-only')+'; postTTL=300s fileTTL=120s');
+      var queries=imdb?[imdb,aliases[0]]:aliases,visited=Object.create(null),postAttempts=0;
       for(var qi=0;qi<queries.length&&!page;qi++){
         if(!queries[qi])continue;
         var search=await request(base+'/lookup.php?q='+encodeURIComponent(queries[qi])+'&page=1&per_page=30',base+'/search.html?q='+encodeURIComponent(queries[qi])),data=JSON.parse(search.text);
@@ -309,23 +367,24 @@ function buildTitleProfile(tmdb) {
           if(!pageURL||new URL(pageURL).hostname!==new URL(base).hostname||visited[pageURL])continue;
           visited[pageURL]=true;postAttempts++;
           try{
-            var candidate=await request(pageURL,base+'/'),identity=pageIdentity($lib.load(candidate.text),meta,type,season);
+            var candidate=await request(pageURL,base+'/'),document=$lib.load(candidate.text),identity=pageIdentity(document,meta,type,season);
             if(!identity.valid){log('POST_REJECT: '+identity.reason);continue;}
             log('IDENTITY: '+identity.reason);
-            page=candidate;archives=parsePost(page.text,page.url,meta,type,season);
+            page=candidate;archives=parsePost(page.text,page.url,meta,type,season,document,identity);
             var audio=audioPolicy(identity.title,meta.original_language||'');
             log('AUDIO: '+audio.status+' allowed='+audio.allowed);
+            cacheRows(cacheKey+':post',token,page.url,archives,300000);
           }catch(err){log('POST: '+String(err.message||err));}
         }
       }
       if(!page){log('NO_RESULT: no verified IMDb or exact title/year post; checked='+postAttempts);return [];}
       log('POST: eligible link pages='+archives.length+(type==='tv'?' S'+season+'E'+episode:''));
       var groups=await Promise.all(archives.slice(0,3).map(async function(source){
-        try{var archive=await request(source.url,page.url);return parseArchive(archive.text,archive.url,meta,type,season,episode,source).map(function(row){row.ref=archive.url;return row;});}
+        try{var archive=await request(source.url,page.url);return parseArchive(archive.text,archive.url,meta,type,season,episode,source).map(function(row){row.ref=archive.url;row.postTitle=source.postTitle;row.postYear=source.postYear;return row;});}
         catch(err){log('LINK_PAGE: '+String(err.message||err));return [];}
       }));
       groups.forEach(function(group){group.forEach(function(row){if(!sources.some(function(r){return r.url===row.url;}))sources.push(row);});});
-      sources=sourceChoices(sources);log('FILES: exact eligible routes='+sources.length+'; packs rejected');
+      sources=sourceChoices(sources);if(!cachedFiles)cacheRows(cacheKey+':files',token,page.url,sources,120000);log('FILES: exact eligible routes='+sources.length+'; packs rejected');
       var resolutionStarted=Date.now();
       async function resolveSource(source){
         if(Date.now()>=collectionUntil-700)return;
@@ -368,6 +427,7 @@ function buildTitleProfile(tmdb) {
       await Promise.all(sources.slice(0,3).map(resolveSource));
       // A fourth route is fallback work, started only after the first batch settles.
       if(streams.length<3&&sources[3]&&Date.now()<collectionUntil-700)await resolveSource(sources[3]);
+      if(!streams.length){cacheRemove(cacheKey+':files');cacheRemove(cacheKey+':post');log('CACHE: cleared after no validated media');}
       log('TIMING: preHostMs='+(resolutionStarted-started)+' hostMs='+(Date.now()-resolutionStarted)+' totalMs='+(Date.now()-started)+' peakRoutes='+peakRoutes);
       log('RESULT: '+streams.length+' validated sources; H.264 first, alternatives retained; calls='+calls);return finish();
     }catch(err){log('RESULT: retained='+streams.length+'; '+String(err.message||err));return finish();}

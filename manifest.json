@@ -1,6 +1,6 @@
 {
   "name": "Cloudbank",
-  "version": "1.20.66",
+  "version": "1.20.67",
   "scrapers": [
     {
       "id": "kisskh",
@@ -511,7 +511,7 @@
       "id": "movies4u",
       "name": "Movies4u",
       "description": "Movies and exact TV episodes through the Movies4u website and HubCloud direct files",
-      "version": "2.0.2",
+      "version": "2.1.0",
       "author": "Nuvio Team",
       "supportedTypes": [
         "movie",
@@ -535,7 +535,7 @@
         "movie"
       ],
       "upstreamVersion": "1.0.2",
-      "notes": "IMDb-first website discovery: search hits are candidates, exact IMDb is verified on the post before title decorations are ignored. Without IMDb proof, exact title/year is required. M4uLinks titles are bound to the verified parent; exact episode/quality and range-validated video checks retained. Minimum 720p; original, dual containing original, unknown and incompletely labelled multi-audio accepted; explicit dub-only and ZIP packs rejected. H.264 preferred, up to 3 parallel routes, shared TMDB metadata, no signed media cache. Device playback needs testing.",
+      "notes": "IMDb-first identity and exact episodes retained. Parser reuses the verified post DOM and scans only IMDb anchors. Optional existing vueoMetadataCache bridge caches public discovery metadata in app memory: domain/post routes up to 5min, file routes 2min; every host, generated token, signed media URL and byte-range probe stays fresh. Cache scope includes current TMDB identity/language/season/episode and active site. Invalid/no-media entries are cleared. Without the bridge, runtime-local caching and normal discovery remain. Minimum 720p, original/dual/unknown accepted, H.264 preferred with 3 parallel host routes. Device timing/playback requires testing.",
       "sourceRepository": "https://github.com/D3adlyRocket/All-in-One-Nuvio",
       "sourceCommit": "3f09a6ff4360498895e622877af7a32212f75038",
       "runtimeModules": [
