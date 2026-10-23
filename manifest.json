@@ -1,6 +1,6 @@
 {
   "name": "Cloudbank",
-  "version": "1.20.94",
+  "version": "1.20.95",
   "scrapers": [
     {
       "id": "kisskh",
@@ -772,7 +772,7 @@
       "id": "vidlove",
       "name": "VidLove",
       "description": "Fast exact-TMDB API with one website-session fallback when native engines fail.",
-      "version": "2.5.0",
+      "version": "2.6.0",
       "author": "Jeff",
       "supportedTypes": [
         "movie",
@@ -796,7 +796,7 @@
         "tv"
       ],
       "upstreamVersion": "1.0.0",
-      "notes": "Video-first: no subtitle HTTP during provider scan. Existing payload tracks are retained; otherwise a selected-player subtitleRequests descriptor is returned. Requires VUEO deferred provider subtitle app patch for late subtitles. Player loads the list after selection, adds tracks through the live subtitle overlay without resetting video, and cancels work on source/media change or player exit. Video URL, quality/audio selection and early website completion retained. Generic movie/TV behavior; no title-specific rules. Mock regressions and shared Kotlin checks pass; device playback still needs verification.",
+      "notes": "Video and one English/Malay subtitle-list request start in parallel. Return immediately on eligible video with only already-parsed subtitle tracks; never wait for captions. Pending subtitle work is aborted where supported and released by VUEO execution teardown. No-video result cancels subtitle work. Normal subtitles payload only; no deferred VUEO API or player patch required. Original video/audio/quality and website fallback behavior retained. Late captions are intentionally omitted.",
       "sourceRepository": "https://github.com/D3adlyRocket/All-in-One-Nuvio",
       "sourceCommit": "3f09a6ff4360498895e622877af7a32212f75038",
       "runtimeModules": []

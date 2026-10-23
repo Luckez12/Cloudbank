@@ -153,7 +153,7 @@ function cloudbankMetadataFetch(nativeFetch) {
   }
   (function(module, exports, require, fetch, self) {
 /* CLOUDBANK_UPSTREAM_SOURCE_START */
-/* VidLove v2.5.0: video-first; deferred subtitle index belongs to the selected player session. */
+/* VidLove v2.6.0: parallel English/Malay subtitles; video result never waits. */
 var VL_API = 'https://api.vidlove.cc';
 var VL_PLAYER = 'https://player.vidlove.cc';
 var VL_ENGINES = ['moviebox', 'vidapi', 'moviebox2', 'dcloud', 'tcloud'];
@@ -212,6 +212,15 @@ function vlLanguage(value) {
   var lang = String(value || '').toLowerCase();
   return ({eng:'en',jpn:'ja',kor:'ko',hin:'hi',ita:'it',zho:'zh',chi:'zh',msa:'ms',may:'ms',ind:'id'})[lang] || lang;
 }
+function vlWantedSubtitleLanguage(row, label) {
+  var values = [row.language, row.lang, row.srclang, label];
+  for (var i = 0; i < values.length; i++) {
+    var value = String(values[i] || '').trim().toLowerCase().replace(/_/g, '-');
+    if (/^(?:en|eng)(?:-|$)/.test(value) || /\benglish\b/.test(value)) return 'en';
+    if (/^(?:ms|msa|may)(?:-|$)/.test(value) || /\b(?:malay|melayu)\b/.test(value) || /^bahasa malaysia$/.test(value)) return 'ms';
+  }
+  return null;
+}
 function vlSubtitles(rows) {
   var out = [], seen = Object.create(null);
   if (!Array.isArray(rows)) return out;
@@ -219,10 +228,10 @@ function vlSubtitles(rows) {
     if (!row || typeof row !== 'object' || out.length >= 128) return;
     var url = row.url || row.file || row.src;
     if (!vlMediaUrl(url) || seen[url] || /^(?:thumbnails?|chapters?)$/i.test(String(row.kind || ''))) return;
-    seen[url] = true;
     var label = String(row.name || row.label || row.display || '').trim();
-    // A website label is useful; never mark every subtitle as English.
-    var language = row.language || row.lang || row.srclang || label || 'und';
+    var language = vlWantedSubtitleLanguage(row, label);
+    if (!language) return;
+    seen[url] = true;
     var track = { url: url, language: String(language), name: label || String(language) };
     var mime = String(row.mimeType || row.mime_type || row.type || row.format || '').toLowerCase();
     if (/^(?:text\/vtt|vtt)$/.test(mime) || /\.vtt(?:[?#]|$)/i.test(url)) track.mimeType = 'text/vtt';
@@ -339,6 +348,33 @@ async function vlBrowserSource(id, type, season, episode, remainingMs) {
   vlLog('WEBSITE: responses=' + records.length + ' result=' + (result ? 'eligible' : 'empty') + '; exact query verified; playback unverified');
   return result;
 }
+function vlParallelSubtitleJob(url, headers, deadline) {
+  var controller = typeof self.AbortController === 'function' ? new self.AbortController() : null;
+  var job = { done: false, tracks: [], status: 'pending' }, timer;
+  function finish(tracks, status) {
+    if (job.done) return;
+    job.done = true; job.tracks = tracks; job.status = status; clearTimeout(timer);
+  }
+  job.cancel = function(reason) {
+    if (job.done) return;
+    finish([], reason);
+    if (controller) controller.abort();
+  };
+  timer = setTimeout(function() { job.cancel('overall deadline'); }, Math.max(1, deadline - Date.now()));
+  Promise.resolve().then(function() {
+    if (job.done) return null;
+    return fetch(url, { headers: headers, signal: controller ? controller.signal : undefined });
+  }).then(function(response) {
+    if (job.done || !response) return null;
+    if (!response.ok) throw new Error('HTTP ' + response.status);
+    return response.json();
+  }).then(function(list) {
+    if (job.done) return;
+    var rows = Array.isArray(list) ? list : list && Array.isArray(list.subtitles) ? list.subtitles : [];
+    finish(vlSubtitles(rows), 'ready');
+  }).catch(function(error) { finish([], vlSafeError(error)); });
+  return job;
+}
 async function getStreams(tmdbId, mediaType, season, episode) {
   var id = String(tmdbId || ''), type = mediaType === 'series' ? 'tv' : mediaType;
   if (!/^[1-9]\d*$/.test(id) || (type !== 'movie' && type !== 'tv')) return [];
@@ -349,7 +385,7 @@ async function getStreams(tmdbId, mediaType, season, episode) {
   // bootstrap is used by its source module.
   var headers = { Accept: 'application/json', Referer: VL_PLAYER + '/', Origin: VL_PLAYER, 'User-Agent': VL_UA };
   var query = '?id=' + encodeURIComponent(id) + (type === 'tv' ? '&season=' + Number(season) + '&episode=' + Number(episode) : '') + '&mode=json';
-  vlLog('ROUTE: v2.5.0 exact TMDB=' + id + ' ' + type + '; video first; no subtitle HTTP during scan; missing payload subtitles deferred to selected player; website early completion');
+  vlLog('ROUTE: v2.6.0 exact TMDB=' + id + ' ' + type + '; video engines parallel=3; English/Malay subtitles parallel; return on video without subtitle wait; no deferred app API');
   var videoTask = new Promise(function(resolve) {
     var next = 0, active = 0, finished = false;
     var timer = setTimeout(function() { complete(null); }, Math.max(1, nativeDeadline - Date.now()));
@@ -391,18 +427,22 @@ async function getStreams(tmdbId, mediaType, season, episode) {
     }
     pump();
   });
+  var subtitleUrl = VL_API + '/subtitles/' + type + '/' + id + (type === 'tv' ? '/' + Number(season) + '/' + Number(episode) : '');
+  vlLog('SUBTITLE_REQUEST: ' + subtitleUrl + '; parallel=true; waitForSubtitles=false');
+  var subtitleJob = vlParallelSubtitleJob(subtitleUrl, headers, deadline);
   var result = await videoTask;
   if (!result) result = await vlBrowserSource(id, type, season, episode, deadline - Date.now());
   if (!result) {
-    vlLog('NO_RESULT: no eligible video; nativeCalls=' + calls + ' elapsedMs=' + (Date.now() - started) + '; no subtitle request created');
+    subtitleJob.cancel('video unavailable');
+    vlLog('NO_RESULT: no eligible video; nativeCalls=' + calls + ' elapsedMs=' + (Date.now() - started) + '; subtitle work cancelled');
     return [];
   }
-  if (result.tracks.length) result.stream.subtitles = result.tracks;
-  else {
-    var subtitleUrl = VL_API + '/subtitles/' + type + '/' + id + (type === 'tv' ? '/' + Number(season) + '/' + Number(episode) : '');
-    result.stream.subtitleRequests = [{ url: subtitleUrl, headers: headers }];
-  }
-  vlLog('SUBTITLES: payload=' + result.tracks.length + ' deferred=' + (!result.tracks.length) + '; video result does not wait for subtitle list');
+  // Snapshot only what is already parsed. Never await the subtitle request here.
+  var tracks = vlSubtitles(result.tracks.concat(subtitleJob.tracks));
+  var subtitleStatus = subtitleJob.done ? subtitleJob.status : 'cancelled at video result';
+  subtitleJob.cancel('video returned');
+  if (tracks.length) result.stream.subtitles = tracks;
+  vlLog('SUBTITLES: tracks=' + tracks.length + ' languages=en,ms status=' + subtitleStatus + '; video result does not wait');
   vlLog('RESULT: 1 source; route=' + (result.fromWebsite ? 'website' : 'native') + ' engine=' + result.engine + ' nativeCalls=' + calls + ' elapsedMs=' + (Date.now() - started) + '; playback unverified');
   return [result.stream];
 }
