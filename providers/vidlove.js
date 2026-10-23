@@ -153,7 +153,7 @@ function cloudbankMetadataFetch(nativeFetch) {
   }
   (function(module, exports, require, fetch, self) {
 /* CLOUDBANK_UPSTREAM_SOURCE_START */
-/* VidLove v2.4.0: opt into exact-source JSON completion without the full WebView wait. */
+/* VidLove v2.4.1: video and subtitle discovery share one overall deadline. */
 var VL_API = 'https://api.vidlove.cc';
 var VL_PLAYER = 'https://player.vidlove.cc';
 var VL_ENGINES = ['moviebox', 'vidapi', 'moviebox2', 'dcloud', 'tcloud'];
@@ -339,6 +339,35 @@ async function vlBrowserSource(id, type, season, episode, remainingMs) {
   vlLog('WEBSITE: responses=' + records.length + ' result=' + (result ? 'eligible' : 'empty') + '; exact query verified; playback unverified');
   return result;
 }
+function vlSubtitleJob(url, headers, deadline) {
+  var resolveJob, timer, controller = typeof self.AbortController === 'function' ? new self.AbortController() : null;
+  var job = { done: false, tracks: [], status: 'pending' };
+  job.promise = new Promise(function(resolve) { resolveJob = resolve; });
+  function finish(tracks, status) {
+    if (job.done) return;
+    job.done = true; job.tracks = tracks; job.status = status;
+    clearTimeout(timer); resolveJob(job);
+  }
+  job.cancel = function(reason) {
+    if (job.done) return;
+    if (controller) controller.abort();
+    finish([], reason || 'cancelled');
+  };
+  timer = setTimeout(function() { job.cancel('request timeout'); }, Math.max(1, deadline - Date.now()));
+  // Deferred by one microtask, alongside the first video requests.
+  Promise.resolve().then(function() {
+    return fetch(url, { headers: headers, signal: controller ? controller.signal : undefined });
+  }).then(function(response) {
+    if (!response.ok) throw new Error('HTTP ' + response.status);
+    if (job.done) return null;
+    return response.json();
+  }).then(function(list) {
+    if (job.done) return;
+    var tracks = vlSubtitles(list);
+    finish(tracks, tracks.length ? 'website-parallel' : 'empty');
+  }).catch(function(error) { finish([], vlSafeError(error)); });
+  return job;
+}
 async function getStreams(tmdbId, mediaType, season, episode) {
   var id = String(tmdbId || ''), type = mediaType === 'series' ? 'tv' : mediaType;
   if (!/^[1-9]\d*$/.test(id) || (type !== 'movie' && type !== 'tv')) return [];
@@ -349,8 +378,8 @@ async function getStreams(tmdbId, mediaType, season, episode) {
   // bootstrap is used by its source module.
   var headers = { Accept: 'application/json', Referer: VL_PLAYER + '/', Origin: VL_PLAYER, 'User-Agent': VL_UA };
   var query = '?id=' + encodeURIComponent(id) + (type === 'tv' ? '&season=' + Number(season) + '&episode=' + Number(episode) : '') + '&mode=json';
-  vlLog('ROUTE: v2.4.0 exact TMDB=' + id + ' ' + type + '; API first, up to 5 engines; parallel=3; website fallback opts into exact eligible JSON completion; no title-specific rules');
-  var result = await new Promise(function(resolve) {
+  vlLog('ROUTE: v2.4.1 exact TMDB=' + id + ' ' + type + '; video engines parallel=3; subtitles start in parallel; shared overall deadline; website early completion');
+  var videoTask = new Promise(function(resolve) {
     var next = 0, active = 0, finished = false;
     var timer = setTimeout(function() { complete(null); }, Math.max(1, nativeDeadline - Date.now()));
     function complete(value) { if (finished) return; finished = true; clearTimeout(timer); resolve(value); }
@@ -391,22 +420,22 @@ async function getStreams(tmdbId, mediaType, season, episode) {
     }
     pump();
   });
+  var subtitleUrl = VL_API + '/subtitles/' + type + '/' + id + (type === 'tv' ? '/' + Number(season) + '/' + Number(episode) : '');
+  calls++;
+  vlLog('SUBTITLE_REQUEST: ' + subtitleUrl + '; parallel=true; no separate short timeout');
+  var subtitleJob = vlSubtitleJob(subtitleUrl, headers, deadline);
+  var result = await videoTask;
   if (!result) result = await vlBrowserSource(id, type, season, episode, deadline - Date.now());
-  if (!result) { vlLog('NO_RESULT: API and available website fallback found no eligible source; nativeCalls=' + calls + ' elapsedMs=' + (Date.now() - started) + '; subtitles not fetched without video'); return []; }
+  if (!result) {
+    subtitleJob.cancel('video unavailable');
+    vlLog('NO_RESULT: no eligible video; nativeCalls=' + calls + ' elapsedMs=' + (Date.now() - started) + '; subtitle work cancelled; runtime releases remaining requests');
+    return [];
+  }
   var tracks = result.tracks, subtitleStatus = tracks.length ? 'payload' : 'empty';
-  if (!tracks.length && !result.fromWebsite && Date.now() < deadline) {
-    var subtitleUrl = VL_API + '/subtitles/' + type + '/' + id + (type === 'tv' ? '/' + Number(season) + '/' + Number(episode) : '');
-    calls++;
-    vlLog('SUBTITLE_REQUEST: ' + subtitleUrl);
-    try {
-      var list = await vlBounded(function() {
-        return fetch(subtitleUrl, { headers: headers }).then(function(response) {
-          if (!response.ok) throw new Error('HTTP ' + response.status);
-          return response.json();
-        });
-      }, Math.max(1, Math.min(2500, deadline - Date.now())));
-      tracks = vlSubtitles(list); subtitleStatus = tracks.length ? 'website' : 'empty';
-    } catch (error) { subtitleStatus = vlSafeError(error); }
+  if (tracks.length) subtitleJob.cancel('payload used');
+  else {
+    var subtitles = await subtitleJob.promise;
+    tracks = subtitles.tracks; subtitleStatus = subtitles.status;
   }
   if (tracks.length) result.stream.subtitles = tracks;
   vlLog('SUBTITLES: tracks=' + tracks.length + ' status=' + subtitleStatus + '; language labels preserved');

@@ -9,7 +9,7 @@ function load(data=payload(),{status=200,vueoRuntime=false,routes={},subtitleRow
   assert.equal(options.headers.Origin,'https://player.vidlove.cc','Match current website API Origin');
   assert.equal(parsed.origin,'https://api.vidlove.cc','No media body probes or unrelated hosts');
   if(!sub) {assert.match(parsed.searchParams.get('id'),/^\d+$/);assert.equal(parsed.searchParams.get('mode'),'json');assert.equal(parsed.searchParams.has('hevc'),false);}
-  active++;peak=Math.max(peak,active);if(delay)await new Promise(r=>setTimeout(r,delay));active--;
+  if(!sub){active++;peak=Math.max(peak,active);}if(delay)await new Promise(r=>setTimeout(r,delay));if(!sub)active--;
   if(sub)return {ok:subtitleStatus===200,status:subtitleStatus,json:async()=>subtitleRows};
   const engine=parsed.searchParams.get('sources');const selected=Object.hasOwn(routes,engine)?routes[engine]:engine==='vidapi'?data:{source:null};
   return {ok:status===200,status,json:async()=>selected};},webviewResolve(){throw Error('WebView must not be used');}};
@@ -33,8 +33,8 @@ function load(data=payload(),{status=200,vueoRuntime=false,routes={},subtitleRow
  assert.equal(tv.calls[0].url,'https://api.vidlove.cc/tv?id=24680&season=2&episode=7&mode=json&sources=moviebox&vh=1');assert.ok(tv.calls.some(x=>x.url==='https://api.vidlove.cc/subtitles/tv/24680/2/7'));
  const fallback=load({source:null},{routes:{dcloud:payload({source:'dcloud'})},delay:5});assert.equal((await fallback.provider.getStreams('12345','movie')).length,1);assert.ok(fallback.peak()<=3);
  const finalEngine=load({source:null},{routes:{tcloud:payload({source:'tcloud'})},delay:5});assert.equal((await finalEngine.provider.getStreams('12345','movie')).length,1);assert.ok(finalEngine.peak()<=3);assert.equal(finalEngine.calls.filter(x=>!x.url.includes('/subtitles/')).length,5);
- const empty=load({source:null});assert.equal((await empty.provider.getStreams('12345','movie')).length,0);assert.equal(empty.calls.length,5);assert.ok(empty.calls.every(x=>!x.url.includes('/subtitles/')));
- const embedded=load({...payload(),subtitles:[{language:'ms',url:'https://subs.example/inline.vtt'},{language:'ms',file:'https://subs.example/inline.vtt'}]});const er=await embedded.provider.getStreams('12345','movie');assert.equal(er[0].subtitles.length,1);assert.ok(embedded.calls.every(x=>!x.url.includes('/subtitles/')));
+ const empty=load({source:null});assert.equal((await empty.provider.getStreams('12345','movie')).length,0);assert.equal(empty.calls.filter(x=>!x.url.includes('/subtitles/')).length,5);assert.equal(empty.calls.filter(x=>x.url.includes('/subtitles/')).length,1);
+ const embedded=load({...payload(),subtitles:[{language:'ms',url:'https://subs.example/inline.vtt'},{language:'ms',file:'https://subs.example/inline.vtt'}]});const er=await embedded.provider.getStreams('12345','movie');assert.equal(er[0].subtitles.length,1);assert.equal(embedded.calls.filter(x=>x.url.includes('/subtitles/')).length,1);
  const subFail=load(payload(),{subtitleStatus:503});assert.equal((await subFail.provider.getStreams('12345','movie')).length,1);
  const invalid=load();await invalid.provider.getStreams('bad/id','movie');await invalid.provider.getStreams('1','tv',null,1);assert.equal(invalid.calls.length,0);
  for(const p of [{...payload(),meta:{id:999}},payload({url:'blob:fixture'}),payload({url:'https://user:password@cdn.example/file.mp4'}),payload({url:'https://player.example/watch',manifest:''}),payload({isDubbed:true,audioLanguage:'hi'}),payload({isDualAudio:true,audioLanguages:['hi','ta']}),payload({url:'https://cdn.example/file.mp4',manifest:'',quality:'480p'})]) {
