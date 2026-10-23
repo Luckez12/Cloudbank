@@ -1,6 +1,6 @@
 {
   "name": "Cloudbank",
-  "version": "1.20.84",
+  "version": "1.20.85",
   "scrapers": [
     {
       "id": "kisskh",
@@ -739,8 +739,8 @@
     {
       "id": "vidfast",
       "name": "VidFast",
-      "description": "Stream movies and TV shows from vidfast.pro.",
-      "version": "1.0.4",
+      "description": "VidFast current website session with original adaptive master capture.",
+      "version": "2.0.0",
       "author": "Dustincos",
       "supportedTypes": [
         "movie",
@@ -748,7 +748,7 @@
       ],
       "filename": "providers/vidfast.js",
       "enabled": true,
-      "hasSettings": true,
+      "hasSettings": false,
       "formats": [
         "mp4",
         "m3u8"
@@ -763,7 +763,7 @@
         "tv"
       ],
       "upstreamVersion": "1.0.0",
-      "notes": "Imported from D3adlyRocket/All-in-One-Nuvio at 3f09a6ff4360498895e622877af7a32212f75038. Cloudbank adapter preserves upstream extraction/settings, uses shared TMDB detail metadata when available, caps async result wait at 19s, and returns valid stream arrays. Playback and host settings support require app testing.",
+      "notes": "Rebuilt resolver: one exact TMDB movie/episode website session on vidfast.vc, site JavaScript owns its current decoding and stream requests. External decrypt API and master/variant probes removed. Original captured URL/signature and media headers retained; basic/detailed browser result handling; unknown audio allowed, explicit dub-only rejected. No native HTTP calls, token replay, metadata/subtitle fetches or app patch. Fixture tests include the actual VUEO URL compatibility shim. Cloud test browser remained at Fetching, so live media capture and playback are not verified; Android device testing is required.",
       "sourceRepository": "https://github.com/D3adlyRocket/All-in-One-Nuvio",
       "sourceCommit": "3f09a6ff4360498895e622877af7a32212f75038",
       "runtimeModules": []
