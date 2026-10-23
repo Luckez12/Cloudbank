@@ -153,10 +153,10 @@ function cloudbankMetadataFetch(nativeFetch) {
   }
   (function(module, exports, require, fetch, self) {
 /* CLOUDBANK_UPSTREAM_SOURCE_START */
-/* VidLove v2.1.1: bounded current website routes and subtitle handoff. */
+/* VidLove v2.2.0: current website request and typed quality entries. */
 var VL_API = 'https://api.vidlove.cc';
 var VL_PLAYER = 'https://player.vidlove.cc';
-var VL_ENGINES = ['vidapi', 'dcloud', 'moviebox2', 'moviebox', 'tcloud'];
+var VL_ENGINES = ['moviebox', 'vidapi', 'moviebox2', 'dcloud', 'tcloud'];
 var VL_UA = 'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36';
 function vlLog(message) { console.log('[VidLove] ' + message); }
 function vlBounded(run, timeoutMs) {
@@ -174,8 +174,30 @@ function vlKind(source, parsed) {
   if (typeof source.manifest === 'string' && /^\s*#EXTM3U(?:\s|$)/.test(source.manifest)) return 'hls';
   if (/\.m3u8$/i.test(parsed.pathname) || /mpegurl|^hls$/.test(mime)) return 'hls';
   if (/\.mpd$/i.test(parsed.pathname) || /dash\+xml|^dash$/.test(mime)) return 'dash';
-  if (/\.mp4$/i.test(parsed.pathname) || mime === 'video/mp4') return 'mp4';
+  if (/\.mp4$/i.test(parsed.pathname) || mime === 'video/mp4' || mime === 'mp4') return 'mp4';
   return '';
+}
+function vlSelectSource(source) {
+  if (!Array.isArray(source.qualities) || !source.qualities.length) return source;
+  var candidates = source.qualities.filter(function(row) {
+    var parsed = row && vlMediaUrl(row.url);
+    if (!parsed || !vlKind(row, parsed)) return false;
+    var match = /\b(2160|1440|1080|720|576|480|360|240)p?\b/i.exec(String(row.quality || ''));
+    return !match || Number(match[1]) >= 720;
+  });
+  candidates.sort(function(a, b) {
+    // No HEVC capability claim: prefer the website's H.264 rendition.
+    var ac = /hevc|h265/i.test(String(a.codec || '')) ? 1 : 0;
+    var bc = /hevc|h265/i.test(String(b.codec || '')) ? 1 : 0;
+    return ac - bc || (parseInt(b.quality, 10) || 0) - (parseInt(a.quality, 10) || 0);
+  });
+  if (!candidates.length) throw new Error('no eligible quality entry');
+  var selected = {}, row = candidates[0];
+  Object.keys(source).forEach(function(key) { selected[key] = source[key]; });
+  Object.keys(row).forEach(function(key) { selected[key] = row[key]; });
+  // A parent manifest describes the parent URL, not this rendition.
+  delete selected.manifest;
+  return selected;
 }
 function vlHeaders(raw, page) {
   var out = {};
@@ -194,7 +216,7 @@ function vlSubtitles(rows) {
   var out = [], seen = Object.create(null);
   if (!Array.isArray(rows)) return out;
   rows.forEach(function(row) {
-    if (!row || typeof row !== 'object' || out.length >= 32) return;
+    if (!row || typeof row !== 'object' || out.length >= 128) return;
     var url = row.url || row.file || row.src;
     if (!vlMediaUrl(url) || seen[url] || /^(?:thumbnails?|chapters?)$/i.test(String(row.kind || ''))) return;
     seen[url] = true;
@@ -220,6 +242,7 @@ function vlMapPayload(payload, id, type, season, episode) {
   var meta = payload && payload.meta || {}, source = payload && payload.source;
   if (meta.id != null && String(meta.id) !== id) throw new Error('response identity mismatch');
   if (!source || typeof source !== 'object') return null;
+  source = vlSelectSource(source);
   var parsed = vlMediaUrl(source.url);
   if (!parsed) throw new Error('no HTTPS media URL');
   var kind = vlKind(source, parsed);
@@ -245,20 +268,18 @@ function vlMapPayload(payload, id, type, season, episode) {
 }
 function vlSafeError(error) {
   var text = String(error && error.message || '');
-  return /^(?:HTTP \d+|request timeout|response identity mismatch|no HTTPS media URL|unsupported media payload|explicit dub-only source|direct file below 720p)$/.test(text) ? text : 'transport or response error';
+  return /^(?:HTTP \d+|request timeout|response identity mismatch|no HTTPS media URL|unsupported media payload|explicit dub-only source|direct file below 720p|no eligible quality entry)$/.test(text) ? text : 'transport or response error';
 }
 async function getStreams(tmdbId, mediaType, season, episode) {
   var id = String(tmdbId || ''), type = mediaType === 'series' ? 'tv' : mediaType;
   if (!/^[1-9]\d*$/.test(id) || (type !== 'movie' && type !== 'tv')) return [];
   if (type === 'tv' && (season == null || season === '' || episode == null || episode === '' || !Number.isInteger(Number(season)) || Number(season) < 0 || !Number.isInteger(Number(episode)) || Number(episode) < 1)) return [];
   var started = Date.now(), deadline = started + 14000, calls = 0;
-  // This public API returns different content when Origin is supplied. A
-  // controlled audit got source:null with Origin, and a signed master without
-  // it, keeping URL/UA/Accept fixed. Native API reads do not need CORS Origin.
-  // Playback uses its separate vlHeaders() and retains its media Origin.
-  var headers = { Accept: 'application/json', Referer: VL_PLAYER + '/', 'User-Agent': VL_UA };
+  // Match the current website's cross-origin JSON request. No cookies/token
+  // bootstrap is used by its source module.
+  var headers = { Accept: 'application/json', Referer: VL_PLAYER + '/', Origin: VL_PLAYER, 'User-Agent': VL_UA };
   var query = '?id=' + encodeURIComponent(id) + (type === 'tv' ? '&season=' + Number(season) + '&episode=' + Number(episode) : '') + '&mode=json';
-  vlLog('ROUTE: v2.1.1 exact TMDB=' + id + ' ' + type + '; website engines up to 5; parallel=3; first eligible source; API Origin omitted; original master unchanged');
+  vlLog('ROUTE: v2.2.0 exact TMDB=' + id + ' ' + type + '; website engines up to 5; parallel=3; website Origin; moviebox vh=1; typed qualities >=720p or unknown');
   var result = await new Promise(function(resolve) {
     var next = 0, active = 0, finished = false;
     var timer = setTimeout(function() { complete(null); }, Math.max(1, deadline - Date.now()));
@@ -269,6 +290,7 @@ async function getStreams(tmdbId, mediaType, season, episode) {
         (function(engine) {
           active++; calls++;
           var url = VL_API + '/' + type + query + '&sources=' + engine;
+          if (engine === 'moviebox' || engine === 'moviebox2') url += '&vh=1';
           // Public identity/query only. Never log returned signed media URLs.
           vlLog('API_REQUEST: ' + url);
           vlBounded(function() {
