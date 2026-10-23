@@ -1,6 +1,6 @@
 {
   "name": "Cloudbank",
-  "version": "1.20.93",
+  "version": "1.20.94",
   "scrapers": [
     {
       "id": "kisskh",
@@ -772,7 +772,7 @@
       "id": "vidlove",
       "name": "VidLove",
       "description": "Fast exact-TMDB API with one website-session fallback when native engines fail.",
-      "version": "2.4.1",
+      "version": "2.5.0",
       "author": "Jeff",
       "supportedTypes": [
         "movie",
@@ -796,7 +796,7 @@
         "tv"
       ],
       "upstreamVersion": "1.0.0",
-      "notes": "v2.4.1 starts one subtitle-list request alongside the first video requests. Removes the separate 2.5s subtitle timeout; video and subtitles share the 17.5s overall provider deadline. No-video result returns immediately and cancels subtitle work; VUEO execution teardown cancels pending native requests. Payload subtitles remain preferred and redundant pending work is discarded. AbortSignal is used when the host supports it; existing VUEO runtime cancellation does not require a new app patch. Video URL/quality/audio logic and v2.4.0 early website completion retained. Parallel startup, no-video/payload cancellation, slow subtitle retention and shared deadline regressions pass. Device speed still needs measurement.",
+      "notes": "Video-first: no subtitle HTTP during provider scan. Existing payload tracks are retained; otherwise a selected-player subtitleRequests descriptor is returned. Requires VUEO deferred provider subtitle app patch for late subtitles. Player loads the list after selection, adds tracks through the live subtitle overlay without resetting video, and cancels work on source/media change or player exit. Video URL, quality/audio selection and early website completion retained. Generic movie/TV behavior; no title-specific rules. Mock regressions and shared Kotlin checks pass; device playback still needs verification.",
       "sourceRepository": "https://github.com/D3adlyRocket/All-in-One-Nuvio",
       "sourceCommit": "3f09a6ff4360498895e622877af7a32212f75038",
       "runtimeModules": []
