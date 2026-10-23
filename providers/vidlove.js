@@ -153,7 +153,7 @@ function cloudbankMetadataFetch(nativeFetch) {
   }
   (function(module, exports, require, fetch, self) {
 /* CLOUDBANK_UPSTREAM_SOURCE_START */
-/* VidLove v2.1.0: bounded current website routes and subtitle handoff. */
+/* VidLove v2.1.1: bounded current website routes and subtitle handoff. */
 var VL_API = 'https://api.vidlove.cc';
 var VL_PLAYER = 'https://player.vidlove.cc';
 var VL_ENGINES = ['vidapi', 'dcloud', 'moviebox2', 'moviebox', 'tcloud'];
@@ -252,9 +252,13 @@ async function getStreams(tmdbId, mediaType, season, episode) {
   if (!/^[1-9]\d*$/.test(id) || (type !== 'movie' && type !== 'tv')) return [];
   if (type === 'tv' && (season == null || season === '' || episode == null || episode === '' || !Number.isInteger(Number(season)) || Number(season) < 0 || !Number.isInteger(Number(episode)) || Number(episode) < 1)) return [];
   var started = Date.now(), deadline = started + 14000, calls = 0;
-  var headers = { Accept: 'application/json', Referer: VL_PLAYER + '/', Origin: VL_PLAYER, 'User-Agent': VL_UA };
+  // This public API returns different content when Origin is supplied. A
+  // controlled audit got source:null with Origin, and a signed master without
+  // it, keeping URL/UA/Accept fixed. Native API reads do not need CORS Origin.
+  // Playback uses its separate vlHeaders() and retains its media Origin.
+  var headers = { Accept: 'application/json', Referer: VL_PLAYER + '/', 'User-Agent': VL_UA };
   var query = '?id=' + encodeURIComponent(id) + (type === 'tv' ? '&season=' + Number(season) + '&episode=' + Number(episode) : '') + '&mode=json';
-  vlLog('ROUTE: v2.1.0 exact TMDB=' + id + ' ' + type + '; website engines up to 5; parallel=3; first eligible source; original master unchanged');
+  vlLog('ROUTE: v2.1.1 exact TMDB=' + id + ' ' + type + '; website engines up to 5; parallel=3; first eligible source; API Origin omitted; original master unchanged');
   var result = await new Promise(function(resolve) {
     var next = 0, active = 0, finished = false;
     var timer = setTimeout(function() { complete(null); }, Math.max(1, deadline - Date.now()));

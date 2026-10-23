@@ -1,6 +1,6 @@
 {
   "name": "Cloudbank",
-  "version": "1.20.87",
+  "version": "1.20.88",
   "scrapers": [
     {
       "id": "kisskh",
@@ -772,7 +772,7 @@
       "id": "vidlove",
       "name": "VidLove",
       "description": "Current VidLove website engines with bounded fallback, original master and subtitle handoff.",
-      "version": "2.1.0",
+      "version": "2.1.1",
       "author": "Jeff",
       "supportedTypes": [
         "movie",
@@ -796,7 +796,7 @@
         "tv"
       ],
       "upstreamVersion": "1.0.0",
-      "notes": "v2.1.0: explicitly serialized TMDB ID/season/episode queries and safe public API_REQUEST logs (app timeline still strips query strings). Try up to five current website engines, max three concurrent, first eligible source, 14s total budget; no repeated engine retries. Preserve original signed master/header and audio policy. Forward payload subtitles; otherwise fetch the exact website movie/episode subtitle endpoint with at most 2.5s wait, never remove video on subtitle failure. Reject data/blob tracks and preserve language labels. No WebView, forced HEVC, media/child/segment probes or app patch. Runtime-shim and fallback/subtitle fixtures pass; current audited 1108427 engines returned empty, so backend availability and device playback are not guaranteed.",
+      "notes": "v2.1.1 removes Origin from native API requests only. Controlled live comparisons with the same URL/UA/Accept returned source:null with Origin and a signed master without it; Referer-only requests succeeded. Playback Origin/Referer, original signed URL, five-engine bounded fallback and payload/website subtitle handoff from v2.1.0 remain. No app changes, WebView, forced HEVC or media probes. Actual VUEO URL-shim and API/media-header separation regressions pass. Device playback still requires confirmation.",
       "sourceRepository": "https://github.com/D3adlyRocket/All-in-One-Nuvio",
       "sourceCommit": "3f09a6ff4360498895e622877af7a32212f75038",
       "runtimeModules": []
