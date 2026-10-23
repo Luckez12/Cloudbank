@@ -153,7 +153,7 @@ function cloudbankMetadataFetch(nativeFetch) {
   }
   (function(module, exports, require, fetch, self) {
 /* CLOUDBANK_UPSTREAM_SOURCE_START */
-/* VidLove v2.3.0: fast API, then one exact website session on API failure. */
+/* VidLove v2.3.1: let the native WebView finish and return its captured JSON. */
 var VL_API = 'https://api.vidlove.cc';
 var VL_PLAYER = 'https://player.vidlove.cc';
 var VL_ENGINES = ['moviebox', 'vidapi', 'moviebox2', 'dcloud', 'tcloud'];
@@ -275,11 +275,13 @@ async function vlBrowserSource(id, type, season, episode, remainingMs) {
     vlLog('WEBSITE: bridge unavailable or budget exhausted'); return null;
   }
   var page = VL_PLAYER + '/embed/' + type + '/' + id + (type === 'tv' ? '/' + Number(season) + '/' + Number(episode) : '');
-  var timeout = Math.max(500, Math.min(8000, remainingMs - 300)), session;
+  var timeout = Math.max(1000, Math.min(8000, remainingMs - 2000)), session;
   vlLog('WEBSITE: exact requested title; one session; captures current website API responses; budgetMs=' + timeout);
   try {
-    session = await vlBounded(function() {
-      return self.webviewResolve(page, {
+    // Its timeout starts after native setup/loadUrl, not at this JS call.
+    // A second JS timer used to discard valid captures before native return.
+    // The existing 19s provider wrapper remains the overall execution bound.
+    session = await self.webviewResolve(page, {
         directLoad: true, referer: VL_PLAYER + '/', userAgent: VL_UA, timeoutMs: timeout, finishAfterFirstMs: 150,
         waitForMediaReady: true, allowBlobMediaReady: false,
         captureSessionResponses: true, jsonResponsePrefixes: [VL_API + '/'],
@@ -290,12 +292,17 @@ async function vlBrowserSource(id, type, season, episode, remainingMs) {
         interactionTexts: [], clickDelaysMs: [12000],
         blocked: ['doubleclick.net', 'googlesyndication.com', 'googleadservices.com']
       });
-    }, timeout + 200);
     if (typeof session === 'string') session = JSON.parse(session);
-  } catch (_) { vlLog('WEBSITE: session failed'); return null; }
+  } catch (error) { vlLog('WEBSITE: session failed reason=' + vlSafeError(error)); return null; }
   if (!session || session.sessionResponseVersion !== 1 || !Array.isArray(session.responses)) {
     vlLog('WEBSITE: detailed session response bridge unavailable'); return null;
   }
+  var diagnostic = session.diagnostics || {}, video = diagnostic.video || {};
+  var signal = ['none', 'sandbox_required', 'human_verification', 'access_denied', 'unavailable'].indexOf(video.pageSignal) >= 0 ? video.pageSignal : 'unknown';
+  var finish = ['timeout', 'load-error', 'media-ready', 'response-media', 'network-candidate'].indexOf(session.finishReason) >= 0 ? session.finishReason : 'unknown';
+  vlLog('WEBSITE_STATE: finish=' + finish + ' documentStart=' + (session.documentStartHook === true) +
+    ' hook=' + (diagnostic.hookSeen === true) + ' pageFinished=' + (diagnostic.pageFinished === true) +
+    ' responses=' + session.responses.length + ' pageSignal=' + signal);
   var records = session.responses, result = null;
   for (var i = 0; i < records.length; i++) {
     var record = records[i];
@@ -337,7 +344,7 @@ async function getStreams(tmdbId, mediaType, season, episode) {
   // bootstrap is used by its source module.
   var headers = { Accept: 'application/json', Referer: VL_PLAYER + '/', Origin: VL_PLAYER, 'User-Agent': VL_UA };
   var query = '?id=' + encodeURIComponent(id) + (type === 'tv' ? '&season=' + Number(season) + '&episode=' + Number(episode) : '') + '&mode=json';
-  vlLog('ROUTE: v2.3.0 exact TMDB=' + id + ' ' + type + '; API first, up to 5 engines; parallel=3; one website fallback only on API failure; no title-specific rules');
+  vlLog('ROUTE: v2.3.1 exact TMDB=' + id + ' ' + type + '; API first, up to 5 engines; parallel=3; one website fallback only on API failure; native WebView owns session timeout; no title-specific rules');
   var result = await new Promise(function(resolve) {
     var next = 0, active = 0, finished = false;
     var timer = setTimeout(function() { complete(null); }, Math.max(1, nativeDeadline - Date.now()));
