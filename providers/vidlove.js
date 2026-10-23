@@ -153,7 +153,7 @@ function cloudbankMetadataFetch(nativeFetch) {
   }
   (function(module, exports, require, fetch, self) {
 /* CLOUDBANK_UPSTREAM_SOURCE_START */
-/* VidLove v2.2.0: current website request and typed quality entries. */
+/* VidLove v2.3.0: fast API, then one exact website session on API failure. */
 var VL_API = 'https://api.vidlove.cc';
 var VL_PLAYER = 'https://player.vidlove.cc';
 var VL_ENGINES = ['moviebox', 'vidapi', 'moviebox2', 'dcloud', 'tcloud'];
@@ -270,23 +270,81 @@ function vlSafeError(error) {
   var text = String(error && error.message || '');
   return /^(?:HTTP \d+|request timeout|response identity mismatch|no HTTPS media URL|unsupported media payload|explicit dub-only source|direct file below 720p|no eligible quality entry)$/.test(text) ? text : 'transport or response error';
 }
+async function vlBrowserSource(id, type, season, episode, remainingMs) {
+  if (typeof self.webviewResolve !== 'function' || remainingMs < 1000) {
+    vlLog('WEBSITE: bridge unavailable or budget exhausted'); return null;
+  }
+  var page = VL_PLAYER + '/embed/' + type + '/' + id + (type === 'tv' ? '/' + Number(season) + '/' + Number(episode) : '');
+  var timeout = Math.max(500, Math.min(8000, remainingMs - 300)), session;
+  vlLog('WEBSITE: exact requested title; one session; captures current website API responses; budgetMs=' + timeout);
+  try {
+    session = await vlBounded(function() {
+      return self.webviewResolve(page, {
+        directLoad: true, referer: VL_PLAYER + '/', userAgent: VL_UA, timeoutMs: timeout, finishAfterFirstMs: 150,
+        waitForMediaReady: true, allowBlobMediaReady: false,
+        captureSessionResponses: true, jsonResponsePrefixes: [VL_API + '/'],
+        injectAbyssHook: false, captureSubtitles: false,
+        suppressPopups: true, lockMainFrameHost: true, blockMatchedRequests: false,
+        mediaHosts: ['api.ravenflix.st', 'a2.ravenflix.st', 'd.ravenflix.st', 'd2.ravenflix.st', 'c.ravenflix.st', 'c2.ravenflix.st'],
+        mediaRequestMatchers: [], match: ['.m3u8', '.mp4', '.mpd'],
+        interactionTexts: [], clickDelaysMs: [12000],
+        blocked: ['doubleclick.net', 'googlesyndication.com', 'googleadservices.com']
+      });
+    }, timeout + 200);
+    if (typeof session === 'string') session = JSON.parse(session);
+  } catch (_) { vlLog('WEBSITE: session failed'); return null; }
+  if (!session || session.sessionResponseVersion !== 1 || !Array.isArray(session.responses)) {
+    vlLog('WEBSITE: detailed session response bridge unavailable'); return null;
+  }
+  var records = session.responses, result = null;
+  for (var i = 0; i < records.length; i++) {
+    var record = records[i];
+    try {
+      if (!record || record.status < 200 || record.status > 299) continue;
+      var request = vlMediaUrl(record.url);
+      if (!request || request.origin !== VL_API || request.pathname !== '/' + type ||
+          request.searchParams.get('id') !== id || request.searchParams.get('mode') !== 'json') continue;
+      if (type === 'tv' && (request.searchParams.get('season') !== String(Number(season)) ||
+          request.searchParams.get('episode') !== String(Number(episode)))) continue;
+      var body = typeof record.body === 'string' ? JSON.parse(record.body) : record.body;
+      var candidate = vlMapPayload(body, id, type, season, episode);
+      if (!candidate) continue;
+      // Copy browser cookies/UA only from this source's observed media request
+      // and only when the selected rendition has the same origin.
+      var rows = Array.isArray(session.streams) ? session.streams : [];
+      for (var j = 0; j < rows.length; j++) {
+        var row = rows[j], parsed = row && vlMediaUrl(row.url);
+        if (!parsed || (row.networkObserved !== true && row.responseObserved !== true)) continue;
+        if (row.url !== body.source.url && row.url !== candidate.stream.url) continue;
+        if (parsed.origin !== vlMediaUrl(candidate.stream.url).origin) continue;
+        candidate.stream.headers = vlHeaders(row.headers, page); break;
+      }
+      candidate.engine = request.searchParams.get('sources') || 'website';
+      candidate.fromWebsite = true;
+      result = candidate; break;
+    } catch (error) { vlLog('WEBSITE_RESPONSE: rejected=' + vlSafeError(error)); }
+  }
+  vlLog('WEBSITE: responses=' + records.length + ' result=' + (result ? 'eligible' : 'empty') + '; exact query verified; playback unverified');
+  return result;
+}
 async function getStreams(tmdbId, mediaType, season, episode) {
   var id = String(tmdbId || ''), type = mediaType === 'series' ? 'tv' : mediaType;
   if (!/^[1-9]\d*$/.test(id) || (type !== 'movie' && type !== 'tv')) return [];
   if (type === 'tv' && (season == null || season === '' || episode == null || episode === '' || !Number.isInteger(Number(season)) || Number(season) < 0 || !Number.isInteger(Number(episode)) || Number(episode) < 1)) return [];
-  var started = Date.now(), deadline = started + 14000, calls = 0;
+  var started = Date.now(), deadline = started + 17500, calls = 0;
+  var nativeDeadline = started + (typeof self.webviewResolve === 'function' ? 6000 : 14000);
   // Match the current website's cross-origin JSON request. No cookies/token
   // bootstrap is used by its source module.
   var headers = { Accept: 'application/json', Referer: VL_PLAYER + '/', Origin: VL_PLAYER, 'User-Agent': VL_UA };
   var query = '?id=' + encodeURIComponent(id) + (type === 'tv' ? '&season=' + Number(season) + '&episode=' + Number(episode) : '') + '&mode=json';
-  vlLog('ROUTE: v2.2.0 exact TMDB=' + id + ' ' + type + '; website engines up to 5; parallel=3; website Origin; moviebox vh=1; typed qualities >=720p or unknown');
+  vlLog('ROUTE: v2.3.0 exact TMDB=' + id + ' ' + type + '; API first, up to 5 engines; parallel=3; one website fallback only on API failure; no title-specific rules');
   var result = await new Promise(function(resolve) {
     var next = 0, active = 0, finished = false;
-    var timer = setTimeout(function() { complete(null); }, Math.max(1, deadline - Date.now()));
+    var timer = setTimeout(function() { complete(null); }, Math.max(1, nativeDeadline - Date.now()));
     function complete(value) { if (finished) return; finished = true; clearTimeout(timer); resolve(value); }
     function pump() {
       if (finished) return;
-      while (active < 3 && next < VL_ENGINES.length && Date.now() < deadline) {
+      while (active < 3 && next < VL_ENGINES.length && Date.now() < nativeDeadline) {
         (function(engine) {
           active++; calls++;
           var url = VL_API + '/' + type + query + '&sources=' + engine;
@@ -296,9 +354,13 @@ async function getStreams(tmdbId, mediaType, season, episode) {
           vlBounded(function() {
             return fetch(url, { headers: headers }).then(function(response) {
               if (!response.ok) throw new Error('HTTP ' + response.status);
-              return response.json();
+              return response.json().then(function(payload) {
+                if (!finished) vlLog('API_RESPONSE: engine=' + engine + ' status=' + response.status +
+                  ' meta=' + !!(payload && payload.meta) + ' source=' + !!(payload && payload.source));
+                return payload;
+              });
             });
-          }, Math.max(1, Math.min(6000, deadline - Date.now()))).then(function(payload) {
+          }, Math.max(1, Math.min(5000, nativeDeadline - Date.now()))).then(function(payload) {
             if (finished) return;
             var candidate = vlMapPayload(payload, id, type, season, episode);
             vlLog('ENGINE: ' + engine + ' result=' + (candidate ? 'eligible' : 'empty'));
@@ -308,7 +370,7 @@ async function getStreams(tmdbId, mediaType, season, episode) {
           }).then(function() {
             active--;
             if (finished) return;
-            if ((next >= VL_ENGINES.length || Date.now() >= deadline) && active === 0) complete(null);
+            if ((next >= VL_ENGINES.length || Date.now() >= nativeDeadline) && active === 0) complete(null);
             else pump();
           });
         })(VL_ENGINES[next++]);
@@ -317,9 +379,10 @@ async function getStreams(tmdbId, mediaType, season, episode) {
     }
     pump();
   });
-  if (!result) { vlLog('NO_RESULT: no eligible source from completed website routes; calls=' + calls + ' elapsedMs=' + (Date.now() - started) + '; subtitles not fetched without video'); return []; }
+  if (!result) result = await vlBrowserSource(id, type, season, episode, deadline - Date.now());
+  if (!result) { vlLog('NO_RESULT: API and available website fallback found no eligible source; nativeCalls=' + calls + ' elapsedMs=' + (Date.now() - started) + '; subtitles not fetched without video'); return []; }
   var tracks = result.tracks, subtitleStatus = tracks.length ? 'payload' : 'empty';
-  if (!tracks.length && Date.now() < deadline) {
+  if (!tracks.length && !result.fromWebsite && Date.now() < deadline) {
     var subtitleUrl = VL_API + '/subtitles/' + type + '/' + id + (type === 'tv' ? '/' + Number(season) + '/' + Number(episode) : '');
     calls++;
     vlLog('SUBTITLE_REQUEST: ' + subtitleUrl);
@@ -335,7 +398,7 @@ async function getStreams(tmdbId, mediaType, season, episode) {
   }
   if (tracks.length) result.stream.subtitles = tracks;
   vlLog('SUBTITLES: tracks=' + tracks.length + ' status=' + subtitleStatus + '; language labels preserved');
-  vlLog('RESULT: 1 source; engine=' + result.engine + ' calls=' + calls + ' elapsedMs=' + (Date.now() - started) + '; no master/child/segment probes; playback unverified');
+  vlLog('RESULT: 1 source; route=' + (result.fromWebsite ? 'website' : 'native') + ' engine=' + result.engine + ' nativeCalls=' + calls + ' elapsedMs=' + (Date.now() - started) + '; playback unverified');
   return [result.stream];
 }
 module.exports = { getStreams: getStreams };

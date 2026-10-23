@@ -6,7 +6,7 @@ function load(data=payload(),{status=200,vueoRuntime=false,routes={},subtitleRow
  const calls=[],logs=[];let active=0,peak=0;
  const c={module:{exports:{}},URL,URLSearchParams,setTimeout,clearTimeout,console:{log:s=>logs.push(s)},fetch:async(u,options)=>{
   calls.push({url:u,options});const parsed=new URL(u),sub=parsed.pathname.startsWith('/subtitles/');
-  assert.ok(!Object.keys(options.headers).some(key=>key.toLowerCase()==='origin'),'API must omit Origin: live endpoint returns empty with it');
+  assert.equal(options.headers.Origin,'https://player.vidlove.cc','Match current website API Origin');
   assert.equal(parsed.origin,'https://api.vidlove.cc','No media body probes or unrelated hosts');
   if(!sub) {assert.match(parsed.searchParams.get('id'),/^\d+$/);assert.equal(parsed.searchParams.get('mode'),'json');assert.equal(parsed.searchParams.has('hevc'),false);}
   active++;peak=Math.max(peak,active);if(delay)await new Promise(r=>setTimeout(r,delay));active--;
@@ -23,14 +23,14 @@ function load(data=payload(),{status=200,vueoRuntime=false,routes={},subtitleRow
  for(const vueoRuntime of [false,true]) {
   const f=load(payload(),{vueoRuntime,subtitleRows:[{label:'English',file:'https://subs.example/fixture.vtt',type:'vtt'},{label:'Malay',file:'https://subs.example/ms.srt',type:'srt'},{label:'Fake',file:'data:text/vtt;base64,fixture'}]});
   const rows=await f.provider.getStreams('12345','movie');assert.equal(rows.length,1);
-  assert.equal(f.calls[0].url,'https://api.vidlove.cc/movie?id=12345&mode=json&sources=vidapi');assert.ok(f.calls.some(x=>x.url==='https://api.vidlove.cc/subtitles/movie/12345'));
+  assert.equal(f.calls[0].url,'https://api.vidlove.cc/movie?id=12345&mode=json&sources=moviebox&vh=1');assert.ok(f.calls.some(x=>x.url==='https://api.vidlove.cc/subtitles/movie/12345'));
   assert.ok(f.logs.some(x=>x.includes('API_REQUEST: https://api.vidlove.cc/movie?id=12345&mode=json&sources=vidapi')));
   assert.equal(rows[0].url,url);assert.equal(rows[0].quality,'Auto');assert.equal(rows[0].mimeType,'application/x-mpegURL');assert.equal(rows[0].isAdaptive,true);
   assert.equal(rows[0].headers.Referer,'https://player.vidlove.cc/');assert.equal(rows[0].headers.Origin,'https://player.vidlove.cc','API header change must not remove the playback Origin');assert.equal(rows[0].audioLanguage,undefined);
   assert.equal(rows[0].subtitles.length,2);assert.equal(rows[0].subtitles[0].language,'English');assert.equal(rows[0].subtitles[1].language,'Malay');assert.equal(rows[0].subtitles[0].mimeType,'text/vtt');assert.equal(rows[0].subtitles[1].mimeType,'application/x-subrip');
  }
  const tv=load({meta:{id:24680,name:'Fixture TV'},source:payload().source},{vueoRuntime:true});await tv.provider.getStreams('24680','series',2,7);
- assert.equal(tv.calls[0].url,'https://api.vidlove.cc/tv?id=24680&season=2&episode=7&mode=json&sources=vidapi');assert.ok(tv.calls.some(x=>x.url==='https://api.vidlove.cc/subtitles/tv/24680/2/7'));
+ assert.equal(tv.calls[0].url,'https://api.vidlove.cc/tv?id=24680&season=2&episode=7&mode=json&sources=moviebox&vh=1');assert.ok(tv.calls.some(x=>x.url==='https://api.vidlove.cc/subtitles/tv/24680/2/7'));
  const fallback=load({source:null},{routes:{dcloud:payload({source:'dcloud'})},delay:5});assert.equal((await fallback.provider.getStreams('12345','movie')).length,1);assert.ok(fallback.peak()<=3);
  const finalEngine=load({source:null},{routes:{tcloud:payload({source:'tcloud'})},delay:5});assert.equal((await finalEngine.provider.getStreams('12345','movie')).length,1);assert.ok(finalEngine.peak()<=3);assert.equal(finalEngine.calls.filter(x=>!x.url.includes('/subtitles/')).length,5);
  const empty=load({source:null});assert.equal((await empty.provider.getStreams('12345','movie')).length,0);assert.equal(empty.calls.length,5);assert.ok(empty.calls.every(x=>!x.url.includes('/subtitles/')));

@@ -1,6 +1,6 @@
 {
   "name": "Cloudbank",
-  "version": "1.20.89",
+  "version": "1.20.90",
   "scrapers": [
     {
       "id": "kisskh",
@@ -771,8 +771,8 @@
     {
       "id": "vidlove",
       "name": "VidLove",
-      "description": "Current website moviebox requests, typed 720p+ renditions and subtitle handoff.",
-      "version": "2.2.0",
+      "description": "Fast exact-TMDB API with one website-session fallback when native engines fail.",
+      "version": "2.3.0",
       "author": "Jeff",
       "supportedTypes": [
         "movie",
@@ -796,7 +796,7 @@
         "tv"
       ],
       "upstreamVersion": "1.0.0",
-      "notes": "v2.2.0 matches current source module: website Origin and moviebox/moviebox2 vh=1. Reads typed qualities for extensionless MovieBox URLs, chooses highest eligible H.264-preferred rendition, rejects known sub-720p entries, preserves unknown quality and existing audio checks. Keeps all website subtitle labels up to 128 instead of truncating at 32. Bounded five-engine race remains; no WebView, forced HEVC or production media probes. Native live responses and browser Masterplan playback verified during audit; Android playback needs device verification.",
+      "notes": "v2.3.0 keeps v2.2.0 native API/typed-quality handling and adds one bounded exact movie/episode website session only after native engines fail. Reads captured API JSON from the existing detailed WebView bridge; verifies API origin, media type, requested ID/season/episode and payload ID, and reuses audio/720p eligibility checks. No per-title branches or app changes. Native success never starts WebView. Fallback has up to 8s website budget, preserves payload subtitle labels and avoids another native subtitle fetch after browser extraction. Existing VUEO detailed session bridge required for fallback. UNABOMBER, Masterplan and Spider-Man website availability observed; Android fallback playback not yet verified.",
       "sourceRepository": "https://github.com/D3adlyRocket/All-in-One-Nuvio",
       "sourceCommit": "3f09a6ff4360498895e622877af7a32212f75038",
       "runtimeModules": []
