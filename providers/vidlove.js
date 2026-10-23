@@ -153,7 +153,7 @@ function cloudbankMetadataFetch(nativeFetch) {
   }
   (function(module, exports, require, fetch, self) {
 /* CLOUDBANK_UPSTREAM_SOURCE_START */
-/* VidLove v2.3.1: let the native WebView finish and return its captured JSON. */
+/* VidLove v2.4.0: opt into exact-source JSON completion without the full WebView wait. */
 var VL_API = 'https://api.vidlove.cc';
 var VL_PLAYER = 'https://player.vidlove.cc';
 var VL_ENGINES = ['moviebox', 'vidapi', 'moviebox2', 'dcloud', 'tcloud'];
@@ -275,6 +275,8 @@ async function vlBrowserSource(id, type, season, episode, remainingMs) {
     vlLog('WEBSITE: bridge unavailable or budget exhausted'); return null;
   }
   var page = VL_PLAYER + '/embed/' + type + '/' + id + (type === 'tv' ? '/' + Number(season) + '/' + Number(episode) : '');
+  var matcher = VL_API + '/' + type + '?id=' + encodeURIComponent(id) +
+    (type === 'tv' ? '&season=' + Number(season) + '&episode=' + Number(episode) : '') + '&mode=json';
   var timeout = Math.max(1000, Math.min(8000, remainingMs - 2000)), session;
   vlLog('WEBSITE: exact requested title; one session; captures current website API responses; budgetMs=' + timeout);
   try {
@@ -285,6 +287,8 @@ async function vlBrowserSource(id, type, season, episode, remainingMs) {
         directLoad: true, referer: VL_PLAYER + '/', userAgent: VL_UA, timeoutMs: timeout, finishAfterFirstMs: 150,
         waitForMediaReady: true, allowBlobMediaReady: false,
         captureSessionResponses: true, jsonResponsePrefixes: [VL_API + '/'],
+        jsonSourceCompletion: { requestMatcher: matcher, identityPath: 'meta.id', identityValue: id,
+          sourcePath: 'source', originalLanguagePath: 'meta.original_language', minimumHeight: 720 },
         injectAbyssHook: false, captureSubtitles: false,
         suppressPopups: true, lockMainFrameHost: true, blockMatchedRequests: false,
         mediaHosts: ['api.ravenflix.st', 'a2.ravenflix.st', 'd.ravenflix.st', 'd2.ravenflix.st', 'c.ravenflix.st', 'c2.ravenflix.st'],
@@ -299,10 +303,11 @@ async function vlBrowserSource(id, type, season, episode, remainingMs) {
   }
   var diagnostic = session.diagnostics || {}, video = diagnostic.video || {};
   var signal = ['none', 'sandbox_required', 'human_verification', 'access_denied', 'unavailable'].indexOf(video.pageSignal) >= 0 ? video.pageSignal : 'unknown';
-  var finish = ['timeout', 'load-error', 'media-ready', 'response-media', 'network-candidate'].indexOf(session.finishReason) >= 0 ? session.finishReason : 'unknown';
+  var finish = ['timeout', 'load-error', 'media-ready', 'response-media', 'network-candidate', 'json-source'].indexOf(session.finishReason) >= 0 ? session.finishReason : 'unknown';
   vlLog('WEBSITE_STATE: finish=' + finish + ' documentStart=' + (session.documentStartHook === true) +
     ' hook=' + (diagnostic.hookSeen === true) + ' pageFinished=' + (diagnostic.pageFinished === true) +
-    ' responses=' + session.responses.length + ' pageSignal=' + signal);
+    ' responses=' + session.responses.length + ' pageSignal=' + signal +
+    ' earlyCompletion=' + (session.jsonSourceCompletionVersion === 1) + ' jsonEligible=' + (session.jsonSourceEligible === true));
   var records = session.responses, result = null;
   for (var i = 0; i < records.length; i++) {
     var record = records[i];
@@ -344,7 +349,7 @@ async function getStreams(tmdbId, mediaType, season, episode) {
   // bootstrap is used by its source module.
   var headers = { Accept: 'application/json', Referer: VL_PLAYER + '/', Origin: VL_PLAYER, 'User-Agent': VL_UA };
   var query = '?id=' + encodeURIComponent(id) + (type === 'tv' ? '&season=' + Number(season) + '&episode=' + Number(episode) : '') + '&mode=json';
-  vlLog('ROUTE: v2.3.1 exact TMDB=' + id + ' ' + type + '; API first, up to 5 engines; parallel=3; one website fallback only on API failure; native WebView owns session timeout; no title-specific rules');
+  vlLog('ROUTE: v2.4.0 exact TMDB=' + id + ' ' + type + '; API first, up to 5 engines; parallel=3; website fallback opts into exact eligible JSON completion; no title-specific rules');
   var result = await new Promise(function(resolve) {
     var next = 0, active = 0, finished = false;
     var timer = setTimeout(function() { complete(null); }, Math.max(1, nativeDeadline - Date.now()));

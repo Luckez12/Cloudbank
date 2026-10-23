@@ -1,6 +1,6 @@
 {
   "name": "Cloudbank",
-  "version": "1.20.91",
+  "version": "1.20.92",
   "scrapers": [
     {
       "id": "kisskh",
@@ -772,7 +772,7 @@
       "id": "vidlove",
       "name": "VidLove",
       "description": "Fast exact-TMDB API with one website-session fallback when native engines fail.",
-      "version": "2.3.1",
+      "version": "2.4.0",
       "author": "Jeff",
       "supportedTypes": [
         "movie",
@@ -796,7 +796,7 @@
         "tv"
       ],
       "upstreamVersion": "1.0.0",
-      "notes": "v2.3.1 fixes the overlapping JavaScript WebView timeout from v2.3.0. Native WebView starts its timer after setup/loadUrl; the former extra 200ms JavaScript grace could expire before captured JSON returned. Await native completion under the existing 19s provider wrapper. Website budget remains up to 8s; native API request URLs and headers are unchanged. Adds sanitized website finish/hook/page/response diagnostics. Regression reproduces v2.3.0 dropping a delayed native result and passes with this fix. No per-title rules or app changes. Does not establish why API responses on the device became empty; live Android playback remains unverified.",
+      "notes": "v2.4.0 opts into generic VUEO JSON source completion for the exact requested movie/episode. Native HTTP routing retained; website can return as soon as a captured payload passes identity, format, host, audio and 720p/unknown eligibility, without waiting for media readiness or full timeout. Requires companion VUEO bridge update for early completion. Older bridge continues normal bounded timeout behavior. Signed media selection, playback fields and payload subtitles retained. No per-title rules or added media probes. Kotlin bridge compilation, JSON policy tests and JS/provider regressions passed; device scan speed not yet measured.",
       "sourceRepository": "https://github.com/D3adlyRocket/All-in-One-Nuvio",
       "sourceCommit": "3f09a6ff4360498895e622877af7a32212f75038",
       "runtimeModules": []
