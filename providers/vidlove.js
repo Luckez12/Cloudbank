@@ -153,15 +153,15 @@ function cloudbankMetadataFetch(nativeFetch) {
   }
   (function(module, exports, require, fetch, self) {
 /* CLOUDBANK_UPSTREAM_SOURCE_START */
-/* VidLove v2.0.0: current website API, one source engine, original master. */
+/* VidLove v2.1.0: bounded current website routes and subtitle handoff. */
 var VL_API = 'https://api.vidlove.cc';
 var VL_PLAYER = 'https://player.vidlove.cc';
-var VL_ENGINE = 'vidapi';
+var VL_ENGINES = ['vidapi', 'dcloud', 'moviebox2', 'moviebox', 'tcloud'];
 var VL_UA = 'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36';
 function vlLog(message) { console.log('[VidLove] ' + message); }
-function vlBounded(run) {
+function vlBounded(run, timeoutMs) {
   return new Promise(function(resolve, reject) {
-    var timer = setTimeout(function() { reject(new Error('request timeout')); }, 10000);
+    var timer = setTimeout(function() { reject(new Error('request timeout')); }, timeoutMs);
     Promise.resolve().then(run).then(function(value) { clearTimeout(timer); resolve(value); }, function(error) { clearTimeout(timer); reject(error); });
   });
 }
@@ -190,58 +190,127 @@ function vlLanguage(value) {
   var lang = String(value || '').toLowerCase();
   return ({eng:'en',jpn:'ja',kor:'ko',hin:'hi',ita:'it',zho:'zh',chi:'zh',msa:'ms',may:'ms',ind:'id'})[lang] || lang;
 }
+function vlSubtitles(rows) {
+  var out = [], seen = Object.create(null);
+  if (!Array.isArray(rows)) return out;
+  rows.forEach(function(row) {
+    if (!row || typeof row !== 'object' || out.length >= 32) return;
+    var url = row.url || row.file || row.src;
+    if (!vlMediaUrl(url) || seen[url] || /^(?:thumbnails?|chapters?)$/i.test(String(row.kind || ''))) return;
+    seen[url] = true;
+    var label = String(row.name || row.label || row.display || '').trim();
+    // A website label is useful; never mark every subtitle as English.
+    var language = row.language || row.lang || row.srclang || label || 'und';
+    var track = { url: url, language: String(language), name: label || String(language) };
+    var mime = String(row.mimeType || row.mime_type || row.type || row.format || '').toLowerCase();
+    if (/^(?:text\/vtt|vtt)$/.test(mime) || /\.vtt(?:[?#]|$)/i.test(url)) track.mimeType = 'text/vtt';
+    else if (/^(?:application\/x-subrip|srt)$/.test(mime) || /\.srt(?:[?#]|$)/i.test(url)) track.mimeType = 'application/x-subrip';
+    if (row.headers && typeof row.headers === 'object') {
+      track.headers = {};
+      Object.keys(row.headers).forEach(function(key) {
+        if (!/^(host|connection|range|content-length|accept-encoding|x-vueo-http-transport)$/i.test(key) &&
+          typeof row.headers[key] === 'string' && !/[\r\n\0]/.test(key + row.headers[key])) track.headers[key] = row.headers[key];
+      });
+    }
+    out.push(track);
+  });
+  return out;
+}
+function vlMapPayload(payload, id, type, season, episode) {
+  var meta = payload && payload.meta || {}, source = payload && payload.source;
+  if (meta.id != null && String(meta.id) !== id) throw new Error('response identity mismatch');
+  if (!source || typeof source !== 'object') return null;
+  var parsed = vlMediaUrl(source.url);
+  if (!parsed) throw new Error('no HTTPS media URL');
+  var kind = vlKind(source, parsed);
+  if (!kind) throw new Error('unsupported media payload');
+  var original = vlLanguage(meta.original_language), language = vlLanguage(source.audioLanguage || source.language);
+  var languages = Array.isArray(source.audioLanguages) ? source.audioLanguages.map(vlLanguage) : [];
+  var dual = source.isDualAudio === true || source.isMultiAudio === true;
+  var includesOriginal = original && (language === original || languages.indexOf(original) >= 0);
+  var knownNonOriginal = original && !includesOriginal && (languages.length > 0 || (language && !dual));
+  if (knownNonOriginal || (source.isDubbed === true && !includesOriginal && !dual)) throw new Error('explicit dub-only source');
+  var quality = /\b(2160|1440|1080|720|576|480|360|240)p?\b/i.exec(String(source.quality || ''));
+  if (kind === 'mp4' && quality && Number(quality[1]) < 720) throw new Error('direct file below 720p');
+  var title = String(meta.title || meta.name || 'VidLove'), date = meta.release_date || meta.first_air_date || '';
+  if (date) title += ' (' + String(date).slice(0, 4) + ')';
+  if (type === 'tv') title += ' S' + Number(season) + 'E' + Number(episode);
+  var stream = { name: 'VidLove', title: title, url: source.url, headers: vlHeaders(source.headers, VL_PLAYER + '/'), provider: 'vidlove',
+    serverName: source.label || source.source || 'Website', quality: kind === 'mp4' && quality ? quality[1] + 'p' : 'Auto',
+    type: kind === 'mp4' ? 'direct' : kind, format: kind, isAdaptive: kind !== 'mp4',
+    mimeType: kind === 'hls' ? 'application/x-mpegURL' : kind === 'dash' ? 'application/dash+xml' : 'video/mp4', runtimeMinutes: meta.runtime || undefined };
+  if (language) stream.audioLanguage = language;
+  if (languages.length) stream.audioLanguages = languages;
+  return { stream: stream, tracks: vlSubtitles([].concat(Array.isArray(payload.subtitles) ? payload.subtitles : [], Array.isArray(source.subtitles) ? source.subtitles : [])) };
+}
+function vlSafeError(error) {
+  var text = String(error && error.message || '');
+  return /^(?:HTTP \d+|request timeout|response identity mismatch|no HTTPS media URL|unsupported media payload|explicit dub-only source|direct file below 720p)$/.test(text) ? text : 'transport or response error';
+}
 async function getStreams(tmdbId, mediaType, season, episode) {
   var id = String(tmdbId || ''), type = mediaType === 'series' ? 'tv' : mediaType;
   if (!/^[1-9]\d*$/.test(id) || (type !== 'movie' && type !== 'tv')) return [];
   if (type === 'tv' && (season == null || season === '' || episode == null || episode === '' || !Number.isInteger(Number(season)) || Number(season) < 0 || !Number.isInteger(Number(episode)) || Number(episode) < 1)) return [];
-  var page = VL_PLAYER + '/embed/' + type + '/' + id + (type === 'tv' ? '/' + Number(season) + '/' + Number(episode) : '');
-  // Build explicitly: VUEO URL.searchParams mutations do not update URL.href.
-  var url = VL_API + '/' + type + '?id=' + encodeURIComponent(id) +
-    (type === 'tv' ? '&season=' + Number(season) + '&episode=' + Number(episode) : '') + '&mode=json&sources=' + VL_ENGINE;
-  var started = Date.now();
-  vlLog('ROUTE: v2.0.0 current api.vidlove.cc; exact TMDB=' + id + ' ' + type +
-    (type === 'tv' ? ' S' + Number(season) + 'E' + Number(episode) : '') + '; one HTTP call; engine=' + VL_ENGINE + '; master unchanged');
-  try {
-    var payload = await vlBounded(function() {
-      return fetch(url, { headers: { Accept: 'application/json', Referer: VL_PLAYER + '/', Origin: VL_PLAYER, 'User-Agent': VL_UA } }).then(function(response) {
-        if (!response.ok) throw new Error('HTTP ' + response.status);
-        return response.json();
-      });
-    });
-    var meta = payload && payload.meta || {}, source = payload && payload.source;
-    if (meta.id != null && String(meta.id) !== id) throw new Error('response identity mismatch');
-    if (!source || typeof source !== 'object') { vlLog('NO_RESULT: selected website engine returned no source; no fan-out or retry'); return []; }
-    if (source.source && String(source.source).toLowerCase() !== VL_ENGINE) throw new Error('unexpected source engine');
-    var parsed = vlMediaUrl(source.url);
-    if (!parsed) throw new Error('no HTTPS media URL');
-    var kind = vlKind(source, parsed);
-    if (!kind) throw new Error('unsupported media payload');
-    var original = vlLanguage(meta.original_language), language = vlLanguage(source.audioLanguage || source.language);
-    var languages = Array.isArray(source.audioLanguages) ? source.audioLanguages.map(vlLanguage) : [];
-    var dual = source.isDualAudio === true || source.isMultiAudio === true;
-    var includesOriginal = original && (language === original || languages.indexOf(original) >= 0);
-    var knownNonOriginal = original && !includesOriginal && (languages.length > 0 || (language && !dual));
-    if (knownNonOriginal || (source.isDubbed === true && !includesOriginal && !dual)) { vlLog('NO_RESULT: explicit dub-only source rejected'); return []; }
-    var directQuality = /\b(2160|1440|1080|720|576|480|360|240)p?\b/i.exec(String(source.quality || ''));
-    if (kind === 'mp4' && directQuality && Number(directQuality[1]) < 720) { vlLog('NO_RESULT: direct file below 720p'); return []; }
-    var title = String(meta.title || meta.name || 'VidLove'), date = meta.release_date || meta.first_air_date || '';
-    if (date) title += ' (' + String(date).slice(0, 4) + ')';
-    if (type === 'tv') title += ' S' + Number(season) + 'E' + Number(episode);
-    vlLog('RESULT: 1 ' + kind + ' source; calls=1 elapsedMs=' + (Date.now() - started) +
-      '; audio=' + (language || (languages.length ? languages.join(',') : 'unknown')) + '; no HEVC flag, playlist/child/segment/metadata/subtitle fetches; playback unverified');
-    var stream = { name: 'VidLove', title: title, url: source.url, headers: vlHeaders(source.headers, VL_PLAYER + '/'), provider: 'vidlove',
-      serverName: source.label || 'VidAPI', quality: kind === 'mp4' && directQuality ? directQuality[1] + 'p' : 'Auto',
-      type: kind === 'mp4' ? 'direct' : kind, format: kind, isAdaptive: kind !== 'mp4',
-      mimeType: kind === 'hls' ? 'application/x-mpegURL' : kind === 'dash' ? 'application/dash+xml' : 'video/mp4', runtimeMinutes: meta.runtime || undefined };
-    if (language) stream.audioLanguage = language;
-    if (languages.length) stream.audioLanguages = languages;
-    return [stream];
-  } catch (error) {
-    var message = String(error && error.message || '');
-    var safe = /^(?:HTTP \d+|request timeout|response identity mismatch|unexpected source engine|no HTTPS media URL|unsupported media payload)$/.test(message);
-    vlLog('NO_RESULT: ' + (safe ? message : 'transport or response error') + '; calls=1 elapsedMs=' + (Date.now() - started));
-    return [];
+  var started = Date.now(), deadline = started + 14000, calls = 0;
+  var headers = { Accept: 'application/json', Referer: VL_PLAYER + '/', Origin: VL_PLAYER, 'User-Agent': VL_UA };
+  var query = '?id=' + encodeURIComponent(id) + (type === 'tv' ? '&season=' + Number(season) + '&episode=' + Number(episode) : '') + '&mode=json';
+  vlLog('ROUTE: v2.1.0 exact TMDB=' + id + ' ' + type + '; website engines up to 5; parallel=3; first eligible source; original master unchanged');
+  var result = await new Promise(function(resolve) {
+    var next = 0, active = 0, finished = false;
+    var timer = setTimeout(function() { complete(null); }, Math.max(1, deadline - Date.now()));
+    function complete(value) { if (finished) return; finished = true; clearTimeout(timer); resolve(value); }
+    function pump() {
+      if (finished) return;
+      while (active < 3 && next < VL_ENGINES.length && Date.now() < deadline) {
+        (function(engine) {
+          active++; calls++;
+          var url = VL_API + '/' + type + query + '&sources=' + engine;
+          // Public identity/query only. Never log returned signed media URLs.
+          vlLog('API_REQUEST: ' + url);
+          vlBounded(function() {
+            return fetch(url, { headers: headers }).then(function(response) {
+              if (!response.ok) throw new Error('HTTP ' + response.status);
+              return response.json();
+            });
+          }, Math.max(1, Math.min(6000, deadline - Date.now()))).then(function(payload) {
+            if (finished) return;
+            var candidate = vlMapPayload(payload, id, type, season, episode);
+            vlLog('ENGINE: ' + engine + ' result=' + (candidate ? 'eligible' : 'empty'));
+            if (candidate) { candidate.engine = engine; complete(candidate); }
+          }).catch(function(error) {
+            if (!finished) vlLog('ENGINE: ' + engine + ' result=' + vlSafeError(error));
+          }).then(function() {
+            active--;
+            if (finished) return;
+            if ((next >= VL_ENGINES.length || Date.now() >= deadline) && active === 0) complete(null);
+            else pump();
+          });
+        })(VL_ENGINES[next++]);
+      }
+      if (!finished && active === 0) complete(null);
+    }
+    pump();
+  });
+  if (!result) { vlLog('NO_RESULT: no eligible source from completed website routes; calls=' + calls + ' elapsedMs=' + (Date.now() - started) + '; subtitles not fetched without video'); return []; }
+  var tracks = result.tracks, subtitleStatus = tracks.length ? 'payload' : 'empty';
+  if (!tracks.length && Date.now() < deadline) {
+    var subtitleUrl = VL_API + '/subtitles/' + type + '/' + id + (type === 'tv' ? '/' + Number(season) + '/' + Number(episode) : '');
+    calls++;
+    vlLog('SUBTITLE_REQUEST: ' + subtitleUrl);
+    try {
+      var list = await vlBounded(function() {
+        return fetch(subtitleUrl, { headers: headers }).then(function(response) {
+          if (!response.ok) throw new Error('HTTP ' + response.status);
+          return response.json();
+        });
+      }, Math.max(1, Math.min(2500, deadline - Date.now())));
+      tracks = vlSubtitles(list); subtitleStatus = tracks.length ? 'website' : 'empty';
+    } catch (error) { subtitleStatus = vlSafeError(error); }
   }
+  if (tracks.length) result.stream.subtitles = tracks;
+  vlLog('SUBTITLES: tracks=' + tracks.length + ' status=' + subtitleStatus + '; language labels preserved');
+  vlLog('RESULT: 1 source; engine=' + result.engine + ' calls=' + calls + ' elapsedMs=' + (Date.now() - started) + '; no master/child/segment probes; playback unverified');
+  return [result.stream];
 }
 module.exports = { getStreams: getStreams };
 

@@ -1,6 +1,6 @@
 {
   "name": "Cloudbank",
-  "version": "1.20.86",
+  "version": "1.20.87",
   "scrapers": [
     {
       "id": "kisskh",
@@ -771,8 +771,8 @@
     {
       "id": "vidlove",
       "name": "VidLove",
-      "description": "Current VidLove website API, one VidAPI route and original adaptive master.",
-      "version": "2.0.0",
+      "description": "Current VidLove website engines with bounded fallback, original master and subtitle handoff.",
+      "version": "2.1.0",
       "author": "Jeff",
       "supportedTypes": [
         "movie",
@@ -796,7 +796,7 @@
         "tv"
       ],
       "upstreamVersion": "1.0.0",
-      "notes": "Rebuilt from current player.vidlove.cc frontend: api.vidlove.cc movie/TV exact TMDB query, one tested VidAPI engine, no ten-source fan-out or forced HEVC. Original master URL/signature preserved, no playlist/child/segment/metadata/external subtitle requests or WebView. Unknown audio accepted; explicit dub-only rejected when supplied. Current movie API and master HLS returned HTTP 200 during audit. Tests include actual VUEO URL compatibility shim; Android playback remains unverified.",
+      "notes": "v2.1.0: explicitly serialized TMDB ID/season/episode queries and safe public API_REQUEST logs (app timeline still strips query strings). Try up to five current website engines, max three concurrent, first eligible source, 14s total budget; no repeated engine retries. Preserve original signed master/header and audio policy. Forward payload subtitles; otherwise fetch the exact website movie/episode subtitle endpoint with at most 2.5s wait, never remove video on subtitle failure. Reject data/blob tracks and preserve language labels. No WebView, forced HEVC, media/child/segment probes or app patch. Runtime-shim and fallback/subtitle fixtures pass; current audited 1108427 engines returned empty, so backend availability and device playback are not guaranteed.",
       "sourceRepository": "https://github.com/D3adlyRocket/All-in-One-Nuvio",
       "sourceCommit": "3f09a6ff4360498895e622877af7a32212f75038",
       "runtimeModules": []
