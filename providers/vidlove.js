@@ -84,7 +84,7 @@ function cloudbankWrapProvider(provider, providerId, supportedTypes) {
     var args = Array.prototype.slice.call(arguments);
     var type = mediaType === "series" ? "tv" : mediaType;
     if (supportedTypes.indexOf(type) === -1 || !String(tmdbId || "").trim()) return Promise.resolve([]);
-    if (type === "tv" && (!Number.isInteger(Number(season)) || Number(season) < 0 ||
+    if (type === "tv" && (season == null || season === "" || episode == null || episode === "" || !Number.isInteger(Number(season)) || Number(season) < 0 ||
         !Number.isInteger(Number(episode)) || Number(episode) < 1)) return Promise.resolve([]);
     args[0] = String(tmdbId);
     args[1] = type;
@@ -153,7 +153,97 @@ function cloudbankMetadataFetch(nativeFetch) {
   }
   (function(module, exports, require, fetch, self) {
 /* CLOUDBANK_UPSTREAM_SOURCE_START */
-'use strict';const _0x4d63e8=_0x8990;(function(_0x136d77,_0x25a558){const _0x29fa25={_0x48d8a1:0x1a0,_0x4b8bfb:0x1af,_0x5ce59a:0x1ca,_0x299ca0:0x1a5,_0x120ec3:0x1d6},_0x534c9d=_0x8990,_0x270b03=_0x136d77();while(!![]){try{const _0x31b7f4=-parseInt(_0x534c9d(_0x29fa25._0x48d8a1))/0x1*(-parseInt(_0x534c9d(0x1db))/0x2)+-parseInt(_0x534c9d(0x1d4))/0x3+parseInt(_0x534c9d(0x1cf))/0x4*(-parseInt(_0x534c9d(0x1dc))/0x5)+parseInt(_0x534c9d(_0x29fa25._0x4b8bfb))/0x6+parseInt(_0x534c9d(0x1a9))/0x7*(-parseInt(_0x534c9d(0x1b1))/0x8)+-parseInt(_0x534c9d(_0x29fa25._0x5ce59a))/0x9+-parseInt(_0x534c9d(_0x29fa25._0x299ca0))/0xa*(-parseInt(_0x534c9d(_0x29fa25._0x120ec3))/0xb);if(_0x31b7f4===_0x25a558)break;else _0x270b03['push'](_0x270b03['shift']());}catch(_0x355748){_0x270b03['push'](_0x270b03['shift']());}}}(_0x4992,0xd51f7));var __async=(_0x472eda,_0xf1b654,_0x439816)=>{const _0x238894={_0x825e05:0x1d2};return new Promise((_0x3b160d,_0xa6b417)=>{const _0x2fcce1={_0x34a812:0x1ce},_0xaff2ff=_0x8990;var _0x4c7ba1=_0x25ad8a=>{const _0x3dd6ee=_0x8990;try{_0x58a3dc(_0x439816[_0x3dd6ee(_0x2fcce1._0x34a812)](_0x25ad8a));}catch(_0x4b583e){_0xa6b417(_0x4b583e);}},_0x1fb517=_0x3a4c28=>{try{_0x58a3dc(_0x439816['throw'](_0x3a4c28));}catch(_0x138e93){_0xa6b417(_0x138e93);}},_0x58a3dc=_0x2d940c=>_0x2d940c['done']?_0x3b160d(_0x2d940c[_0xaff2ff(0x1a4)]):Promise[_0xaff2ff(0x1ae)](_0x2d940c[_0xaff2ff(0x1a4)])[_0xaff2ff(0x1c5)](_0x4c7ba1,_0x1fb517);_0x58a3dc((_0x439816=_0x439816[_0xaff2ff(_0x238894._0x825e05)](_0x472eda,_0xf1b654))['next']());});},BASE_URL='https://ballerinacappuccinalovestungtungtungsahur.com',REFERER=_0x4d63e8(0x199),TMDB_BASE='https://api.themoviedb.org/3',TMDB_KEY=_0x4d63e8(0x1b7),MIN_QUALITY=0x438,DEFAULT_QUALITY='1080p',USER_AGENT=_0x4d63e8(0x1a6),PROVIDERS=[_0x4d63e8(0x1a2),'ipcloud','tcloud','vidapi',_0x4d63e8(0x1be),_0x4d63e8(0x197),'xpass','vidrift','lookmovie','vidnest'],DEFAULT_HEADERS={'accept':'application/json','accept-language':_0x4d63e8(0x1b0),'sec-ch-ua':'\x22Not;A=Brand\x22;v=\x228\x22,\x20\x22Chromium\x22;v=\x22150\x22,\x20\x22Google\x20Chrome\x22;v=\x22150\x22','Referer':REFERER,'User-Agent':USER_AGENT};function getInvertedSortTag(_0x41e68d,_0x1b718f=0xf423f){const _0x5fb71c={_0x43edde:0x1c4,_0x318e3a:0x1ab},_0x4f8f3d=_0x4d63e8,_0x2c787e=Math['max'](0x0,parseInt(_0x41e68d,0xa)||0x0),_0x56ffd7=Math[_0x4f8f3d(_0x5fb71c._0x43edde)](0x0,_0x1b718f-_0x2c787e),_0x1430c9=_0x56ffd7[_0x4f8f3d(_0x5fb71c._0x318e3a)](0x2)[_0x4f8f3d(0x1a1)](0x14,'0');return _0x1430c9[_0x4f8f3d(0x1c9)]('')['map'](_0x36aa60=>_0x36aa60==='1'?'\ufeff':'​')['join']('');}function _0x4992(){const _0xd65133=['Ahr0Chm6lY9WBgf5zxiUDMLKBg92zs5JyY8','ihWG8j+tPsbxruiTreW','BwfW','DhjPBq','8j+sJIa3mJbW','8j+uPsaXmdGWCa','zxbPC29KzvrPDgXL','nJnyC3n5tMu','CgfKu3rHCNq','Bw92AwvIB3G','8j+tIYbt','DMfSDwu','mtbWz3HuD1O','tw96AwXSys81lJaGkfDPBMrVD3mGtLqGmtaUmdSGv2LUnJq7ihG2ncKGqxbWBgvxzwjlAxqVntm3lJm2icHlsfrntcWGBgLRzsbhzwnRBYKGq2HYB21LlZeZms4WlJaUmcbtywzHCMKVntm3lJm2','Dg9mB3DLCKnHC2u','zMLSDgvY','n0HpBvrwrG','DxjS','Dg9tDhjPBMC','C2XPy2u','mta4ma','CMvZB2X2zq','odGZodK0mKfry2z1Cq','BMWTtKWSBMW7Ct0WlJKSzw4Tvvm7Ct0WlJGSzw47Ct0WlJC','nZG5mti4oeLkC25PtW','ANnVBG','l3nLyxnVBI8','B3jPz2LUywXFDgL0Bgu','Aw5JBhvKzxm','zMHK','mZa3yJDIogvMmdm1yZzHytmZnJKWmgfLzJrLmJaZyMq','DgvZDa','C2vHC29U','vw5RBM93BG','8j+tUIa','CxvHBgL0AwvZ','zxbPC29Kzxm','DML4C3jJ','BMfTzq','8j+oRca','zxHWB3j0CW','mJe2ma','BgfIzwW','Bwf4','DgHLBG','zxbPC29Kzq','C2v0','8j+oNU+4JYbns1yGFcdIMQeGsevwqYb8ipcFJQCGqufd','C3bSAxq','mteXmdCYmZn3q0T0u3O','DwHK','l3r2lW','DgL0Bgu','BMv4Da','mZu1mJeXmKreu29IqW','AgfZ','yxbWBgLJyxrPB24VANnVBG','yxbWBhK','CMvSzwfZzv9KyxrL','mZuYndi2nvvqCvLiAG','BgvUz3rO','mJi5oty3mJfwCxfLB1m','CxvHBgL0Eq','EwvHCG','vMLKBg92zsdIGkiG','BwvKAwfuExbL','nta1ntzftMDSvu0','nxf4wwzlyq','DhzZAg93','Bw92Awu','mwvTyMvK','ndGW'];_0x4992=function(){return _0xd65133;};return _0x4992();}function getResolutionEmoji(_0x5ab27d){const _0x8c76e8={_0x3d33cf:0x1c2,_0xb527c7:0x1b5,_0x3a1013:0x1cb,_0x2090a9:0x1ad,_0x59ce78:0x1b5,_0x316c46:0x1b6,_0x5436cf:0x19e,_0x3ec92d:0x19d,_0x526ec6:0x1b5,_0x695a62:0x198,_0x3369a6:0x1bb},_0x22c162=_0x4d63e8,_0x2912d4=String(_0x5ab27d||'')['toLowerCase']();if(_0x2912d4[_0x22c162(0x1b5)](_0x22c162(_0x8c76e8._0x3d33cf))||_0x2912d4[_0x22c162(_0x8c76e8._0xb527c7)]('4k')||_0x2912d4['includes'](_0x22c162(_0x8c76e8._0x3a1013)))return'🌟\x204K';if(_0x2912d4['includes'](_0x22c162(_0x8c76e8._0x2090a9))||_0x2912d4[_0x22c162(_0x8c76e8._0x59ce78)](_0x22c162(_0x8c76e8._0x316c46)))return _0x22c162(_0x8c76e8._0x5436cf);if(_0x2912d4['includes']('720')||_0x2912d4[_0x22c162(0x1b5)]('hd'))return _0x22c162(_0x8c76e8._0x3ec92d);if(_0x2912d4[_0x22c162(_0x8c76e8._0x526ec6)](_0x22c162(_0x8c76e8._0x695a62))||_0x2912d4['includes']('sd'))return'📱\x20480p';return _0x22c162(_0x8c76e8._0x3369a6)+(_0x5ab27d||'1080p');}function qualityRank(_0x2120a3){const _0x356471={_0x473ce1:0x1b8},_0x2db853=_0x4d63e8;if(/2160p|4k/i['test'](_0x2120a3))return 0x4;if(/1080p/i['test'](_0x2120a3))return 0x3;if(/720p/i[_0x2db853(_0x356471._0x473ce1)](_0x2120a3))return 0x2;if(/480p/i[_0x2db853(0x1b8)](_0x2120a3))return 0x1;return 0x0;}function _0x8990(_0x23bc86,_0x349230){_0x23bc86=_0x23bc86-0x195;const _0x4992f2=_0x4992();let _0x8990e8=_0x4992f2[_0x23bc86];if(_0x8990['tUkkjR']===undefined){var _0x1f8042=function(_0x1acca8){const _0x1d3b18='abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789+/=';let _0x472eda='',_0xf1b654='';for(let _0x439816=0x0,_0x3b160d,_0xa6b417,_0x4c7ba1=0x0;_0xa6b417=_0x1acca8['charAt'](_0x4c7ba1++);~_0xa6b417&&(_0x3b160d=_0x439816%0x4?_0x3b160d*0x40+_0xa6b417:_0xa6b417,_0x439816++%0x4)?_0x472eda+=String['fromCharCode'](0xff&_0x3b160d>>(-0x2*_0x439816&0x6)):0x0){_0xa6b417=_0x1d3b18['indexOf'](_0xa6b417);}for(let _0x1fb517=0x0,_0x58a3dc=_0x472eda['length'];_0x1fb517<_0x58a3dc;_0x1fb517++){_0xf1b654+='%'+('00'+_0x472eda['charCodeAt'](_0x1fb517)['toString'](0x10))['slice'](-0x2);}return decodeURIComponent(_0xf1b654);};_0x8990['PGCnyu']=_0x1f8042,_0x8990['wLxgMy']={},_0x8990['tUkkjR']=!![];}const _0x16f026=_0x4992f2[0x0],_0x47c203=_0x23bc86+_0x16f026,_0x5f4d3b=_0x8990['wLxgMy'][_0x47c203];return!_0x5f4d3b?(_0x8990e8=_0x8990['PGCnyu'](_0x8990e8),_0x8990['wLxgMy'][_0x47c203]=_0x8990e8):_0x8990e8=_0x5f4d3b,_0x8990e8;}var parseQuality=_0x4045ac=>{const _0x1c893d=String(_0x4045ac||'')['match'](/(\d+)/);return _0x1c893d?parseInt(_0x1c893d[0x1],0xa):0x0;},normalizeQuality=_0x406c1e=>{const _0x27be66=String(_0x406c1e||'')['trim']();return _0x27be66?_0x27be66:DEFAULT_QUALITY;},isQualityAcceptable=_0x2f4790=>{return parseQuality(normalizeQuality(_0x2f4790))>=MIN_QUALITY;};function fetchTmdbMeta(_0x3d0213,_0x4cdac0,_0x22b507=null,_0x173f3a=null){const _0x657f0a={_0x30cb6e:0x1bf,_0x1b4a78:0x1b4,_0x32f3bb:0x1d3,_0x23e860:0x1ac,_0x181708:0x1cc,_0x2c9ee4:0x1d1,_0x128025:0x1bd,_0x2759a2:0x1bf,_0x14a8d3:0x1ba};return __async(this,null,function*(){const _0x180e6f=_0x8990;try{const _0x1de216=_0x4cdac0==='tv'?'tv':_0x180e6f(0x196),_0x854349=yield fetch(TMDB_BASE+'/'+_0x1de216+'/'+encodeURIComponent(_0x3d0213)+'?api_key='+TMDB_KEY,{'headers':{'Accept':'application/json','User-Agent':USER_AGENT}});if(!_0x854349['ok'])return{'title':'Unknown','year':null,'episodeTitle':''};const _0x5b9b0d=yield _0x854349['json'](),_0x41f141=_0x5b9b0d['title']||_0x5b9b0d[_0x180e6f(_0x657f0a._0x30cb6e)]||_0x5b9b0d[_0x180e6f(_0x657f0a._0x1b4a78)]||_0x5b9b0d['original_name']||'Unknown',_0x349c71=_0x5b9b0d[_0x180e6f(_0x657f0a._0x32f3bb)]||_0x5b9b0d['first_air_date']||'',_0x201edf=_0x349c71?parseInt(_0x349c71[_0x180e6f(_0x657f0a._0x23e860)](0x0,0x4)):null;let _0x1ff9f6='';if(_0x4cdac0==='tv'&&_0x22b507&&_0x173f3a)try{const _0x3f184d=yield fetch(TMDB_BASE+_0x180e6f(_0x657f0a._0x181708)+encodeURIComponent(_0x3d0213)+_0x180e6f(0x1b3)+_0x22b507+'?api_key='+TMDB_KEY,{'headers':{'Accept':_0x180e6f(_0x657f0a._0x2c9ee4),'User-Agent':USER_AGENT}});if(_0x3f184d['ok']){const _0x5ce59d=yield _0x3f184d[_0x180e6f(0x1b2)]();if(_0x5ce59d&&Array['isArray'](_0x5ce59d[_0x180e6f(_0x657f0a._0x128025)])){const _0x569ab7=parseInt(_0x173f3a),_0x5e496a=_0x5ce59d[_0x180e6f(0x1bd)]['find'](_0x261291=>_0x261291['episode_number']===_0x569ab7);_0x5e496a&&_0x5e496a[_0x180e6f(_0x657f0a._0x30cb6e)]&&(_0x1ff9f6=_0x5e496a[_0x180e6f(_0x657f0a._0x2759a2)]);}}}catch(_0x598159){}return{'title':_0x41f141,'year':_0x201edf,'episodeTitle':_0x1ff9f6};}catch(_0x292f74){return{'title':_0x180e6f(_0x657f0a._0x14a8d3),'year':null,'episodeTitle':''};}});}var buildEndpointUrl=(_0x40b773,_0x49cdf3,_0x1db82a,_0x18f942,_0x3406ff)=>{const _0x394a72={_0x26d9b0:0x1b2,_0x59abaa:0x1c7},_0x3f469d=_0x4d63e8,_0x4fd7ec=new URLSearchParams({'id':_0x49cdf3,'mode':_0x3f469d(_0x394a72._0x26d9b0),'sources':_0x1db82a,'hevc':'1'});if(_0x18f942!=null)_0x4fd7ec[_0x3f469d(_0x394a72._0x59abaa)](_0x3f469d(0x1b9),_0x18f942);if(_0x3406ff!=null)_0x4fd7ec['set']('episode',_0x3406ff);return BASE_URL+'/'+_0x40b773+'?'+_0x4fd7ec;},mapQualityToStream=(_0x380b5c,_0x347921,_0x20ee65,_0x95e6c)=>{const _0x37acdc={_0x56a3e1:0x1cd,_0x13f9fb:0x1d8,_0x4ae9c0:0x1da,_0x3cb567:0x1c6,_0x5095b0:0x1a3,_0x25f9eb:0x1c6,_0x1f5a7e:0x1c8},_0x5eb43b=_0x4d63e8,_0x2e01ae=normalizeQuality(_0x380b5c['quality']),_0x271211=getResolutionEmoji(_0x2e01ae),_0x19f1b0=qualityRank(_0x2e01ae),_0x14ecb0=getInvertedSortTag(_0x19f1b0*0x186a0+(0x64-_0x20ee65),0xf423f),_0x465d76=_0x14ecb0+_0x5eb43b(0x1d9)+_0x2e01ae+'\x20•\x20'+_0x347921,_0x5bf416=_0x5eb43b(0x1c0)+_0x95e6c[_0x5eb43b(_0x37acdc._0x56a3e1)]+(_0x95e6c[_0x5eb43b(_0x37acdc._0x13f9fb)]?'\x20('+_0x95e6c[_0x5eb43b(0x1d8)]+')':'');let _0x114db4=null;_0x95e6c[_0x5eb43b(_0x37acdc._0x4ae9c0)]==='tv'&&_0x95e6c['season']&&_0x95e6c[_0x5eb43b(_0x37acdc._0x3cb567)]&&(_0x114db4=_0x5eb43b(_0x37acdc._0x5095b0)+_0x95e6c['season']+'\x20E'+_0x95e6c[_0x5eb43b(_0x37acdc._0x25f9eb)]+(_0x95e6c[_0x5eb43b(0x19f)]?'\x20-\x20'+_0x95e6c['episodeTitle']:''));const _0x3a7f92=_0x271211+'\x20|\x20🗣️\x20Multi-Audio',_0x5e0246=_0x5eb43b(_0x37acdc._0x1f5a7e),_0x1c57cf='🔗\x20Vidlove\x20|\x20🌐\x20'+_0x347921+_0x5eb43b(0x19a),_0x38ef9e=[_0x5bf416,_0x114db4,_0x3a7f92,_0x5e0246,_0x1c57cf][_0x5eb43b(0x1a8)](Boolean)['join']('\x0a'),_0x150734={'Referer':REFERER,'Origin':'https://player.vidlove.cc','User-Agent':USER_AGENT};return{'name':_0x465d76,'title':_0x38ef9e,'size':_0x38ef9e,'description':_0x38ef9e,'url':_0x380b5c['url'],'quality':_0x2e01ae,'headers':_0x150734,'behaviorHints':{'notWebReady':!![],'proxyHeaders':{'request':_0x150734}}};};function fetchProviderStreams(_0x26141a,_0x5e4699,_0x5b47fa,_0x409aac,_0x375ba1,_0x4d7cb9){const _0x4cdea0={_0x3d2385:0x1bc,_0x1d8816:0x1c3,_0x3e977c:0x1d5,_0x30b6e9:0x1aa};return __async(this,null,function*(){const _0x5ba0ba=_0x8990;var _0x37edeb;try{const _0x5c8c05=yield fetch(buildEndpointUrl(_0x5b47fa,_0x5e4699,_0x26141a,_0x409aac,_0x375ba1),{'method':'GET','headers':DEFAULT_HEADERS});if(!_0x5c8c05['ok'])return[];const {source:_0x4fb42e}=yield _0x5c8c05['json']();if(!_0x4fb42e)return[];const _0x4de8a7=Array['isArray'](_0x4fb42e[_0x5ba0ba(_0x4cdea0._0x3d2385)])?_0x4fb42e[_0x5ba0ba(0x1bc)]:[],_0x402fbb=(_0x37edeb=_0x4fb42e[_0x5ba0ba(_0x4cdea0._0x1d8816)])!=null?_0x37edeb:_0x26141a;if(_0x4de8a7[_0x5ba0ba(_0x4cdea0._0x3e977c)]>0x0)return _0x4de8a7['filter'](_0x4c8dce=>(_0x4c8dce==null?void 0x0:_0x4c8dce[_0x5ba0ba(0x1aa)])&&isQualityAcceptable(_0x4c8dce['quality']))[_0x5ba0ba(0x19b)]((_0x2f9b37,_0x57f912)=>mapQualityToStream(_0x2f9b37,_0x402fbb,_0x57f912,_0x4d7cb9));if(_0x4fb42e[_0x5ba0ba(_0x4cdea0._0x30b6e9)]&&isQualityAcceptable(_0x4fb42e[_0x5ba0ba(0x1d7)]))return[mapQualityToStream({'url':_0x4fb42e['url'],'quality':_0x4fb42e['quality']},_0x402fbb,0x0,_0x4d7cb9)];return[];}catch(_0x52c73f){return[];}});}function getStreams(_0x59080d,_0x149a3f,_0x18ab50,_0x1bec07){const _0x270063={_0x1308a5:0x19c,_0x34a1e0:0x196,_0x2b222d:0x1c6};return __async(this,null,function*(){const _0x251b1b=_0x8990;try{const _0xd11de6=String(_0x149a3f||'')[_0x251b1b(0x1a7)]()[_0x251b1b(_0x270063._0x1308a5)](),_0x3f08d4=_0xd11de6==='series'||_0xd11de6==='show'||_0xd11de6===_0x251b1b(0x195)||_0xd11de6==='tv'?'tv':_0x251b1b(_0x270063._0x34a1e0);if(_0x3f08d4==='tv'&&(_0x18ab50==null||_0x1bec07==null))return[];const _0x52cca4=yield fetchTmdbMeta(_0x59080d,_0x3f08d4,_0x18ab50,_0x1bec07);_0x52cca4['mediaType']=_0x3f08d4,_0x52cca4['season']=_0x18ab50,_0x52cca4[_0x251b1b(_0x270063._0x2b222d)]=_0x1bec07;const _0x5ec104=yield Promise['all'](PROVIDERS['map'](_0x2bd823=>fetchProviderStreams(_0x2bd823,_0x59080d,_0x3f08d4,_0x18ab50,_0x1bec07,_0x52cca4))),_0x19c1ab=new Set();return _0x5ec104['flat']()[_0x251b1b(0x1a8)](_0x48012f=>_0x48012f['url']&&!_0x19c1ab[_0x251b1b(0x1d0)](_0x48012f[_0x251b1b(0x1aa)])&&_0x19c1ab['add'](_0x48012f['url']));}catch(_0x3b1cd2){return[];}});}module[_0x4d63e8(0x1c1)]={'getStreams':getStreams};
+/* VidLove v2.0.0: current website API, one source engine, original master. */
+var VL_API = 'https://api.vidlove.cc';
+var VL_PLAYER = 'https://player.vidlove.cc';
+var VL_ENGINE = 'vidapi';
+var VL_UA = 'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36';
+function vlLog(message) { console.log('[VidLove] ' + message); }
+function vlBounded(run) {
+  return new Promise(function(resolve, reject) {
+    var timer = setTimeout(function() { reject(new Error('request timeout')); }, 10000);
+    Promise.resolve().then(run).then(function(value) { clearTimeout(timer); resolve(value); }, function(error) { clearTimeout(timer); reject(error); });
+  });
+}
+function vlMediaUrl(value) {
+  if (typeof value !== 'string' || !/^https:\/\//i.test(value) || value !== value.trim() || /[\r\n\0]/.test(value) || /^https:\/\/[^/]*@/i.test(value)) return null;
+  try { return new URL(value); } catch (_) { return null; }
+}
+function vlKind(source, parsed) {
+  var mime = String(source.mimeType || source.contentType || source.type || '').toLowerCase();
+  if (typeof source.manifest === 'string' && /^\s*#EXTM3U(?:\s|$)/.test(source.manifest)) return 'hls';
+  if (/\.m3u8$/i.test(parsed.pathname) || /mpegurl|^hls$/.test(mime)) return 'hls';
+  if (/\.mpd$/i.test(parsed.pathname) || /dash\+xml|^dash$/.test(mime)) return 'dash';
+  if (/\.mp4$/i.test(parsed.pathname) || mime === 'video/mp4') return 'mp4';
+  return '';
+}
+function vlHeaders(raw, page) {
+  var out = {};
+  if (raw && typeof raw === 'object') Object.keys(raw).forEach(function(key) {
+    if (!/^(host|connection|content-length|accept-encoding|range|x-vueo-http-transport)$/i.test(key) && typeof raw[key] === 'string' && !/[\r\n\0]/.test(key + raw[key])) out[key] = raw[key];
+  });
+  function add(name, value) { if (!Object.keys(out).some(function(key) { return key.toLowerCase() === name.toLowerCase(); })) out[name] = value; }
+  add('Referer', page); add('Origin', VL_PLAYER); add('User-Agent', VL_UA); add('Accept', '*/*');
+  return out;
+}
+function vlLanguage(value) {
+  var lang = String(value || '').toLowerCase();
+  return ({eng:'en',jpn:'ja',kor:'ko',hin:'hi',ita:'it',zho:'zh',chi:'zh',msa:'ms',may:'ms',ind:'id'})[lang] || lang;
+}
+async function getStreams(tmdbId, mediaType, season, episode) {
+  var id = String(tmdbId || ''), type = mediaType === 'series' ? 'tv' : mediaType;
+  if (!/^[1-9]\d*$/.test(id) || (type !== 'movie' && type !== 'tv')) return [];
+  if (type === 'tv' && (season == null || season === '' || episode == null || episode === '' || !Number.isInteger(Number(season)) || Number(season) < 0 || !Number.isInteger(Number(episode)) || Number(episode) < 1)) return [];
+  var page = VL_PLAYER + '/embed/' + type + '/' + id + (type === 'tv' ? '/' + Number(season) + '/' + Number(episode) : '');
+  // Build explicitly: VUEO URL.searchParams mutations do not update URL.href.
+  var url = VL_API + '/' + type + '?id=' + encodeURIComponent(id) +
+    (type === 'tv' ? '&season=' + Number(season) + '&episode=' + Number(episode) : '') + '&mode=json&sources=' + VL_ENGINE;
+  var started = Date.now();
+  vlLog('ROUTE: v2.0.0 current api.vidlove.cc; exact TMDB=' + id + ' ' + type +
+    (type === 'tv' ? ' S' + Number(season) + 'E' + Number(episode) : '') + '; one HTTP call; engine=' + VL_ENGINE + '; master unchanged');
+  try {
+    var payload = await vlBounded(function() {
+      return fetch(url, { headers: { Accept: 'application/json', Referer: VL_PLAYER + '/', Origin: VL_PLAYER, 'User-Agent': VL_UA } }).then(function(response) {
+        if (!response.ok) throw new Error('HTTP ' + response.status);
+        return response.json();
+      });
+    });
+    var meta = payload && payload.meta || {}, source = payload && payload.source;
+    if (meta.id != null && String(meta.id) !== id) throw new Error('response identity mismatch');
+    if (!source || typeof source !== 'object') { vlLog('NO_RESULT: selected website engine returned no source; no fan-out or retry'); return []; }
+    if (source.source && String(source.source).toLowerCase() !== VL_ENGINE) throw new Error('unexpected source engine');
+    var parsed = vlMediaUrl(source.url);
+    if (!parsed) throw new Error('no HTTPS media URL');
+    var kind = vlKind(source, parsed);
+    if (!kind) throw new Error('unsupported media payload');
+    var original = vlLanguage(meta.original_language), language = vlLanguage(source.audioLanguage || source.language);
+    var languages = Array.isArray(source.audioLanguages) ? source.audioLanguages.map(vlLanguage) : [];
+    var dual = source.isDualAudio === true || source.isMultiAudio === true;
+    var includesOriginal = original && (language === original || languages.indexOf(original) >= 0);
+    var knownNonOriginal = original && !includesOriginal && (languages.length > 0 || (language && !dual));
+    if (knownNonOriginal || (source.isDubbed === true && !includesOriginal && !dual)) { vlLog('NO_RESULT: explicit dub-only source rejected'); return []; }
+    var directQuality = /\b(2160|1440|1080|720|576|480|360|240)p?\b/i.exec(String(source.quality || ''));
+    if (kind === 'mp4' && directQuality && Number(directQuality[1]) < 720) { vlLog('NO_RESULT: direct file below 720p'); return []; }
+    var title = String(meta.title || meta.name || 'VidLove'), date = meta.release_date || meta.first_air_date || '';
+    if (date) title += ' (' + String(date).slice(0, 4) + ')';
+    if (type === 'tv') title += ' S' + Number(season) + 'E' + Number(episode);
+    vlLog('RESULT: 1 ' + kind + ' source; calls=1 elapsedMs=' + (Date.now() - started) +
+      '; audio=' + (language || (languages.length ? languages.join(',') : 'unknown')) + '; no HEVC flag, playlist/child/segment/metadata/subtitle fetches; playback unverified');
+    var stream = { name: 'VidLove', title: title, url: source.url, headers: vlHeaders(source.headers, VL_PLAYER + '/'), provider: 'vidlove',
+      serverName: source.label || 'VidAPI', quality: kind === 'mp4' && directQuality ? directQuality[1] + 'p' : 'Auto',
+      type: kind === 'mp4' ? 'direct' : kind, format: kind, isAdaptive: kind !== 'mp4',
+      mimeType: kind === 'hls' ? 'application/x-mpegURL' : kind === 'dash' ? 'application/dash+xml' : 'video/mp4', runtimeMinutes: meta.runtime || undefined };
+    if (language) stream.audioLanguage = language;
+    if (languages.length) stream.audioLanguages = languages;
+    return [stream];
+  } catch (error) {
+    var message = String(error && error.message || '');
+    var safe = /^(?:HTTP \d+|request timeout|response identity mismatch|unexpected source engine|no HTTPS media URL|unsupported media payload)$/.test(message);
+    vlLog('NO_RESULT: ' + (safe ? message : 'transport or response error') + '; calls=1 elapsedMs=' + (Date.now() - started));
+    return [];
+  }
+}
+module.exports = { getStreams: getStreams };
 
 /* CLOUDBANK_UPSTREAM_SOURCE_END */
   })(originalModule, originalModule.exports, portableRequire, cloudbankMetadataFetch(fetch), typeof globalThis !== "undefined" ? globalThis : global);
