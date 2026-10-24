@@ -3290,12 +3290,15 @@ function vnSafeUrl(value) {
   if(typeof value!=='string'||!/^(https?):\/\/[^\s]+$/i.test(value))return false;
   try {const u=new URL(value);return !u.username&&!u.password;}catch(_){return false;}
 }
-async function vnRequest(url,options,deadline,maxMs=4500) {
+async function vnRequest(url,options,deadline,maxMs=4500,run) {
+  if(run&&run.closed)throw Error("Discovery completed");
   const left=deadline-Date.now();if(left<=0)throw Error('Discovery deadline');
   const controller=typeof AbortController==='function'?new AbortController():null;let timer;
+  if(controller&&run)run.controllers.push(controller);
   try{return await Promise.race([
     fetch(url,Object.assign({},options,controller?{signal:controller.signal}:{})),
-    new Promise((_,reject)=>{timer=setTimeout(()=>{if(controller)controller.abort();reject(Error('HTTP timeout'));},Math.min(left,maxMs));})
+    new Promise((_,reject)=>{timer=setTimeout(()=>{if(controller)controller.abort();reject(Error('HTTP timeout'));},Math.min(left,maxMs));}),
+    new Promise((_,reject)=>{if(run)run.cancellations.push(()=>reject(Error('Discovery completed')));})
   ]);}finally{clearTimeout(timer);}
 }
 function vnSubtitleLanguage(row) {
@@ -3320,11 +3323,14 @@ function vnCaptions(rows) {
   });
   return out;
 }
-function vnSubtitleSearch(id,type,season,episode) {
+function vnSubtitleSearch(id,type,season,episode,onChange) {
   const path=type==='tv'?'tv/'+id+'/'+Number(season)+'/'+Number(episode):'movie/'+id;
-  const rows=[],controllers=[];let closed=false,timer;
-  function stop(){closed=true;clearTimeout(timer);controllers.forEach(c=>{try{c.abort();}catch(_){}});}
-  const tasks=[1,2].map(async version=>{
+  const rows=[],controllers=[];let closed=false,pending=2,timer;
+  const snapshot=()=>vnCaptions(rows);
+  function stop(){if(closed)return;closed=true;clearTimeout(timer);controllers.forEach(c=>{try{c.abort();}catch(_){}});}
+  function hasBoth(){const tracks=snapshot();return tracks.some(x=>x.lang==='en')&&tracks.some(x=>x.lang==='ms');}
+  timer=setTimeout(()=>{stop();onChange();},3500);
+  [1,2].forEach(async version=>{
     try {
       const controller=typeof AbortController==='function'?new AbortController():null;
       if(controller)controllers.push(controller);
@@ -3332,15 +3338,16 @@ function vnSubtitleSearch(id,type,season,episode) {
         {headers:{Accept:'application/json',Referer:'https://vidnest.fun/'},...(controller?{signal:controller.signal}:{})});
       if(closed)return;
       vnLog('SUBTITLES v'+version+' HTTP '+response.status);
-      if(!response.ok)return;
-      const data=await response.json();if(closed)return;
-      const items=Array.isArray(data)?data:data&&[data.subtitles,data.data,data.results].find(Array.isArray);
-      if(items)rows.push(...items.slice(0,200));
+      if(response.ok){
+        const data=await response.json();if(closed)return;
+        const items=Array.isArray(data)?data:data&&[data.subtitles,data.data,data.results].find(Array.isArray);
+        if(items)rows.push(...items.slice(0,200));
+        if(hasBoth())stop();
+      }
     }catch(_){if(!closed)vnLog('SUBTITLES v'+version+' unavailable');}
+    finally{pending--;if(!pending)stop();onChange();}
   });
-  const promise=Promise.race([Promise.all(tasks),new Promise(resolve=>{timer=setTimeout(resolve,3500);})])
-    .then(()=>vnCaptions(rows)).catch(()=>[]).finally(stop);
-  return {promise,stop};
+  return {snapshot,stop,hasBoth,settled:()=>closed};
 }
 function vnParse(data,server) {
   if(!data||typeof data!=='object')return [];
@@ -3357,53 +3364,80 @@ function vnParse(data,server) {
       subtitles:captions,audioLanguage:typeof x.language==='string'?x.language:undefined,provider:'vidnest',mimeType:kind==='hls'?'application/x-mpegURL':kind==='dash'?'application/dash+xml':/\.mp4(?:[?#]|$)/i.test(x.url)?'video/mp4':undefined};
   });
 }
-async function vnVerify(row,deadline) {
+async function vnVerify(row,deadline,run) {
   try {
     const isHls=row.type==='hls';
-    const response=await vnRequest(row.url,{method:isHls?'GET':'HEAD',headers:row.headers},deadline,4000);
+    const response=await vnRequest(row.url,{method:isHls?'GET':'HEAD',headers:row.headers},deadline,4000,run);
+    if(run&&run.closed)return null;
     const mime=String(response.headers&&response.headers.get?response.headers.get('content-type')||'':'').toLowerCase();
     vnLog('MEDIA server='+row.serverName+' status='+response.status+' mime='+(mime||'missing'));
     if(!response.ok)return null;
     if(isHls) {
       if(/html|json|xml/.test(mime)&&!/mpegurl/.test(mime))return null;
-      const text=await response.text();
+      const text=await response.text();if(run&&run.closed)return null;
       if(!/^\s*#EXTM3U/m.test(text)||!/#EXT(?:INF|-X-STREAM-INF)/.test(text))return null;
       row.quality=/#EXT-X-STREAM-INF/.test(text)?'Auto':row.quality;
       // Preserve the exact master/query and all audio/quality choices. No segment fetches.
     }else if(!/^video\//.test(mime)&&!/^application\/(octet-stream|dash\+xml|x-matroska)/.test(mime))return null;
     return row;
-  }catch(_){vnLog('MEDIA server='+row.serverName+' unavailable or timed out');return null;}
+  }catch(_){if(!run||!run.closed)vnLog('MEDIA server='+row.serverName+' unavailable or timed out');return null;}
 }
 async function getStreams(tmdbId,mediaType,season,episode) {
   const id=String(tmdbId||''),type=mediaType==='series'?'tv':mediaType;
   if(!/^[1-9]\d*$/.test(id)||!['movie','tv'].includes(type))return [];
   if(type==='tv'&&(season==null||season===''||episode==null||episode===''||!Number.isInteger(Number(season))||Number(season)<0||!Number.isInteger(Number(episode))||Number(episode)<1))return [];
   const route='/'+type+'/'+id+(type==='tv'?'/'+Number(season)+'/'+Number(episode):'');
-  const deadline=Date.now()+16000;
-  vnLog('v2.1.1 API: exact TMDB '+id+' '+type+(type==='tv'?' S'+season+'E'+episode:'')+'; local authenticated decrypt');
-  const subtitleTask=vnSubtitleSearch(id,type,season,episode);
-  const batches=await Promise.all(VN_SERVERS.map(async server=>{
+  const started=Date.now(),deadline=started+16000,run={closed:false,controllers:[],cancellations:[]};
+  const seen=new Set(),result=[];let pending=VN_SERVERS.length,firstMs=null,collectionTimer,totalTimer,reason='',complete;
+  const completion=new Promise(resolve=>{complete=resolve;});
+  let subtitleTask;
+  function finish(why){
+    if(run.closed)return;
+    reason=why;run.closed=true;clearTimeout(collectionTimer);clearTimeout(totalTimer);
+    run.controllers.forEach(c=>{try{c.abort();}catch(_){}});
+    run.cancellations.forEach(cancel=>cancel());run.cancellations.length=0;
+    if(subtitleTask)subtitleTask.stop();complete();
+  }
+  function check(){
+    if(run.closed||!subtitleTask)return;
+    if(result.length>=2&&subtitleTask.hasBoth())finish('two sources and EN/MS ready');
+    else if(pending===0&&(!result.length||subtitleTask.settled()))finish('all source routes settled');
+  }
+  function add(row){
+    if(run.closed||!row||seen.has(row.url))return;
+    seen.add(row.url);result.push(row);
+    if(firstMs===null){
+      firstMs=Date.now()-started;
+      vnLog('FIRST_SOURCE: elapsedMs='+firstMs+'; collection grace=600ms');
+      collectionTimer=setTimeout(()=>finish('first source + 600ms'),600);
+    }
+    check();
+  }
+  totalTimer=setTimeout(()=>finish('total deadline'),16000);
+  subtitleTask=vnSubtitleSearch(id,type,season,episode,check);
+  vnLog('v2.2.0 API: exact TMDB '+id+' '+type+'; return completed sources without waiting for slow routes');
+  VN_SERVERS.forEach(async server=>{
     try{
-      // Cache-busting query only; the response's n determines the authenticated key.
       const nonce=vnNonce();
-      const response=await vnRequest(VN_BASE+'/'+server+route+'?_n='+encodeURIComponent(nonce),{headers:{'User-Agent':'Mozilla/5.0',Origin:'https://vidnest.fun',Referer:'https://vidnest.fun/'}},deadline,10000);
+      const response=await vnRequest(VN_BASE+'/'+server+route+'?_n='+encodeURIComponent(nonce),{headers:{'User-Agent':'Mozilla/5.0',Origin:'https://vidnest.fun',Referer:'https://vidnest.fun/'}},deadline,10000,run);
+      if(run.closed)return;
       vnLog('API server='+server+' HTTP '+response.status);
-      if(!response.ok)return [];
-      const envelope=await response.json();const data=vnDecrypt(envelope);
-      const rows=vnParse(data,server);
+      if(!response.ok)return;
+      const envelope=await response.json();if(run.closed)return;
+      const rows=vnParse(vnDecrypt(envelope),server);
       vnLog('DECRYPT server='+server+' authenticated; candidates='+rows.length);
-      const valid=await Promise.all(rows.map(row=>vnVerify(row,deadline)));return valid.filter(Boolean);
-    }catch(error){vnLog('API server='+server+' failed: '+String(error.message||'unknown').slice(0,130));return [];}
-  }));
-  const seen=new Set(),result=[];
-  batches.forEach(rows=>rows.forEach(row=>{if(!seen.has(row.url)){seen.add(row.url);result.push(row);}}));
-  if(result.length) {
-    const external=await subtitleTask.promise;
-    result.forEach(row=>{row.subtitles=vnCaptions((row.subtitles||[]).concat(external));});
-    const all=vnCaptions(result.flatMap(row=>row.subtitles));
-    vnLog('SUBTITLE_RESULT: English='+all.filter(x=>x.lang==='en').length+' Malay='+all.filter(x=>x.lang==='ms').length+'; other languages excluded');
-  } else subtitleTask.stop();
-  vnLog('RESULT: '+result.length+' HTTP-checked sources; Android playback unverified');
+      await Promise.all(rows.map(async row=>{const valid=await vnVerify(row,deadline,run);add(valid);}));
+    }catch(error){if(!run.closed)vnLog('API server='+server+' failed: '+String(error.message||'unknown').slice(0,130));}
+    finally{pending--;check();}
+  });
+  await completion;
+  result.sort((a,b)=>VN_SERVERS.indexOf(a.serverName)-VN_SERVERS.indexOf(b.serverName));
+  const external=subtitleTask.snapshot();
+  result.forEach(row=>{row.subtitles=vnCaptions((row.subtitles||[]).concat(external));});
+  const all=vnCaptions(result.flatMap(row=>row.subtitles));
+  vnLog('SUBTITLE_RESULT: English='+all.filter(x=>x.lang==='en').length+' Malay='+all.filter(x=>x.lang==='ms').length+'; other languages excluded');
+  vnLog('TIMING: firstSourceMs='+firstMs+' totalMs='+(Date.now()-started)+' completed='+result.length+' pendingRoutes='+pending+' finish='+reason);
+  vnLog('RESULT: '+result.length+' HTTP-checked sources');
   return result;
 }
 module.exports={getStreams};

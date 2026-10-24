@@ -71,5 +71,23 @@ function envelope(data,n='test-response-nonce'){
  const started=Date.now();rows=await ctx.module.exports.getStreams('1148365','movie');
  assert.ok(rows.every(r=>r.subtitles.some(x=>x.lang==='ms')));assert.ok(Date.now()-started<4500);checks++;
  if(process.env.VIDNEST_SUB_FIXTURES){const actual=ctx.vnCaptions(JSON.parse(fs.readFileSync('/tmp/vn-sub-verify-0.json')));assert.equal(actual.filter(x=>x.lang==='en').length,8);assert.equal(actual.filter(x=>x.lang==='ms').length,1);checks++;}
+
+ const stalled=[];
+ ctx.fetch=async(url,opts={})=>{
+  if(url.includes('new.vidnest.fun/flixhq/')||url.includes('sub.vdrk.site/v2/')){stalled.push(opts.signal);return new Promise(()=>{});}
+  if(url.includes('sub.vdrk.site/v1/'))return response(200,[{file:'https://sub.test/en.vtt',label:'English'},{file:'https://sub.test/ms.vtt',label:'Malay'}],'application/json');
+  return mediaFetch(url,opts);
+ };
+ const fastStart=Date.now();rows=await ctx.module.exports.getStreams('1236045','movie');
+ assert.equal(rows.length,2);assert.ok(Date.now()-fastStart<1200);assert.ok(stalled.every(signal=>signal.aborted));
+ assert.ok(rows.every(r=>r.subtitles.some(x=>x.lang==='en')&&r.subtitles.some(x=>x.lang==='ms')));checks++;
+ // Preserve a single completed source even if all other work ignores abort.
+ ctx.fetch=async(url,opts={})=>{
+  if(url.includes('new.vidnest.fun/')&&!url.includes('/vidzee/'))return new Promise(()=>{});
+  if(url.includes('sub.vdrk.site/'))return new Promise(()=>{});
+  return mediaFetch(url,opts);
+ };
+ const oneStart=Date.now();rows=await ctx.module.exports.getStreams('1236045','movie');
+ assert.equal(rows.length,1);assert.ok(Date.now()-oneStart>=500&&Date.now()-oneStart<1500);checks++;
  console.log('PASS: '+checks+' Vidnest protocol/workflow checks');
 })().catch(e=>{console.error(e);process.exitCode=1;});

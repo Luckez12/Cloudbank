@@ -1,6 +1,6 @@
 {
   "name": "Cloudbank",
-  "version": "1.20.104",
+  "version": "1.20.105",
   "scrapers": [
     {
       "id": "kisskh",
@@ -1008,7 +1008,7 @@
       "id": "vidnest",
       "name": "Vidnest",
       "description": "Vidnest streaming with encrypted AES-GCM sources",
-      "version": "2.1.1",
+      "version": "2.2.0",
       "author": "Nuvio Team",
       "supportedTypes": [
         "movie",
@@ -1033,7 +1033,7 @@
         "tv"
       ],
       "runtimeModules": [],
-      "notes": "Current new.vidnest.fun v2 API for website-mapped yflix/flixhq/vidzee routes. Local SHA-256/AES-256-GCM with authentication-tag checks using existing CryptoJS; no Node crypto/process.env, decrypt service, legacy proxy, WebView or app change. Exact TMDB/season/episode routes; source headers/captions retained; bounded parallel API calls, HLS root check or video HEAD, no 403 acceptance or segment probes. Sample Venom APIs decrypt; FlixHQ HLS 200 and VidZee MKV HEAD 200 observed; Android playback and full catalog unverified. v2.0.1: isolated provider-owned CryptoJS primitives replace unavailable runtime algo.AES; regression tests forbid all runtime module access. API routes and selection unchanged. v2.1.0: EN/MS-only subtitles from source API plus parallel VDRK v1/v2 sidecar metadata (3.5s total subtitle budget). Exact movie/episode path, URL dedupe, up to 8 tracks/language; failures preserve video. Wyzie excluded because current frontend key is rejected. Existing v2.0.1 video decoder/resolver unchanged. v2.1.1: preserve source subtitle label/display/name verbatim; no translated labels or added CC/variant labels. EN/MS filter retained."
+      "notes": "Current new.vidnest.fun v2 API for website-mapped yflix/flixhq/vidzee routes. Local SHA-256/AES-256-GCM with authentication-tag checks using existing CryptoJS; no Node crypto/process.env, decrypt service, legacy proxy, WebView or app change. Exact TMDB/season/episode routes; source headers/captions retained; bounded parallel API calls, HLS root check or video HEAD, no 403 acceptance or segment probes. Sample Venom APIs decrypt; FlixHQ HLS 200 and VidZee MKV HEAD 200 observed; Android playback and full catalog unverified. v2.0.1: isolated provider-owned CryptoJS primitives replace unavailable runtime algo.AES; regression tests forbid all runtime module access. API routes and selection unchanged. v2.1.0: EN/MS-only subtitles from source API plus parallel VDRK v1/v2 sidecar metadata (3.5s total subtitle budget). Exact movie/episode path, URL dedupe, up to 8 tracks/language; failures preserve video. Wyzie excluded because current frontend key is rejected. Existing v2.0.1 video decoder/resolver unchanged. v2.1.1: preserve source subtitle label/display/name verbatim; no translated labels or added CC/variant labels. EN/MS filter retained. v2.2.0: collect completed sources for at most 600ms after first verified result; finish sooner with two sources and EN/MS captions. Stop caption lookup after both languages arrive. Snapshot available captions without waiting for subtitle promises; cancel pending HTTP/local waits and ignore late results. Source URLs, video checks, isolated decrypt and source subtitle labels unchanged."
     },
     {
       "id": "cinevibe",
