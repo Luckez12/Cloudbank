@@ -1,6 +1,6 @@
 {
   "name": "Cloudbank",
-  "version": "1.20.106",
+  "version": "1.20.107",
   "scrapers": [
     {
       "id": "kisskh",
@@ -910,7 +910,7 @@
       "id": "mapple",
       "name": "Mapple",
       "description": "Mapple multi-hoster movies and TV streaming with PoW session verification and direct HLS streams",
-      "version": "2.0.0",
+      "version": "2.0.1",
       "author": "Nuvio Team",
       "supportedTypes": [
         "movie",
@@ -932,7 +932,7 @@
         "tv"
       ],
       "upstreamVersion": "1.0.0",
-      "notes": "Current website flow: /watch/movie/id or /watch/tv/id-season-episode, /api/ui/session then /api/media-session and existing encrypted stream API. Isolated local SHA-256, cooperative 8s PoW bound, per-scan cookies restricted to Mapple origin, no stale tokens. Two concurrent host routes among four website-observed sources, 600ms first-source collection, total 17.5s budget. Preserve actual HLS master/media playlist or direct file URL; reject HTML, no guessed Auto/variant fanout. EN/MS sidecars with original labels. Website Animals playback observed in browser; standalone HTTP run timed out at initial page, so VUEO playback remains unverified.",
+      "notes": "Current website flow: /watch/movie/id or /watch/tv/id-season-episode, /api/ui/session then /api/media-session and existing encrypted stream API. Isolated local SHA-256, cooperative 8s PoW bound, per-scan cookies restricted to Mapple origin, no stale tokens. Two concurrent host routes among four website-observed sources, 600ms first-source collection, total 17.5s budget. Preserve actual HLS master/media playlist or direct file URL; reject HTML, no guessed Auto/variant fanout. EN/MS sidecars with original labels. Website Animals playback observed in browser; standalone HTTP run timed out at initial page, so VUEO playback remains unverified. v2.0.1: specialized SHA-256 reuses schedule/state buffers and precomputes full challenge prefix blocks. Same challenge+decimal-nonce protocol, 8s PoW limit, session/API/media/subtitle behavior retained. Logs difficulty/attempts/elapsed. Independent SHA-256 vectors and saved difficulty-18 challenge pass; Android speed pending.",
       "sourceRepository": "https://github.com/D3adlyRocket/All-in-One-Nuvio",
       "sourceCommit": "3f09a6ff4360498895e622877af7a32212f75038",
       "runtimeModules": [

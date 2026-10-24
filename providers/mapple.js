@@ -3301,16 +3301,58 @@ async function mpRead(run,url,body,extra={}){
  finally{clearTimeout(timer);}
 }
 async function mpJson(run,path,body,stage){return JSON.parse((await mpRead(run,MP_BASE+path,body,{stage})).text);}
+// SHA-256 compression for challenge || decimal nonce. Reuse storage and the
+// constant full-block prefix; do not allocate a CryptoJS hasher for every try.
+const MP_SHA_K=new Int32Array([
+0x428a2f98,0x71374491,0xb5c0fbcf,0xe9b5dba5,0x3956c25b,0x59f111f1,0x923f82a4,0xab1c5ed5,
+0xd807aa98,0x12835b01,0x243185be,0x550c7dc3,0x72be5d74,0x80deb1fe,0x9bdc06a7,0xc19bf174,
+0xe49b69c1,0xefbe4786,0x0fc19dc6,0x240ca1cc,0x2de92c6f,0x4a7484aa,0x5cb0a9dc,0x76f988da,
+0x983e5152,0xa831c66d,0xb00327c8,0xbf597fc7,0xc6e00bf3,0xd5a79147,0x06ca6351,0x14292967,
+0x27b70a85,0x2e1b2138,0x4d2c6dfc,0x53380d13,0x650a7354,0x766a0abb,0x81c2c92e,0x92722c85,
+0xa2bfe8a1,0xa81a664b,0xc24b8b70,0xc76c51a3,0xd192e819,0xd6990624,0xf40e3585,0x106aa070,
+0x19a4c116,0x1e376c08,0x2748774c,0x34b0bcb5,0x391c0cb3,0x4ed8aa4a,0x5b9cca4f,0x682e6ff3,
+0x748f82ee,0x78a5636f,0x84c87814,0x8cc70208,0x90befffa,0xa4506ceb,0xbef9a3f7,0xc67178f2]);
+function mpPowHasher(challenge){
+ const encoded=MP_CRYPTO.enc.Utf8.parse(challenge),bytes=new Uint8Array(encoded.sigBytes);
+ for(let i=0;i<bytes.length;i++)bytes[i]=(encoded.words[i>>>2]>>>(24-(i%4)*8))&255;
+ const state=new Int32Array([0x6a09e667,0xbb67ae85,0x3c6ef372,0xa54ff53a,0x510e527f,0x9b05688c,0x1f83d9ab,0x5be0cd19]),w=new Int32Array(64);
+ function compress(input,offset){
+  for(let i=0;i<16;i++){const j=offset+i*4;w[i]=(input[j]<<24)|(input[j+1]<<16)|(input[j+2]<<8)|input[j+3];}
+  for(let i=16;i<64;i++){const x=w[i-15],y=w[i-2];const a=((x>>>7)|(x<<25))^((x>>>18)|(x<<14))^(x>>>3),b=((y>>>17)|(y<<15))^((y>>>19)|(y<<13))^(y>>>10);w[i]=(w[i-16]+a+w[i-7]+b)|0;}
+  let a=state[0],b=state[1],c=state[2],d=state[3],e=state[4],f=state[5],g=state[6],h=state[7];
+  for(let i=0;i<64;i++){
+   const s1=((e>>>6)|(e<<26))^((e>>>11)|(e<<21))^((e>>>25)|(e<<7));
+   const t1=(h+s1+((e&f)^(~e&g))+MP_SHA_K[i]+w[i])|0;
+   const s0=((a>>>2)|(a<<30))^((a>>>13)|(a<<19))^((a>>>22)|(a<<10));
+   const t2=(s0+((a&b)^(a&c)^(b&c)))|0;
+   h=g;g=f;f=e;e=(d+t1)|0;d=c;c=b;b=a;a=(t1+t2)|0;
+  }
+  state[0]=(state[0]+a)|0;state[1]=(state[1]+b)|0;state[2]=(state[2]+c)|0;state[3]=(state[3]+d)|0;
+  state[4]=(state[4]+e)|0;state[5]=(state[5]+f)|0;state[6]=(state[6]+g)|0;state[7]=(state[7]+h)|0;
+ }
+ const prefix=bytes.length-bytes.length%64;
+ for(let i=0;i<prefix;i+=64)compress(bytes,i);
+ const base=state.slice(),tail=new Uint8Array(128),remain=bytes.length-prefix;
+ tail.set(bytes.subarray(prefix));
+ return function(nonce){
+  state.set(base);tail.fill(0,remain);const text=String(nonce);
+  for(let i=0;i<text.length;i++)tail[remain+i]=text.charCodeAt(i);
+  const end=remain+text.length;tail[end]=128;
+  const size=end<56?64:128,bits=(bytes.length+text.length)*8;
+  tail[size-4]=(bits>>>24)&255;tail[size-3]=(bits>>>16)&255;tail[size-2]=(bits>>>8)&255;tail[size-1]=bits&255;
+  compress(tail,0);if(size===128)compress(tail,64);return state;
+ };
+}
 async function mpPow(challenge,difficulty,run){
  if(typeof challenge!=='string'||challenge.length>8192||!Number.isInteger(difficulty)||difficulty<0||difficulty>28)throw Error('Unsupported PoW parameters');
- const until=Math.min(run.deadline,Date.now()+8000);let nonce=0;
+ const started=Date.now(),until=Math.min(run.deadline,started+8000),hashNonce=mpPowHasher(challenge);let nonce=0;
  while(nonce<50000000){
   const chunk=Date.now()+5;
   do{
-   if(run.closed||Date.now()>=until)throw Error('PoW budget exceeded');
-   const hash=MP_CRYPTO.SHA256(challenge+nonce);let bits=0;
-   for(const word of hash.words){const x=word>>>0;if(!x)bits+=32;else{bits+=Math.clz32(x);break;}}
-   if(bits>=difficulty)return String(nonce);nonce++;
+   if(run.closed||Date.now()>=until){mpLog('POW timeout: difficulty='+difficulty+' attempts='+nonce+' elapsedMs='+(Date.now()-started));throw Error('PoW budget exceeded');}
+   const hash=hashNonce(nonce);let bits=0;
+   for(const word of hash){const x=word>>>0;if(!x)bits+=32;else{bits+=Math.clz32(x);break;}}
+   if(bits>=difficulty){mpLog('POW solved: difficulty='+difficulty+' attempts='+(nonce+1)+' elapsedMs='+(Date.now()-started));return String(nonce);}nonce++;
   }while(Date.now()<chunk&&nonce<50000000);
   await new Promise(resolve=>setTimeout(resolve,0));
  }
@@ -3357,7 +3399,7 @@ async function getStreams(tmdbId,mediaType,season,episode){
  timer=setTimeout(finish,17500);
  const captions=mpSubtitleSearch(id,type,season,episode,()=>{});
  try{
-  mpLog('v2.0.0 current UI/media session; exact route '+type+'/'+id+(slug?'/'+slug:''));
+  mpLog('v2.0.1 current UI/media session; exact route '+type+'/'+id+(slug?'/'+slug:''));
   const session=await mpSession(run,id,type,slug);
   async function worker(){while(!run.closed&&index<sources.length){const source=sources[index++];try{const row=await mpHost(run,source,session,id,type,slug);if(row&&!run.closed&&!found.some(x=>x.url===row.url)){found.push(row);if(found.length===1)grace=setTimeout(finish,600);if(found.length>=2)finish();}}catch(e){if(!run.closed)mpLog('SKIP '+source+': '+String(e.message).replace(/https?:\/\/\S+/g,'<url>'));}}}
   Promise.all([worker(),worker()]).then(finish,finish);
