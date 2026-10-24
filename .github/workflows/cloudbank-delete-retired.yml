@@ -1,0 +1,47 @@
+name: Delete six retired providers
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/cloudbank-delete-retired.yml'
+      - 'manifest.json'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: cloudbank-delete-retired
+  cancel-in-progress: false
+
+jobs:
+  delete-retired:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - name: Check manifest and delete only approved files
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import json
+          from pathlib import PurePosixPath
+          retired = {'1shows', 'desiflix', 'cineby', 'zinkmovies', 'moonflix', 'movieblast'}
+          with open('manifest.json', encoding='utf-8') as f:
+              manifest = json.load(f)
+          for item in manifest['scrapers']:
+              if str(item.get('id', '')).lower() in retired or PurePosixPath(item.get('filename', '')).stem.lower() in retired:
+                  raise SystemExit('Upload the updated manifest.json before deleting provider files.')
+          PY
+          git rm --ignore-unmatch -- providers/1shows.js providers/desiflix.js providers/cineby.js providers/zinkmovies.js providers/moonflix.js providers/movieblast.js
+          if git diff --cached --quiet; then
+            echo 'All six retired provider files are already absent.'
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'Remove six retired Cloudbank provider files'
+          git push origin HEAD:main
