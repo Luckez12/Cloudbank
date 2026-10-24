@@ -11,7 +11,7 @@ Dikemas kini 24 Oktober 2026. Asas: ZIP Cloudbank-main (11), kod dalam workspace
 | Giliran | Provider | Versi | Bukti dan status |
 |---|---|---|---|
 | 1 | Vidnest | 2.2.0, playback dilaporkan berjaya; subs menunggu ujian VUEO | decryptAesGcm membaca process.env tanpa guard, bergantung aesdec.nuvioapp.space; passphrase dan server list statik; validateStreamUrl menerima 403 dan melangkau HLS. Risiko keserasian runtime/URL tidak terbukti. Import tanpa rekod pembaikan khusus dalam snapshot. |
-| 2 | Mapple | 1.0.4 | solvePow sehingga 50 juta iterasi segerak; boleh menahan event loop dan timer adapter. parseHlsMaster menolak playlist media tanpa EXT-X-STREAM-INF. Manifest merekod adapter/fallback crypto, belum resolver overhaul. |
+| 2 | Mapple | 2.0.0 candidate; ujian VUEO belum selesai | solvePow sehingga 50 juta iterasi segerak; boleh menahan event loop dan timer adapter. parseHlsMaster menolak playlist media tanpa EXT-X-STREAM-INF. Manifest merekod adapter/fallback crypto, belum resolver overhaul. |
 | 3 | FibWatch | 1.0.4 | bestMatch menambah -0.2 sahaja untuk tahun salah: tajuk tepat masih melepasi ambang; padanan substring turut diterima. Tiada penapisan movie/TV dalam bestMatch, selector HTML/AJAX khusus memerlukan semakan semasa. |
 | 4 | OnlyKDrama | 1.0.4 | extractCandidateUrls hanya URL mutlak onlykdrama.shop; episod dikunci regex new5.filepress.wiki; titleLooksRelevant menerima satu perkataan bagi tajuk pendek. Risiko domain/parser lapuk dan padanan lemah, belum dibuktikan laman telah berubah. |
 | 5 | YFlix | 1.0.3 | DB, encode, decode dan parse HTML bergantung enc-dec.app; AJAX dikunci 1moviesz.to. Perlu semak sama ada aliran dependency masih sepadan laman; tiada bukti live bahawa ia mati. |
@@ -32,3 +32,5 @@ Vidnest v2.0.0 device regression: runtime crypto lacks algo.AES. v2.0.1 isolates
 Vidnest v2.0.1: pengguna mengesahkan boleh play (tiada log first-frame baharu). v2.1.0 menambah subs English/Melayu sahaja; VDRK v1 untuk TMDB 1148365 mempunyai 8 English + 1 Malay, fail English/Malay HTTP 200 dan format sah. Tunggu ujian handoff sari kata VUEO.
 
 Vidnest v2.1.1 device evidence TMDB 1236045: two media sources ready by 1668ms, nine EN/MS captions forwarded, VIDEO_FIRST_FRAME and SUBTITLE_CUES_DELIVERED observed. Scan waited 10.1s for FlixHQ timeout. v2.2.0 changes collection/cancellation only; wait for device timing confirmation.
+
+Vidnest v2.2.0: log 14:19:54 mengesahkan tiga scan 970/3107/882ms, first-frame dan cues subs. Mapple v2.0.0: endpoint sesi semasa dikenal pasti dan patch disediakan; browser laman memainkan Animals 1080p, tetapi standalone HTTP timed out pada initial page. Tunggu log VUEO, jangan label playback provider lulus.
