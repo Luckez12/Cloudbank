@@ -153,7 +153,7 @@ function cloudbankMetadataFetch(nativeFetch) {
   }
   (function(module, exports, require, fetch, self) {
 /* CLOUDBANK_UPSTREAM_SOURCE_START */
-/* VidLove v2.7.0: parallel subtitles, at most 1s grace after video; five tracks per language. */
+/* VidLove v2.8.0: parallel subtitles, at most 1s grace after video; five tracks per language. */
 var VL_API = 'https://api.vidlove.cc';
 var VL_PLAYER = 'https://player.vidlove.cc';
 var VL_ENGINES = ['moviebox', 'vidapi', 'moviebox2', 'dcloud', 'tcloud'];
@@ -178,6 +178,11 @@ function vlKind(source, parsed) {
   return '';
 }
 function vlSelectSource(source) {
+  // A declared adaptive parent remains the playback entry point. Its quality
+  // rows are alternatives, not permission to discard the signed master.
+  var parent = vlMediaUrl(source.url);
+  var parentKind = parent && vlKind(source, parent);
+  if (parentKind === 'hls' || parentKind === 'dash') return source;
   if (!Array.isArray(source.qualities) || !source.qualities.length) return source;
   var candidates = source.qualities.filter(function(row) {
     var parsed = row && vlMediaUrl(row.url);
@@ -195,9 +200,24 @@ function vlSelectSource(source) {
   var selected = {}, row = candidates[0];
   Object.keys(source).forEach(function(key) { selected[key] = source[key]; });
   Object.keys(row).forEach(function(key) { selected[key] = row[key]; });
+  var child = vlMediaUrl(row.url);
+  // Parent credentials are reusable only within the same media origin.
+  selected.headers = vlMergeHeaders(parent && child && parent.origin === child.origin ? source.headers : null, row.headers);
   // A parent manifest describes the parent URL, not this rendition.
   delete selected.manifest;
   return selected;
+}
+function vlMergeHeaders(base, override) {
+  var out = {};
+  [base, override].forEach(function(raw) {
+    if (!raw || typeof raw !== 'object') return;
+    Object.keys(raw).forEach(function(key) {
+      if (typeof raw[key] !== 'string' || /[\r\n\0]/.test(key + raw[key])) return;
+      Object.keys(out).forEach(function(old) { if (old.toLowerCase() === key.toLowerCase()) delete out[old]; });
+      out[key] = raw[key];
+    });
+  });
+  return out;
 }
 function vlHeaders(raw, page) {
   var out = {};
@@ -331,14 +351,14 @@ async function vlBrowserSource(id, type, season, episode, remainingMs) {
       var candidate = vlMapPayload(body, id, type, season, episode);
       if (!candidate) continue;
       // Copy browser cookies/UA only from this source's observed media request
-      // and only when the selected rendition has the same origin.
+      // and only for the exact selected URL, never a different rendition.
       var rows = Array.isArray(session.streams) ? session.streams : [];
       for (var j = 0; j < rows.length; j++) {
         var row = rows[j], parsed = row && vlMediaUrl(row.url);
         if (!parsed || (row.networkObserved !== true && row.responseObserved !== true)) continue;
-        if (row.url !== body.source.url && row.url !== candidate.stream.url) continue;
+        if (row.url !== candidate.stream.url) continue;
         if (parsed.origin !== vlMediaUrl(candidate.stream.url).origin) continue;
-        candidate.stream.headers = vlHeaders(row.headers, page); break;
+        candidate.stream.headers = vlHeaders(vlMergeHeaders(candidate.stream.headers, row.headers), page); break;
       }
       candidate.engine = request.searchParams.get('sources') || 'website';
       candidate.fromWebsite = true;
@@ -386,7 +406,7 @@ async function getStreams(tmdbId, mediaType, season, episode) {
   // bootstrap is used by its source module.
   var headers = { Accept: 'application/json', Referer: VL_PLAYER + '/', Origin: VL_PLAYER, 'User-Agent': VL_UA };
   var query = '?id=' + encodeURIComponent(id) + (type === 'tv' ? '&season=' + Number(season) + '&episode=' + Number(episode) : '') + '&mode=json';
-  vlLog('ROUTE: v2.7.0 exact TMDB=' + id + ' ' + type + '; video engines parallel=3; English/Malay subtitles parallel; subtitle grace max=1000ms after video; max 5 English + 5 Malay; no deferred app API');
+  vlLog('ROUTE: v2.8.0 exact TMDB=' + id + ' ' + type + '; video engines parallel=3; English/Malay subtitles parallel; subtitle grace max=1000ms after video; max 5 English + 5 Malay; no deferred app API');
   var videoTask = new Promise(function(resolve) {
     var next = 0, active = 0, finished = false;
     var timer = setTimeout(function() { complete(null); }, Math.max(1, nativeDeadline - Date.now()));
@@ -457,7 +477,7 @@ async function getStreams(tmdbId, mediaType, season, episode) {
   ms = tracks.filter(function(track) { return track.language === 'ms'; }).length;
   vlLog('SUBTITLES: tracks=' + tracks.length + ' en=' + en + ' ms=' + ms + ' status=' + subtitleStatus +
     ' waitedAfterVideoMs=' + waitedMs + ' graceMaxMs=' + graceMs + '; maxPerLanguage=5');
-  vlLog('RESULT: 1 source; route=' + (result.fromWebsite ? 'website' : 'native') + ' engine=' + result.engine + ' nativeCalls=' + calls + ' elapsedMs=' + (Date.now() - started) + '; playback unverified');
+  vlLog('RESULT: 1 source; route=' + (result.fromWebsite ? 'website' : 'native') + ' engine=' + result.engine + ' nativeCalls=' + calls + ' elapsedMs=' + (Date.now() - started) + '; format=' + result.stream.format + '; playback unverified');
   return [result.stream];
 }
 module.exports = { getStreams: getStreams };
