@@ -34,3 +34,5 @@ Vidnest v2.0.1: pengguna mengesahkan boleh play (tiada log first-frame baharu). 
 Vidnest v2.1.1 device evidence TMDB 1236045: two media sources ready by 1668ms, nine EN/MS captions forwarded, VIDEO_FIRST_FRAME and SUBTITLE_CUES_DELIVERED observed. Scan waited 10.1s for FlixHQ timeout. v2.2.0 changes collection/cancellation only; wait for device timing confirmation.
 
 Vidnest v2.2.0: log 14:19:54 mengesahkan tiga scan 970/3107/882ms, first-frame dan cues subs. Mapple v2.0.0: endpoint sesi semasa dikenal pasti dan patch disediakan; browser laman memainkan Animals 1080p, tetapi standalone HTTP timed out pada initial page. Tunggu log VUEO, jangan label playback provider lulus.
+
+Mapple v2.0.1 Android: difficulty18, 38409 hashes/8s, PoW timeout. v2.1.0 switches to exact website session in existing generic browser bridge; no provider-JS hashing. Device capture/playback pending.

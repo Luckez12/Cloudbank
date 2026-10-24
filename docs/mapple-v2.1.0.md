@@ -1,0 +1,15 @@
+# Mapple v2.1.0 — website-owned session and Worker PoW
+
+Apply ZIP at Cloudbank root beside manifest.json. Refresh to Mapple v2.1.0. Uses the generic webviewResolve capability already used by other providers in this repo; no app source/workflow/dependency change or deletion. If that capability is absent, the provider reports it and returns no sources.
+
+Device evidence: v2.0.1 completes website, UI/media session reads with HTTP 200 but computes only 38409 hashes in 8000ms at difficulty18. About 4801 hashes/s; an independent random difficulty18 challenge needs 262144 trials on average, implying roughly 55s on this measured execution path. This is an average, not a guaranteed nonce location or runtime. Node VM benchmark speed did not predict the Android embedded interpreter.
+
+The native QuickJS PoW/token/media API resolver is removed. Navigate once to the actual watch route confirmed from the website source: /watch/movie/id or /watch/tv/id-season-episode. The website runs its own cookies, UI/media-session protocol and normal Worker PoW in the browser engine. No modified challenge, token replay, fingerprint spoofing, integrity-check removal or provider-specific native app addition. If the website rejects the browser, the provider does not try an alternate bypass route.
+
+Use one existing generic browser session: 13s bridge timeout, 300ms after first candidate, 14s local result bound, no coordinate taps. Actual movie page was previously observed to autoplay in the cloud browser. Disable optional Abyss injection, preserve browser-owned stream requests and original URL/query/headers. Accept HLS/DASH/direct video shapes, reject segment/init/trailer/preview/ad/blob and explicit failed HTTP candidates. Detailed observation results require network/response observation. Basic bridge results remain supported. No second native playlist/media probe. Unknown quality stays Unknown unless bridge explicitly identifies an adaptive/master source.
+
+Caption metadata VDRK v1/v2 starts alongside the website session, remains English/Malay-only, preserves original label/name, and stops on both languages or its existing bound. Merge ready external tracks with browser-captured/source subtitles. No deferred captions or video reset; late captions can be omitted. Missing subtitles do not block media.
+
+Validation: syntax, npm run validate for all 36 providers, and tests/mapple-current.cjs pass. Full standalone-provider fixture tests forbid host crypto access and native HTTP except caption metadata, assert exact movie/TV route and no coordinate clicks/optional hooks, preserve signed source query/headers/original subtitle labels, reject failed/unobserved/ad/segment/blob rows, and handle missing/error bridge. This is not an Android WebView run. Existing cloud-browser page playback evidence does not guarantee native bridge media capture or player playback.
+
+Retest Animals TMDB1236045. Expect website-session and SESSION logs instead of POW attempts. Report finish reason, captured count and any returned player errors. Keep Mapple under review until device evidence passes.
