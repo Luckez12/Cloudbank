@@ -1,4 +1,4 @@
-/* Viduki v1.0.3 — exact TMDB player session; no download endpoints. */
+/* Viduki v1.0.4 — exact TMDB player session; no download endpoints. */
 (function () {
 'use strict';
 var BASE='https://www.viduki.net';
@@ -20,38 +20,43 @@ function subs(rows){var seen={};return (Array.isArray(rows)?rows:[]).map(functio
  seen[url]=true;var code=subtitleLanguage(row);
  return {url:url,lang:code,language:code,name:row.name||row.label||code,headers:row.headers||{},mimeType:row.mimeType,format:row.format};
 }).filter(Boolean);}
-async function verifiedSubs(rows){
- return (await Promise.all(subs(rows).slice(0,4).map(async function(track){
-  try{return await timed(async function(){
-   var r=await fetch(track.url,{headers:track.headers});
-   if(!r.ok){log('SUBTITLE_REJECT: HTTP '+r.status);return null;}
-   var text=String(await r.text()).replace(/^\uFEFF/,'').trim();
-   if(text.length>2097152||/^\s*[<{[]/.test(text))return null;
-   var cue=/(?:^|\n)\s*(?:\d{2,}:)?\d{2}:\d{2}[.,]\d{3}\s*-->\s*(?:\d{2,}:)?\d{2}:\d{2}[.,]\d{3}[^\n]*\r?\n[^\s]/m;
-   if(!cue.test(text)){log('SUBTITLE_REJECT: no text cues');return null;}
-   var vtt=/^WEBVTT(?:\s|$)/.test(text);
-   if(!vtt&&!/\d{2}:\d{2}:\d{2},\d{3}\s*-->/.test(text))return null;
-   track.mimeType=vtt?'text/vtt':'application/x-subrip';track.format=vtt?'vtt':'srt';
-   log('SUBTITLE_OK: language='+track.language+' format='+track.format);return track;
-  },2200);}catch(_){log('SUBTITLE_REJECT: fetch failed or timed out');return null;}
- }))).filter(Boolean);
-}
 async function timed(fn,ms){var t;try{return await Promise.race([fn(),new Promise(function(_,reject){t=setTimeout(function(){reject(new Error('timeout'));},ms);})]);}finally{clearTimeout(t);}}
-async function captions(id,type,s,e){try{
- var path=type==='tv'?'tv/'+id+'/'+s+'/'+e:'movie/'+id;
- return await timed(async function(){
- var r=await fetch('https://rezesubs.com/data/subs/'+path);
- if(!r.ok)return [];return await verifiedSubs((await r.json()).subtitles);
- },3500);
-}catch(_){return [];}}
+function startCaptions(id,type,s,e){
+ var active=true,tracks=[],controller=typeof AbortController==='function'?new AbortController():null;
+ var timer=setTimeout(stop,3500);
+ function stop(){if(!active)return;active=false;clearTimeout(timer);if(controller)controller.abort();}
+ function options(headers){var out={headers:headers||{}};if(controller)out.signal=controller.signal;return out;}
+ // Never await this work from the video path. Late results are ignored.
+ (async function(){try{
+  var path=type==='tv'?'tv/'+id+'/'+s+'/'+e:'movie/'+id;
+  var r=await fetch('https://rezesubs.com/data/subs/'+path,options({Origin:BASE,Referer:BASE+'/'}));
+  if(!active)return;
+  if(!r.ok){log('SUBTITLE: index HTTP '+r.status+'; no retry');return;}
+  var data=await r.json();if(!active)return;
+  var candidates=subs(data.subtitles).slice(0,4);
+  await Promise.all(candidates.map(async function(track){try{
+   if(!active)return;
+   var response=await fetch(track.url,options(track.headers));if(!active||!response.ok)return;
+   var text=String(await response.text()).replace(/^\uFEFF/,'').trim();if(!active)return;
+   if(text.length>2097152||/^\s*[<{[]/.test(text))return;
+   var cue=/(?:^|\n)\s*(?:\d{2,}:)?\d{2}:\d{2}[.,]\d{3}\s*-->\s*(?:\d{2,}:)?\d{2}:\d{2}[.,]\d{3}[^\n]*\r?\n[^\s]/m;
+   if(!cue.test(text))return;
+   var vtt=/^WEBVTT(?:\s|$)/.test(text);
+   if(!vtt&&!/\d{2}:\d{2}:\d{2},\d{3}\s*-->/.test(text))return;
+   track.mimeType=vtt?'text/vtt':'application/x-subrip';track.format=vtt?'vtt':'srt';
+   tracks.push(track);
+  }catch(_){} }));
+ }catch(_){}finally{stop();}})();
+ return {stop:stop,snapshot:function(){return tracks.slice();}};
+}
 async function getStreams(id,type,s,e){
  type=type==='series'?'tv':type;id=String(id||'');s=Number(s);e=Number(e);
  if(!/^\d+$/.test(id)||! /^(movie|tv)$/.test(type)||type==='tv'&&(!Number.isInteger(s)||s<0||!Number.isInteger(e)||e<1))return [];
  var bridge=typeof globalThis!=='undefined'&&globalThis.webviewResolve;
  if(typeof bridge!=='function'){log('NO_RESULT: WebView bridge unavailable');return [];}
  var page=BASE+'/1/'+type+'/'+id+(type==='tv'?'/'+s+'/'+e:'');
- log('v1.0.3 exact '+type+'/'+id+(type==='tv'?'/'+s+'/'+e:'')+'; API 1 website streaming; no download route');
- var subtitleTask=captions(id,type,s,e);
+ log('v1.0.4 exact '+type+'/'+id+(type==='tv'?'/'+s+'/'+e:'')+'; API 1 website streaming; no download route');
+ var subtitles=startCaptions(id,type,s,e);
  try{
  var session=await timed(function(){return bridge(page,{
   directLoad:true,referer:BASE+'/',timeoutMs:12000,finishAfterFirstMs:500,
@@ -63,6 +68,8 @@ async function getStreams(id,type,s,e){
   interactionTexts:['play','watch now','continue'],clickDelaysMs:[650,1300,2200,3400,5000,7000,9500],
   blocked:['doubleclick.net','googlesyndication.com','googleadservices.com']
  });},12500);
+ subtitles.stop();
+ log('SUBTITLE: discovery ended; ready='+subtitles.snapshot().length+'; extraWaitMs=0');
  if(typeof session==='string')session=JSON.parse(session);
  var rows=session&&Array.isArray(session.streams)?session.streams:[];
  var rawCount=rows.length,detailed=session&&session.sessionResponseVersion===1;
@@ -93,8 +100,7 @@ async function getStreams(id,type,s,e){
   if(/html|json|image\//i.test(mime)){log('REJECT: captured non-media content type');continue;}
   // Same handoff approach as Mapple/VidFast: native capture owns discovery.
   // Do not re-request the signed CDN URL after the browser already requested it.
-  var nativeTracks=verifiedSubs([].concat(session&&session.subtitles||[],row.subtitles||[]));
-  var tracks=subs([].concat(await subtitleTask,await nativeTracks));
+  var tracks=subtitles.snapshot();
   log('HANDOFF: CDN rechecks=0; source=captured-session; playback unverified');
   log('RESULT: 1 '+kind+' source; validatedSubtitles='+tracks.length);
   return [{name:'Viduki',provider:'viduki',title:'Viduki • API 1',serverName:'API 1',url:row.url,headers:headers,type:kind,format:kind,
@@ -104,6 +110,7 @@ async function getStreams(id,type,s,e){
  }
  log('RESULT: 0 eligible sources');return [];
  }catch(_){log('NO_RESULT: website session failed or timed out');return [];}
+ finally{subtitles.stop();}
 }
 module.exports={getStreams:getStreams};
 })();

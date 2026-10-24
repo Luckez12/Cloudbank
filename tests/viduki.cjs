@@ -3,8 +3,8 @@ const code=fs.readFileSync('providers/viduki.js','utf8');
 async function run(options={}){
  const calls=[],bridgeCalls=[],logs=[];
  const row=Object.assign({url:'https://cdn.example/master.m3u8?token=signed',headers:{Referer:'https://www.viduki.net/',Cookie:'session=test'}},options.row);
- const ctx={module:{exports:{}},URL,setTimeout,clearTimeout,console:{log:s=>logs.push(s)},
- webviewResolve:async(url,opts)=>{bridgeCalls.push({url,opts});const session={streams:options.empty?[]:[row],mediaReady:false,subtitles:options.nativeSubs||[]};if(options.detailed)session.sessionResponseVersion=1;return options.string?JSON.stringify(session):session;},
+ const ctx={module:{exports:{}},URL,AbortController,setTimeout,clearTimeout,console:{log:s=>logs.push(s)},
+ webviewResolve:async(url,opts)=>{for(let i=0;i<16;i++)await Promise.resolve();bridgeCalls.push({url,opts});const session={streams:options.empty?[]:[row],mediaReady:false,subtitles:options.nativeSubs||[]};if(options.detailed)session.sessionResponseVersion=1;return options.string?JSON.stringify(session):session;},
  fetch:async(url,opts)=>{
   calls.push({url,opts});
   // A CDN recheck is a regression, even if it would return quickly.
@@ -25,8 +25,8 @@ async function run(options={}){
  for(const subtitle of ['<html>blocked</html>','WEBVTT\n','',':)']){r=await run({subtitle});assert.equal(r.result.length,1);assert.equal(r.result[0].subtitles.length,0);}
  r=await run({subtitle:'1\n00:00:00,000 --> 00:00:02,000\nHello\n'});assert.equal(r.result[0].subtitles[0].mimeType,'application/x-subrip');
  r=await run({subHttp:403});assert.equal(r.result.length,1);assert.equal(r.result[0].subtitles.length,0);
- r=await run({noSubs:true,nativeSubs:[{url:'https://subs.example/sub.vtt',language:'en'},{url:'https://subs.example/sub.vtt',lang:'English'}],row:{subtitles:[{url:'https://subs.example/sub.vtt',lang:'en'}]}});assert.equal(r.result[0].subtitles.length,1);assert.equal(r.calls.filter(c=>c.url==='https://subs.example/sub.vtt').length,1);
+ r=await run({noSubs:true,nativeSubs:[{url:'https://subs.example/sub.vtt',language:'en'},{url:'https://subs.example/sub.vtt',lang:'English'}],row:{subtitles:[{url:'https://subs.example/sub.vtt',lang:'en'}]}});assert.equal(r.result[0].subtitles.length,0,'No post-discovery subtitle fetch');assert.equal(r.calls.filter(c=>c.url==='https://subs.example/sub.vtt').length,0);
  r=await run({id:'1399',type:'series',s:1,e:2});assert.equal(r.bridgeCalls[0].url,'https://www.viduki.net/1/tv/1399/1/2');
  for(const opts of [{id:'bad'},{type:'tv',s:1,e:0}]){r=await run(opts);assert.equal(r.result.length,0);assert.equal(r.bridgeCalls.length,0);}
- console.log('PASS: no video CDN rechecks; exact routes; unchanged captured URL/headers; basic/detailed bridge; captured error/MIME/audio/quality filters; cue-validated VTT/SRT; deduplicated native subtitles.');
+ console.log('PASS: no video CDN rechecks; exact routes; unchanged captured URL/headers; basic/detailed bridge; captured error/MIME/audio/quality filters; cue-validated VTT/SRT; no post-discovery subtitle fetch.');
 })().catch(e=>{console.error(e);process.exitCode=1;});

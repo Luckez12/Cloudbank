@@ -1,11 +1,9 @@
-# Viduki v1.0.3
+# Viduki v1.0.4
 
-Upload providers/viduki.js and manifest.json to matching repo paths. No YML or app patch.
+Upload providers/viduki.js and manifest.json to matching paths. No YML.
 
-This revision retains the v1.0.2 WebView capture path that returned raw=1 accepted=1 on the device. It removes all provider HTTP GET/HEAD rechecks of the captured video CDN URL. That duplicate check previously timed out at 1800ms and discarded the result. The player now receives the exact captured URL and playback headers using the same handoff pattern as Mapple/VidFast. Browser website session setup and internal server fallback still take time; there is no fixed scan-time guarantee.
+Video discovery/capture and no-CDN-recheck flow from v1.0.3 preserved. Subtitle collector starts alongside WebView. Immediately on WebView return (including empty capture) or failure/timeout, stop collection and abort outstanding subtitle fetches where AbortController is supported. Late results are ignored and cannot trigger subsequent requests even if transport ignores abort. No subtitle await or post-discovery fetch remains. A 3500ms independent cap can stop subtitle work earlier.
 
-Explicit captured HTTP errors, non-media content types, negative observation evidence, known resolutions below 720p and explicit dub-only metadata remain rejected. Basic bridge results may omit observation fields; detailed bridge results must contain positive evidence. Unknown quality remains Auto and unknown audio stays unlabelled. Without fetching a master again, this revision cannot inspect its advertised rendition heights. It does not claim HTTP verification of basic bridge URLs or successful device playback.
+Only subtitles whose VTT/SRT cues were already validated during discovery are returned. A missing/not_downloaded index is skipped without preparation requests, polling or retries. Captured but unvalidated late subtitle URLs are not forwarded. Zero subtitles is valid and never blocks video.
 
-Website subtitle endpoint is fetched and cue-validated concurrently with WebView. Session/selected-row subtitle candidates are combined, deduplicated and validated together. Only actual VTT/SRT cues are forwarded with language, MIME and captured headers. A maximum of four native subtitle candidates is checked concurrently with a 2200ms bound. No blank/HTML sidecars are passed. Missing subtitles do not invalidate video.
-
-Tests use controlled bridge fixtures and forbid any HTTP call to the video CDN. They cover basic/detailed bridge evidence, captured HTTP errors/non-media, explicit low quality/dub-only, exact movie/TV routes, subtitle MIME/language, VTT/SRT and empty/HTML subtitle rejection. Android playback and subtitle rendering remain unverified for this revision.
+Tests cover pending index and pending subtitle body at discovery completion, abort signals, late-result suppression, failure cleanup and valid subtitles completed before discovery. Video playback/speed on device remain unverified for this revision.

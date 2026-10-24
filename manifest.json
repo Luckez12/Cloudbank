@@ -872,7 +872,7 @@
     {
       "id": "viduki",
       "name": "Viduki",
-      "version": "1.0.3",
+      "version": "1.0.4",
       "description": "Exact TMDB API 1 streaming player with parallel website subtitles",
       "author": "Cloudbank",
       "supportedTypes": [
@@ -888,7 +888,7 @@
       ],
       "runtimeTimeoutMs": 20000,
       "runtimeModules": [],
-      "notes": "Exact TMDB API 1 browser capture; Mapple/VidFast handoff without duplicate CDN HTTP checks. Preserves captured URL/headers, basic/detailed bridge handling and validated sidecar subtitles. Captured error/non-media/low-quality/dub-only entries rejected. Playback requires device test."
+      "notes": "Subtitle collector runs only during discovery: cancel at WebView completion/failure, never await subtitles. No CDN recheck. Return only already cue-validated sidecars."
     }
   ]
 }
