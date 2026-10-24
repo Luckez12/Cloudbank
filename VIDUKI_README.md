@@ -1,9 +1,9 @@
-# Viduki v1.0.0
+# Viduki v1.0.1
 
-Upload providers/viduki.js and manifest.json to the matching repo paths. Remove the files listed in DELETE_FILES.md manually through GitHub. No YML is bundled or needed. Mapple and Castle are preserved.
+Upload providers/viduki.js and manifest.json to the same repo paths. No YML.
 
-Route: exact TMDB → Viduki API 1 player → browser-observed media → small HTTP check. Website subtitle endpoint rezesubs.com is requested in parallel; missing subtitles do not block video. No download-token route, title search, all-API scan, retry loop or segment-size estimation.
+Changes: WebView waitForMediaReady=false, finishAfterFirstMs=150. Keep API 1 website internal fallback; do not scan all APIs. Keep one small video playlist HTTP check. Website subtitle fetch and content verification start alongside WebView. Verify a maximum of four subtitle URLs concurrently, with bounded waits. Only valid VTT/SRT text cues are returned, with normalized language, MIME and headers. Invalid or missing subtitles do not block a video result.
 
-Public website Masterplan playback was observed advancing to 8 seconds. This does not verify the Android bridge handoff. Provider bridge and HTTP logic were tested using controlled fixtures; test the patch in VUEO. API 1 internal server fallback belongs to the website.
+Tests: exact movie/TV routes, bridge completion options, English language/MIME, valid VTT, HTML subtitle rejection while video succeeds, video HTTP errors/HTML, low quality, unobserved URLs, invalid input. Tests use controlled fixtures. Android end-to-end performance and subtitle rendering are unverified for this version. This removes deliberate media-readiness waiting; it cannot guarantee a fixed speed because API/host latency varies.
 
-Known limits: unknown audio stays unlabelled; only explicit dub-only metadata is rejected. Captured known quality below 720p is rejected; adaptive sources remain Auto when their selected rendition is unknown. A master with only sub-720p renditions is rejected. Subtitle availability varies by title. No claim that every title has original audio or subtitles.
+Original audio and quality limitations from v1.0.0 remain. Unknown audio is not labelled original; unknown quality remains Auto.
