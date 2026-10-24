@@ -1,6 +1,6 @@
 {
   "name": "Cloudbank",
-  "version": "1.20.108",
+  "version": "1.20.109",
   "scrapers": [
     {
       "id": "kisskh",
@@ -239,7 +239,7 @@
       "id": "1shows",
       "name": "1Shows",
       "description": "1Shows- Movies | Series in 4k, 1080p, 720p & 480p",
-      "version": "1.0.4",
+      "version": "1.1.0",
       "author": "A2R14N - Nuvio Team",
       "supportedTypes": [
         "movie",
@@ -264,7 +264,7 @@
         "tv"
       ],
       "upstreamVersion": "1.0.0",
-      "notes": "Imported from D3adlyRocket/All-in-One-Nuvio at 3f09a6ff4360498895e622877af7a32212f75038. Cloudbank adapter preserves upstream extraction/settings, uses shared TMDB detail metadata when available, caps async result wait at 19s, and returns valid stream arrays. Playback and host settings support require app testing.",
+      "notes": "Current download-token/download API with authenticated portable AES-GCM decoder updated to public site decoder 8f94222afb4794c1 (2026-10-24); preserves host extractors and playback headers, rejects HTTP errors/HTML, isolates failed resolvers, and returns checked sources within the 19s adapter deadline. Live API intermittently timed out during follow-up testing; Android playback requires device testing.",
       "sourceRepository": "https://github.com/D3adlyRocket/All-in-One-Nuvio",
       "sourceCommit": "3f09a6ff4360498895e622877af7a32212f75038",
       "runtimeModules": []
@@ -399,41 +399,6 @@
       "sourceRepository": "https://github.com/D3adlyRocket/All-in-One-Nuvio",
       "sourceCommit": "3f09a6ff4360498895e622877af7a32212f75038",
       "runtimeModules": []
-    },
-    {
-      "id": "fibwatch",
-      "name": "FibWatch",
-      "description": "FibWatch movie and TV streams with episode selection",
-      "version": "1.0.4",
-      "author": "Nuvio Team",
-      "supportedTypes": [
-        "movie",
-        "tv"
-      ],
-      "filename": "providers/fibwatch.js",
-      "enabled": true,
-      "formats": [
-        "m3u8",
-        "mp4",
-        "mkv"
-      ],
-      "contentLanguage": [
-        "hi",
-        "bn",
-        "en"
-      ],
-      "runtimeTimeoutMs": 20000,
-      "upstreamSupportedTypes": [
-        "movie",
-        "tv"
-      ],
-      "upstreamVersion": "1.0.0",
-      "notes": "Imported from D3adlyRocket/All-in-One-Nuvio at 3f09a6ff4360498895e622877af7a32212f75038. Cloudbank adapter preserves upstream extraction/settings, uses shared TMDB detail metadata when available, caps async result wait at 19s, and returns valid stream arrays. Playback and host settings support require app testing.",
-      "sourceRepository": "https://github.com/D3adlyRocket/All-in-One-Nuvio",
-      "sourceCommit": "3f09a6ff4360498895e622877af7a32212f75038",
-      "runtimeModules": [
-        "cheerio-without-node-native"
-      ]
     },
     {
       "id": "movieblast",
@@ -874,39 +839,6 @@
       "runtimeModules": []
     },
     {
-      "id": "onlykdrama",
-      "name": "OnlyKDrama",
-      "description": "Asian Drama",
-      "version": "1.0.4",
-      "author": "Moiz Ahmed + Codex",
-      "supportedTypes": [
-        "movie",
-        "tv"
-      ],
-      "filename": "providers/onlykdrama.js",
-      "enabled": true,
-      "hasSettings": true,
-      "formats": [
-        "mp4",
-        "mkv",
-        "m3u8"
-      ],
-      "logo": "https://i.postimg.cc/dtX84Gqc/onlykdrama.jpg",
-      "contentLanguage": [
-        "ko"
-      ],
-      "runtimeTimeoutMs": 20000,
-      "upstreamSupportedTypes": [
-        "movie",
-        "tv"
-      ],
-      "upstreamVersion": "1.0.0",
-      "notes": "Imported from D3adlyRocket/All-in-One-Nuvio at 3f09a6ff4360498895e622877af7a32212f75038. Cloudbank adapter preserves upstream extraction/settings, uses shared TMDB detail metadata when available, caps async result wait at 19s, and returns valid stream arrays. Playback and host settings support require app testing.",
-      "sourceRepository": "https://github.com/D3adlyRocket/All-in-One-Nuvio",
-      "sourceCommit": "3f09a6ff4360498895e622877af7a32212f75038",
-      "runtimeModules": []
-    },
-    {
       "id": "mapple",
       "name": "Mapple",
       "description": "Mapple multi-hoster movies and TV streaming with PoW session verification and direct HLS streams",
@@ -938,71 +870,6 @@
       "runtimeModules": [
         "crypto-js"
       ]
-    },
-    {
-      "id": "streamflix",
-      "name": "StreamFlix",
-      "description": "Direct links via StreamFlix API",
-      "version": "1.1.0",
-      "author": "Nuvio Team",
-      "supportedTypes": [
-        "movie",
-        "tv"
-      ],
-      "filename": "providers/streamflix.js",
-      "enabled": true,
-      "formats": [
-        "mkv"
-      ],
-      "logo": "https://streamflix.app/assets/images/logo-text-148x72.png",
-      "contentLanguage": [
-        "en",
-        "hin"
-      ],
-      "runtimeTimeoutMs": 20000,
-      "sourceRepository": "https://github.com/yoruix/nuvio-providers",
-      "sourceCommit": "ed38d1aee0024f56479369c9423fefb278e0b62a",
-      "upstreamVersion": "1.0.0",
-      "upstreamSupportedTypes": [
-        "movie",
-        "tv"
-      ],
-      "runtimeModules": [
-        "cheerio-without-node-native"
-      ],
-      "notes": "HTTP pipeline: identity-safe catalog match, fresh config, unique configured paths, bounded HEAD media checks; reject dead/nonmedia/unverified hosts before playback. TV uses requested public Firebase season over HTTP, no guessed paths; current Firebase may reject unauthenticated reads. No working storage replacement confirmed."
-    },
-    {
-      "id": "yflix",
-      "name": "YFlix",
-      "description": "YFlix streaming",
-      "version": "1.0.3",
-      "author": "Nuvio Team",
-      "supportedTypes": [
-        "movie",
-        "tv"
-      ],
-      "filename": "providers/yflix.js",
-      "enabled": true,
-      "limited": true,
-      "formats": [
-        "m3u8",
-        "mp4"
-      ],
-      "logo": "https://yflix.to/assets/uploads/2f505f3de3c99889c1a72557f3e3714fc0c457b0.png",
-      "contentLanguage": [
-        "en"
-      ],
-      "runtimeTimeoutMs": 20000,
-      "sourceRepository": "https://github.com/yoruix/nuvio-providers",
-      "sourceCommit": "ed38d1aee0024f56479369c9423fefb278e0b62a",
-      "upstreamVersion": "1.1.2",
-      "upstreamSupportedTypes": [
-        "movie",
-        "tv"
-      ],
-      "runtimeModules": [],
-      "notes": "Independent Yoruix import at ed38d1aee0024f56479369c9423fefb278e0b62a. Existing provider versions remain intact. Uses the Cloudbank adapter; upstream enabled/settings/platform flags preserved. Playback is not verified."
     },
     {
       "id": "vidnest",
