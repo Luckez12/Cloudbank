@@ -1591,7 +1591,7 @@ fetch=function(url,options){
  });
 };
 var PROVIDER = "HDHub4u";
-var VERSION = "1.8.0-cloudbank";
+var VERSION = "1.8.1-cloudbank";
 var PRIMARY_BASE = "https://new8.hdhub4u.cl";
 var FALLBACK_BASES = ["https://new6.hdhub4u.cl", "https://new6.hdhub4u.fo", "https://hdhub4u.frl"];
 var DOMAINS_URL = "https://raw.githubusercontent.com/phisher98/TVVVV/refs/heads/main/domains.json";
@@ -2222,10 +2222,6 @@ function verifyDirect(url, referer) {
       " ok=true"
     );
 
-    if(isR2Storage(info.url)){
-      console.log('[HDHub4u] reject R2 playback host='+hostOf(info.url)+' reason=VUEO-seek-restart');
-      return Promise.resolve(null);
-    }
     return verifySeekRange(
       info.url,
       referer,
@@ -2843,7 +2839,7 @@ function resolveHubCloud(url, referer) {
 
     function acceptOrContinue(hit, index) {
       if (!hit) return next(index + 1);
-      if (hit.weakSeek || isR2Storage(hit.url)) {
+      if (hit.weakSeek) {
         console.log(
           "[HDHub4u] skip weak-seek host=" +
           hostOf(hit.url) +
