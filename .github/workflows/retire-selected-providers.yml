@@ -1,0 +1,32 @@
+name: Remove selected retired providers
+on:
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: cloudbank-main-writes
+  cancel-in-progress: false
+jobs:
+  retire:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Remove the four selected providers
+        run: node scripts/retire-selected-providers.cjs
+      - run: npm ci --ignore-scripts
+      - run: npm run validate
+      - name: Commit removals
+        run: |
+          git add -u -- manifest.json providers
+          if git diff --cached --quiet; then
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'chore: remove four retired providers'
+          git push origin HEAD:main
