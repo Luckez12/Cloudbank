@@ -1,0 +1,9 @@
+# 4KHDHub 2.0.3
+
+Apply at repository root, refresh VUEO and verify provider version 2.0.3. Includes prior fixes and authorized CineVibe/CineMode manifest removal. No YAML. The retirement script remains available for deleting their physical files.
+
+Requests captureSessionResponses using the existing generic bridge option. This option is already used by other repo providers, but its ability to return HLS text has not been established from app source or device output. Only session.responses records with exact URL, 2xx status and a valid HLS body are reused. Merely capturing a URL, successful JSON, another playlist or a failed HTTP response never bypasses verification. The fallback HTTP check remains when a reusable playlist body is unavailable. No app changes or invented bridge fields are required. Logs explicitly distinguish reused HLS from repeat HTTP validation. Therefore this release does not guarantee a latency improvement on an app that only captures JSON responses, and does not claim sub-five-second scans.
+
+Subtitle payload maps language/lang/srclang/ISO/code and labels; ignores und when another language field is available; maps English and Malay codes; assigns WebVTT/SubRip MIME; preserves track headers and supplies the embed Referer if absent. Deduplicates subtitle URLs and rejects thumbnail tracks. No language is guessed when unavailable; missing subtitles are not synthesized. No extra subtitle requests or wait are introduced. This fixes metadata delivery, not proof that remote subtitle bytes are valid or selected by the player.
+
+Tests cover valid cached playlist eliminating one fetch; absent/403/wrong-URL records retaining HTTP validation; session headers, subtitle eng-to-en mapping with language=und, MIME and exact movie routing; prior gate, metadata and episode regressions. Repository validation: 25 providers. Android reuse capability, subtitle cue delivery and timing await device testing.

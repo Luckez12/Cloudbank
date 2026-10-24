@@ -1,4 +1,4 @@
-/* 4KHDHub 2.0.2 — website search -> exact release -> public gate -> file host.
+/* 4KHDHub 2.0.3 — website search -> exact release -> public gate -> file host.
  * One engine; no article crawling, legacy engine, external decrypt service or guessed API.
  */
 (function(){
@@ -18,6 +18,25 @@ try{var q=new URL(base).searchParams.get('link');if(q&&/downloadBtn/.test(html)&
 var v=/\b(?:var|let|const)\s+url\s*=\s*['"]([^'"]+)['"]/.exec(html);if(v&&/hubcloud\.php/.test(v[1]))out.push(url(v[1],base));
 $('a[href]').each(function(_,e){var a=$(e),h=url(a.attr('href'),base),t=a.text();if(!h||/telegram|tutorial|how to|advert|watch online/i.test(t))return;if(a.attr('id')==='download'||a.attr('id')==='downloadBtn'||/hubcloud\.php|gpdl\.|hubdrive\.|hubcloud\.|pixeldrain\.|workers\.dev|googleusercontent\./i.test(h)&&/download|server|gbps|hubcloud|hubdrive/i.test(t))out.push(h);});
 return out.filter(function(v,i,a){return v&&a.indexOf(v)===i;}).sort(function(a,b){function rank(u){return /workers\.dev|googleusercontent\./.test(host(u))?3:/hubcloud\.php/.test(u)?2:1;}return rank(b)-rank(a);}).slice(0,5);}
+function capturedPlaylist(session,media){
+ var records=session&&Array.isArray(session.responses)?session.responses:[];
+ for(var i=0;i<records.length;i++){var r=records[i];if(!r||r.url!==media||!(Number(r.status)>=200&&Number(r.status)<300)||typeof r.body!=='string')continue;
+ var body=r.body.replace(/^\uFEFF/,'').trim();if(/^#EXTM3U\b/.test(body)&&/#EXT(?:INF|-X-STREAM-INF):/.test(body))return {status:Number(r.status),ok:true,url:media,text:body,headers:{get:function(k){return k.toLowerCase()==='content-type'?'application/vnd.apple.mpegurl':'';}}};
+ }return null;
+}
+function normalizeSubs(session,referer){
+ var rows=session&&Array.isArray(session.subtitles)?session.subtitles:[],out=[],seen={};
+ rows.slice(0,64).forEach(function(x){if(!x)return;var u=url(x.url||x.file||x.src),label=String(x.label||x.display||x.name||'');if(!u||seen[u]||/thumbnail|sprite|chapter/i.test(label))return;
+ var raw=String([x.language,x.lang,x.srclang,x.iso639,x.code].filter(function(v){return v&& !/^(?:und|unknown)$/i.test(String(v).trim());})[0]||'').trim().toLowerCase();
+ if(!raw||raw==='und'||raw==='unknown')raw=label.toLowerCase();
+ var lang=/^(?:en|eng|english)(?:$|[-_ (])/.test(raw)?'en':/^(?:ms|msa|may|malay|bahasa melayu|melayu)(?:$|[-_ (])/.test(raw)?'ms':/^[a-z]{2}(?:-[a-z]{2})?$/.test(raw)?raw:'und';
+ var path=new URL(u).pathname,mime=/\.vtt$/i.test(path)?'text/vtt':/\.srt$/i.test(path)?'application/x-subrip':String(x.mimeType||x.mime||'');
+ if(!/^(?:text\/vtt|application\/x-subrip|application\/srt|text\/srt)$/i.test(mime))return;
+ var h={};Object.keys(x.headers||{}).forEach(function(k){var v=String(x.headers[k]);if(!/^(?:host|connection|content-length|range)$/i.test(k)&&!/[\r\n]/.test(k+v))h[k]=v;});
+ if(!Object.keys(h).some(function(k){return k.toLowerCase()==='referer';}))h.Referer=referer;
+ seen[u]=true;out.push({url:u,language:lang,lang:lang,label:label||(lang==='en'?'English':lang==='ms'?'Bahasa Melayu':'Unknown'),mimeType:mime,headers:h});
+ });return out;
+}
 async function run(id,type,season,episode){var start=Date.now(),active=true,pending=[],cache={},results=[],seen={};
 function remaining(){return LIMIT-(Date.now()-start);}
 function stop(){active=false;pending.slice().forEach(function(f){f();});}
@@ -67,7 +86,7 @@ function watchMatches(u){try{var p=new URL(u),parts=p.pathname.split('/').filter
 if(watch&&watchMatches(watch)&&typeof globalThis.webviewResolve==='function'&&remaining()>3000){
  log('WATCH: website iframe first host='+host(watch));
  var watchMs=Math.min(8500,remaining()-1500);
- var session=await new Promise(function(resolve){var done=false,t=setTimeout(function(){finish(null);},watchMs+200);function finish(v){if(done)return;done=true;clearTimeout(t);resolve(v);}Promise.resolve().then(function(){return globalThis.webviewResolve(watch,{referer:SITE+'/',directLoad:false,timeoutMs:watchMs,finishAfterFirstMs:0,waitForMediaReady:false,captureSubtitles:true,suppressPopups:true,blockMatchedRequests:false,match:['.m3u8','.mp4'],blocked:['youtube.com','googlevideo.com','doubleclick','googlesyndication','/trailer','/preview']});}).then(finish,function(){finish(null);});});
+ var session=await new Promise(function(resolve){var done=false,t=setTimeout(function(){finish(null);},watchMs+200);function finish(v){if(done)return;done=true;clearTimeout(t);resolve(v);}Promise.resolve().then(function(){return globalThis.webviewResolve(watch,{referer:SITE+'/',directLoad:false,timeoutMs:watchMs,finishAfterFirstMs:0,waitForMediaReady:false,captureSubtitles:true,captureSessionResponses:true,suppressPopups:true,blockMatchedRequests:false,match:['.m3u8','.mp4'],blocked:['youtube.com','googlevideo.com','doubleclick','googlesyndication','/trailer','/preview']});}).then(finish,function(){finish(null);});});
  var captured=session&&Array.isArray(session.streams)?session.streams:[];
  for(var wi=0;wi<Math.min(captured.length,2)&&active;wi++){
  var row=captured[wi],media=url(row&&row.url);if(!media||!/\.(?:m3u8|mp4)(?:[?#]|$)/i.test(media)||/youtube|googlevideo|\/(?:trailer|preview|sample)/i.test(media))continue;
@@ -77,12 +96,14 @@ if(watch&&watchMatches(watch)&&typeof globalThis.webviewResolve==='function'&&re
  var ct='',r;
  try{
  var isHls=/\.m3u8(?:[?#]|$)/i.test(media);
- r=await request(media,isHls?'GET':'HEAD',h.Referer||h.referer||watch,undefined,h);
+ r=isHls?capturedPlaylist(session,media):null;
+ if(r)log('WATCH: captured valid HLS response reused; no repeat HTTP');
+ else{log('WATCH: no reusable playlist body; HTTP validation required');r=await request(media,isHls?'GET':'HEAD',h.Referer||h.referer||watch,undefined,h);}
  ct=head(r,'content-type');
  if(!r.ok||/html|json|javascript/i.test(ct))continue;
  if(isHls&&(!/^\s*#EXTM3U\b/.test(r.text)||!/#EXT(?:INF|-X-STREAM-INF):/.test(r.text)))continue;
  if(!isHls&&!/^video\//i.test(ct)&&!/octet-stream/i.test(ct))continue;
- var subs=session&&Array.isArray(session.subtitles)?session.subtitles.filter(function(x){return x&&url(x.url)&&/\.(?:vtt|srt)(?:[?#]|$)/i.test(x.url)&&!/thumbnail|sprite/i.test(x.label||'');}):[];
+ var subs=normalizeSubs(session,watch);log('SUBTITLES: captured='+((session&&session.subtitles||[]).length)+' forwarded='+subs.length+' languages='+subs.map(function(x){return x.language;}).join(','));
  results.push({name:'4KHDHub',title:title,serverName:'Watch Online',url:r.url,headers:h,mimeType:isHls?'application/vnd.apple.mpegurl':ct,type:isHls?'hls':'direct',quality:isHls&&/#EXT-X-STREAM-INF:/.test(r.text)?'Auto':'Unknown',subtitles:subs,sourceVerified:true,playbackVerified:false});
  log('WATCH: first verified source; returning immediately');return results;
  }catch(e){log('WATCH: verification '+String(e.message||e));}
@@ -94,7 +115,7 @@ nodes.each(function(_,el){var a=$(el),text=a.text().replace(/\s+/g,' ').trim();i
 releases.sort(function(a,b){return a.priority-b.priority||a.size-b.size;});log('MATCH '+title+' releases='+releases.length);var index=0;
 async function worker(){while(active&&index<releases.length&&results.length<1){var r=releases[index++],hit=await resolve(r.url,detail,0,[]);if(hit&&active&&!seen[hit.url]){seen[hit.url]=true;results.push(Object.assign({name:'4KHDHub',title:title,serverName:host(hit.url),audioLanguages:r.langs,subtitles:[],sourceVerified:true,playbackVerified:false},hit,{quality:hit.quality||r.quality}));log('DOWNLOAD: first verified source; returning immediately');stop();}}}
 await Promise.all([worker(),worker()]);return results;
-}catch(e){log('FAILED '+String(e.message||e));return results;}finally{clearTimeout(timer);stop();log('v2.0.2 sources='+results.length);}}
+}catch(e){log('FAILED '+String(e.message||e));return results;}finally{clearTimeout(timer);stop();log('v2.0.3 sources='+results.length);}}
 module.exports={getStreams:function(id,type,s,e){type=type==='series'?'tv':type;if(!/^[1-9]\d*$/.test(String(id))||['movie','tv'].indexOf(type)<0||type==='tv'&&(s==null||e==null||!Number.isInteger(+s)||+s<0||!Number.isInteger(+e)||+e<1))return Promise.resolve([]);return run(String(id),type,+s,+e);}};
 if(typeof globalThis!=='undefined'){globalThis.getStreams=module.exports.getStreams;globalThis.fourKWebsiteTest={gate:gate,links:links,b64:b64};}
 })();
