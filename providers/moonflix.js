@@ -1,10 +1,16 @@
-/* MoonFlix v2.0.0 — current website direct streaming API flow. */
+/* MoonFlix v2.0.1 — current website direct streaming API flow. */
 (function(){
 'use strict';
 var PLAYER='https://player.moonflix.website';
 var ROUTES=[{api:'https://filmu-mpbu.onrender.com/api/stream',ref:'https://embed.filmu.in/',name:'Filem'}, {api:'https://vidzy-wlqs.onrender.com/api/stream',ref:'https://player.vidzee.wtf/',name:'Backup'}];
 function log(s){console.log('[MoonFlix] '+s);}
 function http(u){try{var p=new URL(u);return /^https?:$/.test(p.protocol)&&!p.username&&!p.password;}catch(_){return false;}}
+function playbackUrl(raw,referer){
+ var u=new URL(raw),proxy='https://player.moonflix.info';
+ // Website getStreamPlaybackUrl: preserve existing proxies; wrap external media.
+ if(u.origin===PLAYER||u.origin===proxy||u.pathname==='/proxy/stream'||u.pathname==='/proxy/any')return raw;
+ return proxy+'/proxy/any?url='+encodeURIComponent(u.href)+'&referer='+encodeURIComponent(referer)+'&origin='+encodeURIComponent(new URL(referer).origin);
+}
 function lang(v){var x=String(v||'').trim().toLowerCase().replace(/_/g,'-');return ({eng:'en',english:'en',msa:'ms',may:'ms',malay:'ms',jpn:'ja',japanese:'ja',kor:'ko',korean:'ko',hin:'hi',hindi:'hi',tel:'te',tam:'ta',kan:'kn'})[x]||x;}
 function subtitles(rows,base){var seen={};return (Array.isArray(rows)?rows:[]).map(function(r){
  if(!r)return null;var l=lang(r.language||r.lang||r.srclang||r.label);if(!/^(en|ms)(?:-|$)/.test(l))return null;
@@ -26,7 +32,7 @@ function indexSubs(id,type,s,e){var active=true,tracks=[],c=typeof AbortControll
 async function getStreams(id,type,s,e){id=String(id||'');type=type==='series'?'tv':type;s=Number(s);e=Number(e);
  if(!/^[1-9]\d*$/.test(id)||! /^(movie|tv)$/.test(type)||type==='tv'&&(!Number.isInteger(s)||s<1||!Number.isInteger(e)||e<1))return [];
  var started=Date.now(),deadline=started+18000,context=shared(id,type),subs=indexSubs(id,type,s,e);
- log('v2.0.0 exact '+type+'/'+id+(type==='tv'?'/'+s+'/'+e:'')+'; current website API main -> backup; WebView=0');
+ log('v2.0.1 exact '+type+'/'+id+(type==='tv'?'/'+s+'/'+e:'')+'; current website API main -> backup; WebView=0');
  try{for(var i=0;i<ROUTES.length;i++){
   var route=ROUTES[i],remaining=deadline-Date.now();if(remaining<500)break;
   var params=new URLSearchParams({tmdb:id});if(type==='tv'){params.set('s',String(s));params.set('e',String(e));}if(type==='movie'||i===1)params.set('type',type);
@@ -40,17 +46,18 @@ async function getStreams(id,type,s,e){id=String(id||'');type=type==='series'?'t
     var row=rows[j],q=/\b(2160|1440|1080|720|576|480|360|240)p?\b/i.exec(String(row.quality||row.label||''));if(q&&+q[1]<720)continue;
     if(row.isDubbed===true&&!row.isDualAudio&&!row.isMultiAudio)continue;
     var audio=lang(row.audioLanguage||row.language);if(context.original&&audio&&audio!==context.original&&!row.isMultiAudio&&!row.isDualAudio)continue;
-    var headers=Object.assign({Referer:route.ref,Origin:new URL(route.ref).origin},row.headers||{});
+    var mediaUrl=playbackUrl(row.url,route.ref);
+    var headers=mediaUrl===row.url?Object.assign({Referer:route.ref,Origin:new URL(route.ref).origin},row.headers||{}):{Referer:PLAYER+'/',Origin:PLAYER};
     var budget=Math.min(3500,deadline-Date.now());if(budget<200)break;
     try{
-     var text=String(await read(row.url,headers,budget,false)).replace(/^\uFEFF/,'').trim();
+     var text=String(await read(mediaUrl,headers,budget,false)).replace(/^\uFEFF/,'').trim();
      if(!text.startsWith('#EXTM3U')||!/#EXTINF:|#EXT-X-STREAM-INF:/.test(text)){log(route.name+': invalid playlist');continue;}
      var heights=Array.from(text.matchAll(/RESOLUTION=\d+x(\d+)/g)).map(function(m){return +m[1];});if(heights.length&&Math.max.apply(null,heights)<720)continue;
      var audios=Array.from(text.matchAll(/#EXT-X-MEDIA:TYPE=AUDIO[^\n]*LANGUAGE="([^"]+)"/g)).map(function(m){return lang(m[1]);});
      if(context.original&&audios.length&&audios.indexOf(context.original)<0){log(route.name+': original audio absent');continue;}
      subs.stop();var tracks=subtitles([].concat(subs.snapshot(),data.subtitles||[],row.subtitles||[]),route.api);
-     log('RESULT: 1 verified HLS; server='+route.name+' subtitleUrls='+tracks.length+' elapsedMs='+(Date.now()-started)+'; device playback unverified');
-     return [{name:'MoonFlix',provider:'moonflix',serverName:route.name,title:context.title||'MoonFlix',url:row.url,headers:headers,type:'hls',format:'hls',mimeType:'application/x-mpegURL',quality:/#EXT-X-STREAM-INF:/.test(text)?'Auto':q?q[1]+'p':'Auto',isAdaptive:true,audioLanguages:audios,subtitles:tracks}];
+     log('RESULT: 1 verified HLS; server='+route.name+' subtitleUrls='+tracks.length+' elapsedMs='+(Date.now()-started)+'; website proxy handoff; device playback unverified');
+     return [{name:'MoonFlix',provider:'moonflix',serverName:route.name,title:context.title||'MoonFlix',url:mediaUrl,headers:headers,type:'hls',format:'hls',mimeType:'application/x-mpegURL',quality:/#EXT-X-STREAM-INF:/.test(text)?'Auto':q?q[1]+'p':'Auto',isAdaptive:true,audioLanguages:audios,subtitles:tracks}];
     }catch(error){log(route.name+': playlist '+(/HTTP \d+|timeout/.exec(String(error.message))||['request failed'])[0]);}
    }
   }catch(error){log(route.name+': API '+(/HTTP \d+|timeout/.exec(String(error.message))||['request failed'])[0]);}
