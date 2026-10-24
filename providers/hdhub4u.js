@@ -1550,7 +1550,8 @@ if (typeof module !== 'undefined' && module.exports) {
 // Test-Plugin is an additional extraction/discovery engine. Existing Cloudbank
 // discovery and native-host fallbacks remain available in the same provider.
 var cloudbankLegacyProvider = module.exports;
-var cloudbankTestPluginProvider = (function() {
+function createHdHubEngine() {
+  var stopTransferred;
   var transferredModule = { exports: {} };
   function metadataFetch(url, options) {
     var raw = typeof url === "string" ? url : url && url.url;
@@ -1579,8 +1580,18 @@ var cloudbankTestPluginProvider = (function() {
 /* CLOUDBANK_TEST_PLUGIN_SOURCE_START */
 "use strict";
 
+var hdTransport=fetch,hdActive=true,hdPending=[];
+function hdStop(){hdActive=false;hdPending.slice().forEach(function(cancel){cancel();});}
+stopTransferred=hdStop;
+fetch=function(url,options){
+ if(!hdActive)return Promise.reject(new Error('HDHub4u stopped'));
+ var controller=typeof AbortController==='function'?new AbortController():null,opts=Object.assign({},options||{});if(controller)opts.signal=controller.signal;
+ return new Promise(function(resolve,reject){var done=false;function finish(err,v){if(done)return;done=true;hdPending=hdPending.filter(function(x){return x!==cancel;});if(err)reject(err);else resolve(v);}function cancel(){if(controller)controller.abort();finish(new Error('HDHub4u cancelled'));}hdPending.push(cancel);
+ Promise.resolve().then(function(){if(!hdActive)throw Error('HDHub4u stopped');return hdTransport(url,opts);}).then(function(r){finish(null,r);},function(e){finish(e);});
+ });
+};
 var PROVIDER = "HDHub4u";
-var VERSION = "1.7.2-cloudbank";
+var VERSION = "1.8.0-cloudbank";
 var PRIMARY_BASE = "https://new8.hdhub4u.cl";
 var FALLBACK_BASES = ["https://new6.hdhub4u.cl", "https://new6.hdhub4u.fo", "https://hdhub4u.frl"];
 var DOMAINS_URL = "https://raw.githubusercontent.com/phisher98/TVVVV/refs/heads/main/domains.json";
@@ -1588,7 +1599,7 @@ var SEARCH_BASE = "https://search.hdhub4u.glass/collections/post/documents/searc
 var TMDB_BASE = "https://api.themoviedb.org/3";
 var TMDB_API_KEY = "439c478a771f35c05022f9feabcca01c";
 var UA = "Mozilla/5.0 (Linux; Android 15) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0 Mobile Safari/537.36";
-var PROVIDER_BUDGET_MS = 8800;
+var PROVIDER_BUDGET_MS = 17500;
 var VERIFY_TIMEOUT_MS = 1350;
 var SEEK_VERIFY_TIMEOUT_MS = 1450;
 var SEEK_PROBE_OFFSET = 1048576;
@@ -2088,7 +2099,7 @@ function getRedirectLinks(url, referer) {
       var obj = JSON.parse(decoded);
       var direct = b64decode(obj.o || "").trim();
       if (direct) return direct;
-      var data = b64encode(obj.data || "").trim();
+      var data = b64decode(obj.data || "").trim();
       var blog = String(obj.blog_url || "").trim();
       if (blog && data) {
         return fetchText(blog + "?re=" + encodeURIComponent(data), { headers: { "Referer": url } }, 1500)
@@ -2211,19 +2222,15 @@ function verifyDirect(url, referer) {
       " ok=true"
     );
 
+    if(isR2Storage(info.url)){
+      console.log('[HDHub4u] reject R2 playback host='+hostOf(info.url)+' reason=VUEO-seek-restart');
+      return Promise.resolve(null);
+    }
     return verifySeekRange(
       info.url,
       referer,
       info.total || 0
     ).then(function(seekable) {
-      if (isR2Storage(info.url)) {
-        console.log(
-          "[HDHub4u] reject R2 playback host=" +
-          hostOf(info.url) +
-          " reason=VUEO-seek-restart"
-        );
-        return null;
-      }
 
       if (!seekable) {
         console.log(
@@ -2800,6 +2807,18 @@ function resolveHubDrive(url, referer) {
   }).catch(function() { return null; });
 }
 
+function resolveDownloadLanding(url,referer,depth){
+ depth=depth||0;if(!hdActive||depth>3)return Promise.resolve(null);
+ if(/gpdl\.|cryptonewz\./i.test(hostOf(url))){
+ return fetchText(url,{headers:{Referer:referer||''}},2200).then(function(page){
+ var target='';try{var u=new URL(page.url),q=u.searchParams.get('link');if(q&&/downloadBtn/.test(page.text)&&/params\.get\(\s*['"]link['"]\s*\)/.test(page.text))target=q;}catch(_){}
+ if(!target){var $=cheerio().load(page.text);target=$('#downloadBtn[href]').attr('href')||'';}
+ target=absoluteUrl(page.url,target);if(!/^https?:\/\//i.test(target)||target===page.url)return null;
+ return resolveDownloadLanding(target,page.url,depth+1);
+ }).catch(function(){return null;});
+ }
+ return verifyDirect(url,referer);
+}
 function resolveHubCloud(url, referer) {
   url = String(url || "").replace("hubcloud.ink", "hubcloud.dad");
   return fetchText(url, { headers: { "Referer": referer || PRIMARY_BASE + "/" } }, 1900).then(function(first) {
@@ -2814,7 +2833,10 @@ function resolveHubCloud(url, referer) {
     }
     return { html: html, pageUrl: pageUrl };
   }).then(function(page) {
-    var buttons = collectAnchors(page.html, page.pageUrl).sort(function(a, b) {
+    var buttons = collectAnchors(page.html, page.pageUrl).filter(function(b){
+      if(/\/tg\/go(?:[?#]|$)|telegram|tinyurl|winexch/i.test(b.url)||/tutorial|how to|privacy|contact|login|watch online/i.test(b.label))return false;
+      return /hubcloud|hubdrive|hubcdn|hblinks|pixeldrain|workers\.dev|googleusercontent|gpdl\.|r2\.cloudflarestorage/i.test(hostOf(b.url))&&/download|server|gbps|hubcloud|hubdrive|hubcdn/i.test(b.label);
+    }).sort(function(a, b) {
       return serverScore(b.url, b.label) - serverScore(a.url, a.label);
     });
     console.log("[HDHub4u] HubCloud buttons=" + buttons.length + " host=" + hostOf(page.pageUrl));
@@ -2907,7 +2929,7 @@ function resolveHubCloud(url, referer) {
           direct = direct.replace(/\/$/, "") + "/download";
         }
 
-        return verifyDirect(direct, page.pageUrl).then(function(v) {
+        return resolveDownloadLanding(direct, page.pageUrl).then(function(v) {
           return acceptOrContinue(
             v
               ? {
@@ -3213,8 +3235,10 @@ module.exports = { getStreams: getStreams };
 
 /* CLOUDBANK_TEST_PLUGIN_SOURCE_END */
   })(transferredModule, transferredModule.exports, metadataFetch);
+  transferredModule.exports.stop=stopTransferred;
   return transferredModule.exports;
-})();
+}
+var cloudbankTestPluginProvider=createHdHubEngine();
 function cloudbankTestPluginAttempt(provider, args, ms) {
   return new Promise(function(resolve) {
     var done = false;
@@ -3238,11 +3262,8 @@ module.exports = Object.assign({}, cloudbankLegacyProvider, {
     if (!String(id || "").trim() || (type !== "movie" && type !== "tv")) return Promise.resolve([]);
     if (type === "tv" && (!Number.isInteger(Number(season)) || Number(season) < 0 || !Number.isInteger(Number(episode)) || Number(episode) < 1)) return Promise.resolve([]);
     var args = [String(id), type, season, episode];
-    return cloudbankTestPluginAttempt(cloudbankTestPluginProvider, args, 11000).then(function(streams) {
-      if (streams.length) return streams;
-      try { if (typeof globalThis.vueoTrace === "function") globalThis.vueoTrace("RESOLVER_FALLBACK", { source: "Cloudbank existing engine" }); } catch (_) {}
-      return cloudbankTestPluginAttempt(cloudbankLegacyProvider, args, 7500);
-    });
+    var engine=createHdHubEngine();
+    return cloudbankTestPluginAttempt(engine,args,18000).then(function(streams){engine.stop();return streams;},function(){engine.stop();return [];});
   }
 });
 /* CLOUDBANK_TEST_PLUGIN_ADAPTATION_END */

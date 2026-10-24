@@ -1,6 +1,6 @@
 {
   "name": "Cloudbank",
-  "version": "1.20.115",
+  "version": "1.20.116",
   "scrapers": [
     {
       "id": "kisskh",
@@ -67,7 +67,7 @@
       "id": "hdhub4u",
       "name": "HDHub4u",
       "description": "Movie and TV stream provider",
-      "version": "1.7.2",
+      "version": "1.8.0",
       "author": "Luckez",
       "supportedTypes": [
         "movie",
@@ -88,7 +88,7 @@
       "disabledPlatforms": [],
       "supportsExternalPlayer": true,
       "runtimeTimeoutMs": 20000,
-      "notes": "Fast site HLS race, no post-first-result grace, defer download mirrors until site HLS fails. Preserve master Auto; inspect already fetched playlist audio languages and reject known non-original-only sources; retain mixed masters with original audio. No additional media/subtitle requests."
+      "notes": "Fast site HLS race, no post-first-result grace, defer download mirrors until site HLS fails. Preserve master Auto; inspect already fetched playlist audio languages and reject known non-original-only sources; retain mixed masters with original audio. No additional media/subtitle requests. 1.8.0: single request-scoped current engine; remove uncancelled legacy fallback. Cancel pending fetches and prevent late requests at scan completion. Filter HubCloud download routes and exclude tg/go, ads/tutorials. Follow gpdl query-link/downloadBtn landing to final file before verification. Preserve original-audio, quality and subtitle policies and R2 seek-restart block; reject known R2 before unnecessary seek probe. Android regression required."
     },
     {
       "id": "moviebox",
