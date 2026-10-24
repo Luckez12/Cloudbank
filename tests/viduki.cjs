@@ -1,5 +1,32 @@
 const fs=require('fs'),vm=require('vm'),assert=require('assert/strict');
-const code=fs.readFileSync('providers/viduki.js','utf8');let calls=[],mode='ok';
-const ctx={module:{exports:{}},console,URL,setTimeout,clearTimeout,fetch:async(url)=>{if(url.includes('subs.example'))return {ok:true,headers:{get:()=> 'text/plain'},text:async()=>mode==='badsub'?'<html>blocked</html>':mode==='srt'?'1\n00:00:00,000 --> 00:00:02,000\nHello\n':mode==='empty'?'WEBVTT\n':'WEBVTT\n\n00:00.000 --> 00:02.000\nHello world\n'};if(url.includes('rezesubs'))return {ok:true,json:async()=>({subtitles:[{url:'https://subs.example/a.vtt',lang:'English'}]})};return {ok:mode!=='410',status:mode==='410'?410:200,headers:{get:()=>mode==='html'?'text/html':'application/vnd.apple.mpegurl'},text:async()=>mode==='low'?'#EXTM3U\n#EXT-X-STREAM-INF:RESOLUTION=640x360\nlow.m3u8':'#EXTM3U\n#EXTINF:10\na.ts'};},webviewResolve:async(url,opts)=>{calls.push({url,opts});return {sessionResponseVersion:mode==='detailed-missing'?1:undefined,finishReason:'first-candidate',mediaReady:false,streams:[{url:'https://cdn.example/master.m3u8',networkObserved:mode==='basic-missing'||mode==='detailed-missing'?undefined:mode!=='unobserved',statusCode:mode==='row410'?410:200,quality:mode==='480'?'480p':'Auto'}]};}};
-vm.createContext(ctx);vm.runInContext(code,ctx);
-(async()=>{let p=ctx.module.exports;let r=await p.getStreams('1561726','movie');assert.equal(r.length,1);assert.equal(r[0].subtitles[0].language,'en');assert.equal(r[0].subtitles[0].mimeType,'text/vtt');assert.equal(calls[0].opts.waitForMediaReady,false);assert.equal(calls[0].opts.finishAfterFirstMs,500);mode='badsub';assert.equal((await p.getStreams('1561726','movie'))[0].subtitles.length,0);mode='srt';assert.equal((await p.getStreams('1561726','movie'))[0].subtitles[0].mimeType,'application/x-subrip');mode='empty';assert.equal((await p.getStreams('1561726','movie'))[0].subtitles.length,0);mode='ok';assert.equal(calls[0].url,'https://www.viduki.net/1/movie/1561726');await p.getStreams('1399','series',1,2);assert.equal(calls[4].url,'https://www.viduki.net/1/tv/1399/1/2');for(mode of ['410','html','low','480','unobserved'])assert.equal((await p.getStreams('597','movie')).length,0,mode);mode='basic-missing';assert.equal((await p.getStreams('597','movie')).length,1,'basic bridge without flags must pass HTTP verification');for(mode of ['detailed-missing','row410'])assert.equal((await p.getStreams('597','movie')).length,0,mode);assert.equal(calls[0].opts.captureSessionResponses,false);assert.equal(calls[0].opts.viewportWidth,1080);assert.equal(calls[0].opts.clickX,540);assert.equal((await p.getStreams('bad','movie')).length,0);assert.equal((await p.getStreams('1399','tv',1,0)).length,0);console.log('PASS exact movie/TV, subtitles, HTTP errors, HTML, low quality, unobserved candidates, invalid input');})().catch(e=>{console.error(e);process.exitCode=1;});
+const code=fs.readFileSync('providers/viduki.js','utf8');
+async function run(options={}){
+ const calls=[],bridgeCalls=[],logs=[];
+ const row=Object.assign({url:'https://cdn.example/master.m3u8?token=signed',headers:{Referer:'https://www.viduki.net/',Cookie:'session=test'}},options.row);
+ const ctx={module:{exports:{}},URL,setTimeout,clearTimeout,console:{log:s=>logs.push(s)},
+ webviewResolve:async(url,opts)=>{bridgeCalls.push({url,opts});const session={streams:options.empty?[]:[row],mediaReady:false,subtitles:options.nativeSubs||[]};if(options.detailed)session.sessionResponseVersion=1;return options.string?JSON.stringify(session):session;},
+ fetch:async(url,opts)=>{
+  calls.push({url,opts});
+  // A CDN recheck is a regression, even if it would return quickly.
+  if(url.startsWith('https://cdn.example/'))throw Error('FORBIDDEN CDN RECHECK');
+  if(url.startsWith('https://rezesubs.com/data/subs/'))return {ok:true,json:async()=>({subtitles:options.noSubs?[]:[{url:'https://subs.example/sub.vtt',lang:'English'}]})};
+  assert.equal(url,'https://subs.example/sub.vtt');
+  return {ok:options.subHttp!==403,status:options.subHttp||200,text:async()=>options.subtitle===undefined?'WEBVTT\n\n00:00.000 --> 00:02.000\nHello\n':options.subtitle};
+ }};
+ vm.createContext(ctx);vm.runInContext(code,ctx);
+ const result=await ctx.module.exports.getStreams(options.id||'1561726',options.type||'movie',options.s,options.e);
+ assert.equal(calls.filter(c=>c.url.startsWith('https://cdn.example')).length,0,'No duplicate video HTTP request');
+ return {result,calls,bridgeCalls,logs};
+}
+(async()=>{
+ let r=await run();assert.equal(r.result.length,1);assert.equal(r.result[0].url,'https://cdn.example/master.m3u8?token=signed');assert.equal(r.result[0].headers.Cookie,'session=test');assert.equal(r.result[0].mimeType,'application/x-mpegURL');assert.equal(r.result[0].subtitles[0].language,'en');assert.equal(r.result[0].subtitles[0].mimeType,'text/vtt');assert.equal(r.bridgeCalls[0].url,'https://www.viduki.net/1/movie/1561726');assert.equal(r.bridgeCalls[0].opts.waitForMediaReady,false);
+ for(const opts of [{detailed:true},{row:{networkObserved:false}},{row:{statusCode:410}},{row:{quality:'480p'}},{row:{height:576}},{row:{isDubbed:true}},{row:{contentType:'text/html'}},{row:{contentType:'application/json'}},{empty:true}]) assert.equal((await run(opts)).result.length,0,JSON.stringify(opts));
+ for(const opts of [{detailed:true,row:{networkObserved:true}},{row:{responseObserved:true}},{row:{isDubbed:true,isMultiAudio:true}},{string:true}])assert.equal((await run(opts)).result.length,1);
+ for(const subtitle of ['<html>blocked</html>','WEBVTT\n','',':)']){r=await run({subtitle});assert.equal(r.result.length,1);assert.equal(r.result[0].subtitles.length,0);}
+ r=await run({subtitle:'1\n00:00:00,000 --> 00:00:02,000\nHello\n'});assert.equal(r.result[0].subtitles[0].mimeType,'application/x-subrip');
+ r=await run({subHttp:403});assert.equal(r.result.length,1);assert.equal(r.result[0].subtitles.length,0);
+ r=await run({noSubs:true,nativeSubs:[{url:'https://subs.example/sub.vtt',language:'en'},{url:'https://subs.example/sub.vtt',lang:'English'}],row:{subtitles:[{url:'https://subs.example/sub.vtt',lang:'en'}]}});assert.equal(r.result[0].subtitles.length,1);assert.equal(r.calls.filter(c=>c.url==='https://subs.example/sub.vtt').length,1);
+ r=await run({id:'1399',type:'series',s:1,e:2});assert.equal(r.bridgeCalls[0].url,'https://www.viduki.net/1/tv/1399/1/2');
+ for(const opts of [{id:'bad'},{type:'tv',s:1,e:0}]){r=await run(opts);assert.equal(r.result.length,0);assert.equal(r.bridgeCalls.length,0);}
+ console.log('PASS: no video CDN rechecks; exact routes; unchanged captured URL/headers; basic/detailed bridge; captured error/MIME/audio/quality filters; cue-validated VTT/SRT; deduplicated native subtitles.');
+})().catch(e=>{console.error(e);process.exitCode=1;});

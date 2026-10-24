@@ -872,7 +872,7 @@
     {
       "id": "viduki",
       "name": "Viduki",
-      "version": "1.0.2",
+      "version": "1.0.3",
       "description": "Exact TMDB API 1 streaming player with parallel website subtitles",
       "author": "Cloudbank",
       "supportedTypes": [
@@ -888,7 +888,7 @@
       ],
       "runtimeTimeoutMs": 20000,
       "runtimeModules": [],
-      "notes": "Mapple/VidFast basic-vs-detailed bridge compatibility, VidSrc.to capture/playlist flow. Raw/filtered/session diagnostics. Only HTTP-validated media and cue-validated subtitles returned. Android end-to-end validation pending."
+      "notes": "Exact TMDB API 1 browser capture; Mapple/VidFast handoff without duplicate CDN HTTP checks. Preserves captured URL/headers, basic/detailed bridge handling and validated sidecar subtitles. Captured error/non-media/low-quality/dub-only entries rejected. Playback requires device test."
     }
   ]
 }
