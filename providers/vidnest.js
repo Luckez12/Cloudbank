@@ -3312,11 +3312,9 @@ function vnCaptions(rows) {
     const url=typeof value==='string'?value.trim().replace(/ /g,'%20'):'';
     if(!lang||!vnSafeUrl(url)||seen.has(url)||count[lang]>=8)return;
     seen.add(url);count[lang]++;
-    const cc=row.isHearingImpaired===true||/\b(?:cc|sdh|hearing impaired)\b/i.test(String(row.label||row.display||''));
-    const variant=/\s+(\d+)\s*$/.exec(String(row.label||row.display||''));
-    const label=(lang==='en'?'English':'Bahasa Melayu')+(variant?' '+variant[1]:'')+(cc?' (CC)':'');
+    const label=String(row.label||row.display||row.name||row.language||row.lang||row.srclang||row.iso639||'');
     const path=String(url).split(/[?#]/)[0].toLowerCase();
-    out.push({url,lang,language:lang,label,name:label,
+    out.push({url,lang,language:lang,label,name:typeof row.name==='string'?row.name:label,
       mimeType:path.endsWith('.vtt')?'text/vtt':path.endsWith('.srt')?'application/x-subrip':undefined,
       headers:vnHeaders(row.headers)});
   });
@@ -3382,7 +3380,7 @@ async function getStreams(tmdbId,mediaType,season,episode) {
   if(type==='tv'&&(season==null||season===''||episode==null||episode===''||!Number.isInteger(Number(season))||Number(season)<0||!Number.isInteger(Number(episode))||Number(episode)<1))return [];
   const route='/'+type+'/'+id+(type==='tv'?'/'+Number(season)+'/'+Number(episode):'');
   const deadline=Date.now()+16000;
-  vnLog('v2.1.0 API: exact TMDB '+id+' '+type+(type==='tv'?' S'+season+'E'+episode:'')+'; local authenticated decrypt');
+  vnLog('v2.1.1 API: exact TMDB '+id+' '+type+(type==='tv'?' S'+season+'E'+episode:'')+'; local authenticated decrypt');
   const subtitleTask=vnSubtitleSearch(id,type,season,episode);
   const batches=await Promise.all(VN_SERVERS.map(async server=>{
     try{

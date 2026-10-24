@@ -47,6 +47,7 @@ function envelope(data,n='test-response-nonce'){
   {url:'https://sub.test/ml2.vtt',label:'Malayalam'},
   {url:'https://sub.test/unknown.vtt'},
   {url:'javascript:bad',lang:'en'}]);
+ const originalLabels=ctx.vnCaptions([{url:'https://sub.test/m.vtt',label:'Malay'},{url:'https://sub.test/e.vtt',label:'English 2'}]);assert.equal(originalLabels[0].label,'Malay');assert.equal(originalLabels[1].label,'English 2');assert.equal(ctx.vnCaptions(originalLabels)[0].label,'Malay');
  assert.equal(filtered.length,2);assert.equal(filtered[0].lang,'en');assert.equal(filtered[1].lang,'ms');checks++;
  const mediaFetch=ctx.fetch;
  ctx.fetch=async(url,opts)=>{
