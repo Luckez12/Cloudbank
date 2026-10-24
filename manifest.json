@@ -1,6 +1,6 @@
 {
   "name": "Cloudbank",
-  "version": "1.20.114",
+  "version": "1.20.115",
   "scrapers": [
     {
       "id": "kisskh",
@@ -129,7 +129,7 @@
       "id": "4khdhub",
       "name": "4KHDHub",
       "description": "Movie and TV stream provider",
-      "version": "2.0.3",
+      "version": "2.0.4",
       "author": "Luckez",
       "supportedTypes": [
         "movie",
@@ -150,7 +150,7 @@
       "disabledPlatforms": [],
       "supportsExternalPlayer": true,
       "runtimeTimeoutMs": 20000,
-      "notes": "Website engine rebuilt: exact search title/year/type and season/episode releases; portable public gate decoder; deterministic HubCloud download routes, no Greenmotors article crawling. HEAD/ranged media verification; original language selection and release quality labels; shared metadata and display preserved. 18.5s request-scoped budget, two workers and cancellation. No confirmed public catalogue API; Android playback requires testing. 2.0.1: normalize nested/flat/string shared metadata, validate title before searching, bounded async metadata bridge and TMDB fallback for incomplete context. Distinct missing-metadata logs. 2.0.2: website-published exact Watch Online iframe first through existing WebView bridge; captured media validation and session headers/subtitles. Download fallback stops both workers after first validated file. Supports movie-card anchor roots. Browser capture/playback requires Android testing. 2.0.3: opt into generic session response capture and reuse matching successful HLS text body if provided; otherwise keep native validation. Normalize subtitle language/lang, MIME and per-track headers without extra caption requests. Actual bridge HLS-body availability and Android cue display remain unverified."
+      "notes": "Website engine rebuilt: exact search title/year/type and season/episode releases; portable public gate decoder; deterministic HubCloud download routes, no Greenmotors article crawling. HEAD/ranged media verification; original language selection and release quality labels; shared metadata and display preserved. 18.5s request-scoped budget, two workers and cancellation. No confirmed public catalogue API; Android playback requires testing. 2.0.1: normalize nested/flat/string shared metadata, validate title before searching, bounded async metadata bridge and TMDB fallback for incomplete context. Distinct missing-metadata logs. 2.0.2: website-published exact Watch Online iframe first through existing WebView bridge; captured media validation and session headers/subtitles. Download fallback stops both workers after first validated file. Supports movie-card anchor roots. Browser capture/playback requires Android testing. 2.0.3: opt into generic session response capture and reuse matching successful HLS text body if provided; otherwise keep native validation. Normalize subtitle language/lang, MIME and per-track headers without extra caption requests. Actual bridge HLS-body availability and Android cue display remain unverified. 2.0.4: user-requested English/Malay external subtitle allowlist. Reject all other languages and unidentified und tracks. Language identity must come from supplied metadata/label, not guessed from video."
     },
     {
       "id": "pencurimovie",

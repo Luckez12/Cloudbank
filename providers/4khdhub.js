@@ -1,4 +1,4 @@
-/* 4KHDHub 2.0.3 — website search -> exact release -> public gate -> file host.
+/* 4KHDHub 2.0.4 — website search -> exact release -> public gate -> file host.
  * One engine; no article crawling, legacy engine, external decrypt service or guessed API.
  */
 (function(){
@@ -30,6 +30,7 @@ function normalizeSubs(session,referer){
  var raw=String([x.language,x.lang,x.srclang,x.iso639,x.code].filter(function(v){return v&& !/^(?:und|unknown)$/i.test(String(v).trim());})[0]||'').trim().toLowerCase();
  if(!raw||raw==='und'||raw==='unknown')raw=label.toLowerCase();
  var lang=/^(?:en|eng|english)(?:$|[-_ (])/.test(raw)?'en':/^(?:ms|msa|may|malay|bahasa melayu|melayu)(?:$|[-_ (])/.test(raw)?'ms':/^[a-z]{2}(?:-[a-z]{2})?$/.test(raw)?raw:'und';
+ if(lang!=='en'&&lang!=='ms')return;
  var path=new URL(u).pathname,mime=/\.vtt$/i.test(path)?'text/vtt':/\.srt$/i.test(path)?'application/x-subrip':String(x.mimeType||x.mime||'');
  if(!/^(?:text\/vtt|application\/x-subrip|application\/srt|text\/srt)$/i.test(mime))return;
  var h={};Object.keys(x.headers||{}).forEach(function(k){var v=String(x.headers[k]);if(!/^(?:host|connection|content-length|range)$/i.test(k)&&!/[\r\n]/.test(k+v))h[k]=v;});
@@ -115,7 +116,7 @@ nodes.each(function(_,el){var a=$(el),text=a.text().replace(/\s+/g,' ').trim();i
 releases.sort(function(a,b){return a.priority-b.priority||a.size-b.size;});log('MATCH '+title+' releases='+releases.length);var index=0;
 async function worker(){while(active&&index<releases.length&&results.length<1){var r=releases[index++],hit=await resolve(r.url,detail,0,[]);if(hit&&active&&!seen[hit.url]){seen[hit.url]=true;results.push(Object.assign({name:'4KHDHub',title:title,serverName:host(hit.url),audioLanguages:r.langs,subtitles:[],sourceVerified:true,playbackVerified:false},hit,{quality:hit.quality||r.quality}));log('DOWNLOAD: first verified source; returning immediately');stop();}}}
 await Promise.all([worker(),worker()]);return results;
-}catch(e){log('FAILED '+String(e.message||e));return results;}finally{clearTimeout(timer);stop();log('v2.0.3 sources='+results.length);}}
+}catch(e){log('FAILED '+String(e.message||e));return results;}finally{clearTimeout(timer);stop();log('v2.0.4 sources='+results.length);}}
 module.exports={getStreams:function(id,type,s,e){type=type==='series'?'tv':type;if(!/^[1-9]\d*$/.test(String(id))||['movie','tv'].indexOf(type)<0||type==='tv'&&(s==null||e==null||!Number.isInteger(+s)||+s<0||!Number.isInteger(+e)||+e<1))return Promise.resolve([]);return run(String(id),type,+s,+e);}};
 if(typeof globalThis!=='undefined'){globalThis.getStreams=module.exports.getStreams;globalThis.fourKWebsiteTest={gate:gate,links:links,b64:b64};}
 })();
