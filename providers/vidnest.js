@@ -3298,6 +3298,52 @@ async function vnRequest(url,options,deadline,maxMs=4500) {
     new Promise((_,reject)=>{timer=setTimeout(()=>{if(controller)controller.abort();reject(Error('HTTP timeout'));},Math.min(left,maxMs));})
   ]);}finally{clearTimeout(timer);}
 }
+function vnSubtitleLanguage(row) {
+  const raw=String(row.language||row.lang||row.srclang||row.iso639||row.display||row.label||'').trim().toLowerCase();
+  if(/^(?:en(?:[-_]\w+)?|eng|english(?:\b.*)?)$/.test(raw))return 'en';
+  if(/^(?:ms(?:[-_]\w+)?|msa|may|malay(?:\b.*)?|bahasa melayu(?:\b.*)?|melayu(?:\b.*)?)$/.test(raw))return 'ms';
+  return ''; // Malayalam (mal), Indonesian (id) and unlabelled tracks are excluded.
+}
+function vnCaptions(rows) {
+  const seen=new Set(),count={en:0,ms:0},out=[];
+  (Array.isArray(rows)?rows:[]).slice(0,300).forEach(row=>{
+    if(!row||typeof row!=='object')return;
+    const lang=vnSubtitleLanguage(row),value=row.url||row.file||row.src;
+    const url=typeof value==='string'?value.trim().replace(/ /g,'%20'):'';
+    if(!lang||!vnSafeUrl(url)||seen.has(url)||count[lang]>=8)return;
+    seen.add(url);count[lang]++;
+    const cc=row.isHearingImpaired===true||/\b(?:cc|sdh|hearing impaired)\b/i.test(String(row.label||row.display||''));
+    const variant=/\s+(\d+)\s*$/.exec(String(row.label||row.display||''));
+    const label=(lang==='en'?'English':'Bahasa Melayu')+(variant?' '+variant[1]:'')+(cc?' (CC)':'');
+    const path=String(url).split(/[?#]/)[0].toLowerCase();
+    out.push({url,lang,language:lang,label,name:label,
+      mimeType:path.endsWith('.vtt')?'text/vtt':path.endsWith('.srt')?'application/x-subrip':undefined,
+      headers:vnHeaders(row.headers)});
+  });
+  return out;
+}
+function vnSubtitleSearch(id,type,season,episode) {
+  const path=type==='tv'?'tv/'+id+'/'+Number(season)+'/'+Number(episode):'movie/'+id;
+  const rows=[],controllers=[];let closed=false,timer;
+  function stop(){closed=true;clearTimeout(timer);controllers.forEach(c=>{try{c.abort();}catch(_){}});}
+  const tasks=[1,2].map(async version=>{
+    try {
+      const controller=typeof AbortController==='function'?new AbortController():null;
+      if(controller)controllers.push(controller);
+      const response=await fetch('https://sub.vdrk.site/v'+version+'/'+path,
+        {headers:{Accept:'application/json',Referer:'https://vidnest.fun/'},...(controller?{signal:controller.signal}:{})});
+      if(closed)return;
+      vnLog('SUBTITLES v'+version+' HTTP '+response.status);
+      if(!response.ok)return;
+      const data=await response.json();if(closed)return;
+      const items=Array.isArray(data)?data:data&&[data.subtitles,data.data,data.results].find(Array.isArray);
+      if(items)rows.push(...items.slice(0,200));
+    }catch(_){if(!closed)vnLog('SUBTITLES v'+version+' unavailable');}
+  });
+  const promise=Promise.race([Promise.all(tasks),new Promise(resolve=>{timer=setTimeout(resolve,3500);})])
+    .then(()=>vnCaptions(rows)).catch(()=>[]).finally(stop);
+  return {promise,stop};
+}
 function vnParse(data,server) {
   if(!data||typeof data!=='object')return [];
   if(data.status&&data.status!=='success')return [];
@@ -3308,7 +3354,7 @@ function vnParse(data,server) {
     if(!Object.keys(headers).some(k=>k.toLowerCase()==='referer'))headers.Referer='https://vidnest.fun/';
     const kind=server==='yflix'||/hls|mpegurl/i.test(x.type||'')||/\.m3u8(?:[?#]|$)/i.test(x.url)?'hls':/dash|mpd/i.test(x.type||'')||/\.mpd(?:[?#]|$)/i.test(x.url)?'dash':'direct';
     const quality=/^(2160|1440|1080|720|576|480|360|240)p$/i.test(String(x.quality||''))?x.quality:'Unknown';
-    const captions=(Array.isArray(x.subtitles)?x.subtitles:subs).filter(s=>s&&vnSafeUrl(s.url||s.file)).map(s=>({url:s.url||s.file,lang:s.lang||s.language||'Unknown',label:s.label||s.lang||s.language||'Unknown'}));
+    const captions=vnCaptions(subs.concat(Array.isArray(x.subtitles)?x.subtitles:[]));
     return {name:'Vidnest',title:'Vidnest '+server,serverName:server,url:x.url,headers,quality,type:kind,
       subtitles:captions,audioLanguage:typeof x.language==='string'?x.language:undefined,provider:'vidnest',mimeType:kind==='hls'?'application/x-mpegURL':kind==='dash'?'application/dash+xml':/\.mp4(?:[?#]|$)/i.test(x.url)?'video/mp4':undefined};
   });
@@ -3336,7 +3382,8 @@ async function getStreams(tmdbId,mediaType,season,episode) {
   if(type==='tv'&&(season==null||season===''||episode==null||episode===''||!Number.isInteger(Number(season))||Number(season)<0||!Number.isInteger(Number(episode))||Number(episode)<1))return [];
   const route='/'+type+'/'+id+(type==='tv'?'/'+Number(season)+'/'+Number(episode):'');
   const deadline=Date.now()+16000;
-  vnLog('v2.0.1 API: exact TMDB '+id+' '+type+(type==='tv'?' S'+season+'E'+episode:'')+'; local authenticated decrypt');
+  vnLog('v2.1.0 API: exact TMDB '+id+' '+type+(type==='tv'?' S'+season+'E'+episode:'')+'; local authenticated decrypt');
+  const subtitleTask=vnSubtitleSearch(id,type,season,episode);
   const batches=await Promise.all(VN_SERVERS.map(async server=>{
     try{
       // Cache-busting query only; the response's n determines the authenticated key.
@@ -3352,6 +3399,12 @@ async function getStreams(tmdbId,mediaType,season,episode) {
   }));
   const seen=new Set(),result=[];
   batches.forEach(rows=>rows.forEach(row=>{if(!seen.has(row.url)){seen.add(row.url);result.push(row);}}));
+  if(result.length) {
+    const external=await subtitleTask.promise;
+    result.forEach(row=>{row.subtitles=vnCaptions((row.subtitles||[]).concat(external));});
+    const all=vnCaptions(result.flatMap(row=>row.subtitles));
+    vnLog('SUBTITLE_RESULT: English='+all.filter(x=>x.lang==='en').length+' Malay='+all.filter(x=>x.lang==='ms').length+'; other languages excluded');
+  } else subtitleTask.stop();
   vnLog('RESULT: '+result.length+' HTTP-checked sources; Android playback unverified');
   return result;
 }

@@ -37,5 +37,38 @@ function envelope(data,n='test-response-nonce'){
  const before=calls.length;assert.equal((await ctx.module.exports.getStreams('a','movie')).length,0);assert.equal((await ctx.module.exports.getStreams('1','tv',1,null)).length,0);assert.equal(calls.length,before);checks++;
  calls.length=0;await ctx.module.exports.getStreams('218539','tv',1,3);assert.ok(calls.filter(x=>x.url.startsWith('https://new.vidnest.fun')).every(x=>/\/tv\/218539\/1\/3\?_n=/.test(x.url)));checks++;
  const full={...ctx,module:{exports:{}}};vm.createContext(full);vm.runInContext(code,full);assert.equal((await full.module.exports.getStreams('580489','movie')).length,2);checks++;
+
+ const filtered=ctx.vnCaptions([
+  {url:'https://sub.test/en.vtt',language:'en-US'},
+  {url:'https://sub.test/en.vtt',label:'English'},
+  {file:'https://sub.test/ms.srt',label:'Bahasa Melayu'},
+  {url:'https://sub.test/id.vtt',language:'id'},
+  {url:'https://sub.test/ml.vtt',language:'mal'},
+  {url:'https://sub.test/ml2.vtt',label:'Malayalam'},
+  {url:'https://sub.test/unknown.vtt'},
+  {url:'javascript:bad',lang:'en'}]);
+ assert.equal(filtered.length,2);assert.equal(filtered[0].lang,'en');assert.equal(filtered[1].lang,'ms');checks++;
+ const mediaFetch=ctx.fetch;
+ ctx.fetch=async(url,opts)=>{
+  if(url.startsWith('https://sub.vdrk.site/')){
+   calls.push({url,opts});
+   return response(200,[{file:'https://sub.test/malay.vtt',label:'Malay'},{file:'https://sub.test/french.vtt',label:'French'},
+     {file:'https://sub.test/eng.vtt',label:'English'}],'application/json');
+  }
+  return mediaFetch(url,opts);
+ };
+ rows=await ctx.module.exports.getStreams('1148365','movie');
+ assert.equal(rows.length,2);assert.ok(rows.every(r=>r.subtitles.some(x=>x.lang==='en')&&r.subtitles.some(x=>x.lang==='ms')));checks++;
+ assert.ok(rows.every(r=>r.subtitles.every(x=>['en','ms'].includes(x.lang))));checks++;
+ assert.ok(rows.every(r=>new Set(r.subtitles.map(x=>x.url)).size===r.subtitles.length));checks++;
+ calls.length=0;await ctx.module.exports.getStreams('218539','tv',1,3);
+ assert.equal(calls.filter(x=>x.url.startsWith('https://sub.vdrk.site/')).length,2);
+ assert.ok(calls.filter(x=>x.url.startsWith('https://sub.vdrk.site/')).every(x=>x.url.endsWith('/tv/218539/1/3')));checks++;
+ ctx.fetch=async(url,opts)=>url.startsWith('https://sub.vdrk.site/')?response(503,'Unavailable','text/plain'):mediaFetch(url,opts);
+ rows=await ctx.module.exports.getStreams('1148365','movie');assert.equal(rows.length,2);checks++;
+ ctx.fetch=async(url,opts)=>url.includes('sub.vdrk.site/v1/')?new Promise(()=>{}):url.includes('sub.vdrk.site/v2/')?response(200,[{file:'https://sub.test/partial.vtt',label:'Malay'}],'application/json'):mediaFetch(url,opts);
+ const started=Date.now();rows=await ctx.module.exports.getStreams('1148365','movie');
+ assert.ok(rows.every(r=>r.subtitles.some(x=>x.lang==='ms')));assert.ok(Date.now()-started<4500);checks++;
+ if(process.env.VIDNEST_SUB_FIXTURES){const actual=ctx.vnCaptions(JSON.parse(fs.readFileSync('/tmp/vn-sub-verify-0.json')));assert.equal(actual.filter(x=>x.lang==='en').length,8);assert.equal(actual.filter(x=>x.lang==='ms').length,1);checks++;}
  console.log('PASS: '+checks+' Vidnest protocol/workflow checks');
 })().catch(e=>{console.error(e);process.exitCode=1;});
