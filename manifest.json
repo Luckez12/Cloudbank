@@ -1,6 +1,6 @@
 {
   "name": "Cloudbank",
-  "version": "1.20.101",
+  "version": "1.20.102",
   "scrapers": [
     {
       "id": "kisskh",
@@ -1008,7 +1008,7 @@
       "id": "vidnest",
       "name": "Vidnest",
       "description": "Vidnest streaming with encrypted AES-GCM sources",
-      "version": "2.0.0",
+      "version": "2.0.1",
       "author": "Nuvio Team",
       "supportedTypes": [
         "movie",
@@ -1033,7 +1033,7 @@
         "tv"
       ],
       "runtimeModules": [],
-      "notes": "Current new.vidnest.fun v2 API for website-mapped yflix/flixhq/vidzee routes. Local SHA-256/AES-256-GCM with authentication-tag checks using existing CryptoJS; no Node crypto/process.env, decrypt service, legacy proxy, WebView or app change. Exact TMDB/season/episode routes; source headers/captions retained; bounded parallel API calls, HLS root check or video HEAD, no 403 acceptance or segment probes. Sample Venom APIs decrypt; FlixHQ HLS 200 and VidZee MKV HEAD 200 observed; Android playback and full catalog unverified."
+      "notes": "Current new.vidnest.fun v2 API for website-mapped yflix/flixhq/vidzee routes. Local SHA-256/AES-256-GCM with authentication-tag checks using existing CryptoJS; no Node crypto/process.env, decrypt service, legacy proxy, WebView or app change. Exact TMDB/season/episode routes; source headers/captions retained; bounded parallel API calls, HLS root check or video HEAD, no 403 acceptance or segment probes. Sample Venom APIs decrypt; FlixHQ HLS 200 and VidZee MKV HEAD 200 observed; Android playback and full catalog unverified. v2.0.1: isolated provider-owned CryptoJS primitives replace unavailable runtime algo.AES; regression tests forbid all runtime module access. API routes and selection unchanged."
     },
     {
       "id": "cinevibe",

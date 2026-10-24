@@ -1,6 +1,6 @@
 const fs=require('node:fs'),vm=require('node:vm'),crypto=require('node:crypto'),assert=require('node:assert/strict');
 const code=fs.readFileSync('providers/vidnest.js','utf8'),core=code.split('/* CLOUDBANK_UPSTREAM_SOURCE_START */')[1].split('/* CLOUDBANK_UPSTREAM_SOURCE_END */')[0];
-const ctx={module:{exports:{}},require,console,setTimeout,clearTimeout,AbortController,URL,fetch:async()=>{throw Error('Unexpected HTTP');}};vm.createContext(ctx);vm.runInContext(core,ctx);
+const ctx={module:{exports:{}},require:()=>{throw Error("VUEO runtime crypto must not be used");},console,setTimeout,clearTimeout,AbortController,URL,fetch:async()=>{throw Error('Unexpected HTTP');}};vm.createContext(ctx);vm.runInContext(core,ctx);
 const secret=vm.runInContext('VN_CLIENT',ctx);
 function envelope(data,n='test-response-nonce'){
  const key=crypto.createHash('sha256').update(n+'|'+secret).digest(),iv=crypto.randomBytes(12),enc=crypto.createCipheriv('aes-256-gcm',key,iv),cipher=Buffer.concat([enc.update(JSON.stringify(data),'utf8'),enc.final()]);

@@ -10,7 +10,7 @@ Dikemas kini 24 Oktober 2026. Asas: ZIP Cloudbank-main (11), kod dalam workspace
 
 | Giliran | Provider | Versi | Bukti dan status |
 |---|---|---|---|
-| 1 | Vidnest | 2.0.0, menunggu ujian VUEO | decryptAesGcm membaca process.env tanpa guard, bergantung aesdec.nuvioapp.space; passphrase dan server list statik; validateStreamUrl menerima 403 dan melangkau HLS. Risiko keserasian runtime/URL tidak terbukti. Import tanpa rekod pembaikan khusus dalam snapshot. |
+| 1 | Vidnest | 2.0.1, menunggu ujian VUEO | decryptAesGcm membaca process.env tanpa guard, bergantung aesdec.nuvioapp.space; passphrase dan server list statik; validateStreamUrl menerima 403 dan melangkau HLS. Risiko keserasian runtime/URL tidak terbukti. Import tanpa rekod pembaikan khusus dalam snapshot. |
 | 2 | Mapple | 1.0.4 | solvePow sehingga 50 juta iterasi segerak; boleh menahan event loop dan timer adapter. parseHlsMaster menolak playlist media tanpa EXT-X-STREAM-INF. Manifest merekod adapter/fallback crypto, belum resolver overhaul. |
 | 3 | FibWatch | 1.0.4 | bestMatch menambah -0.2 sahaja untuk tahun salah: tajuk tepat masih melepasi ambang; padanan substring turut diterima. Tiada penapisan movie/TV dalam bestMatch, selector HTML/AJAX khusus memerlukan semakan semasa. |
 | 4 | OnlyKDrama | 1.0.4 | extractCandidateUrls hanya URL mutlak onlykdrama.shop; episod dikunci regex new5.filepress.wiki; titleLooksRelevant menerima satu perkataan bagi tajuk pendek. Risiko domain/parser lapuk dan padanan lemah, belum dibuktikan laman telah berubah. |
@@ -25,4 +25,6 @@ Rekod patch bukan bukti playback semua tajuk. MovieBox menunggu log diagnostik 1
 
 ## Giliran seterusnya
 
-Vidnest v2.0.0 disediakan menggunakan new.vidnest.fun dan decrypt v2 setempat. Ujian penuh HTTP sebenar menghasilkan satu sumber VidZee MKV HTTP 200 untuk Venom 2; playback Android belum disahkan. API My Demon S1E3 membalas 502. Tunggu log VUEO sebelum Mapple. Tidak meneruskan StreamFlix atau membuang provider lain secara automatik. Senarai lama mengandungi nama yang sudah tiada dalam manifest: AllMovieLand, CineFreak, CinemaCity, DooFlix, HDGharTV, HindMoviez, MoviesHunt, NetMirror, VidEasy, Peachify, VegaMovies; jangan jadikan ia giliran fail sedia ada tanpa semakan identiti dahulu.
+Vidnest v2.0.1 disediakan menggunakan new.vidnest.fun dan decrypt v2 setempat. Ujian penuh HTTP sebenar menghasilkan satu sumber VidZee MKV HTTP 200 untuk Venom 2; playback Android belum disahkan. API My Demon S1E3 membalas 502. Tunggu log VUEO sebelum Mapple. Tidak meneruskan StreamFlix atau membuang provider lain secara automatik. Senarai lama mengandungi nama yang sudah tiada dalam manifest: AllMovieLand, CineFreak, CinemaCity, DooFlix, HDGharTV, HindMoviez, MoviesHunt, NetMirror, VidEasy, Peachify, VegaMovies; jangan jadikan ia giliran fail sedia ada tanpa semakan identiti dahulu.
+
+Vidnest v2.0.0 device regression: runtime crypto lacks algo.AES. v2.0.1 isolates CryptoJS primitives inside provider; tests forbid all external module access. Await new device log; no playback success inferred.
