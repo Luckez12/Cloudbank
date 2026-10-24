@@ -236,74 +236,6 @@
       "notes": "V15 Shared Discovery Context: TMDB detail metadata is coalesced by VUEO core once per scan when the V15 runtime bridge is available; local TMDB fallback remains for older runtimes. V15 centralized trace hooks emit metadata/candidate/verification stages without changing source extraction. V15 Shared Discovery Context + centralized trace hooks. TMDB metadata is coalesced by VUEO core when available, with provider-local fallback retained. Candidate/verification stages emit lightweight diagnostics. Repo-wide TMDB alias matching V1: primary TMDB title plus one highest-priority alternate title fallback, preserving the bounded WebView runtime. Test-Plugin adaptation: transferred engine first (11s maximum), existing Cloudbank engine retained as fallback (7.5s maximum). Shared metadata, provider identity and display preserved; Android playback unverified."
     },
     {
-      "id": "1shows",
-      "name": "1Shows",
-      "description": "1Shows- Movies | Series in 4k, 1080p, 720p & 480p",
-      "version": "1.1.0",
-      "author": "A2R14N - Nuvio Team",
-      "supportedTypes": [
-        "movie",
-        "tv"
-      ],
-      "filename": "providers/1shows.js",
-      "enabled": true,
-      "hasSettings": false,
-      "formats": [
-        "mkv",
-        "mp4",
-        "m3u8"
-      ],
-      "logo": "https://i.postimg.cc/9fDVBvn5/1shows.png",
-      "contentLanguage": [
-        "en",
-        "hi"
-      ],
-      "runtimeTimeoutMs": 20000,
-      "upstreamSupportedTypes": [
-        "movie",
-        "tv"
-      ],
-      "upstreamVersion": "1.0.0",
-      "notes": "Current download-token/download API with authenticated portable AES-GCM decoder updated to public site decoder 8f94222afb4794c1 (2026-10-24); preserves host extractors and playback headers, rejects HTTP errors/HTML, isolates failed resolvers, and returns checked sources within the 19s adapter deadline. Live API intermittently timed out during follow-up testing; Android playback requires device testing.",
-      "sourceRepository": "https://github.com/D3adlyRocket/All-in-One-Nuvio",
-      "sourceCommit": "3f09a6ff4360498895e622877af7a32212f75038",
-      "runtimeModules": []
-    },
-    {
-      "id": "desiflix",
-      "name": "DesiFlix",
-      "description": "Bollywood, Hollywood, and South Indian movies, in Dual Language",
-      "version": "1.0.4",
-      "author": "Nuvio Team",
-      "supportedTypes": [
-        "movie",
-        "tv"
-      ],
-      "filename": "providers/desiflix.js",
-      "enabled": true,
-      "hasSettings": false,
-      "formats": [
-        "mp4",
-        "mkv",
-        "m3u8"
-      ],
-      "logo": "https://i.postimg.cc/Vvs4fmwM/desiflix.png",
-      "contentLanguage": [
-        "en",
-        "hi"
-      ],
-      "runtimeTimeoutMs": 20000,
-      "upstreamSupportedTypes": [
-        "movie",
-        "tv"
-      ],
-      "upstreamVersion": "1.0.0",
-      "notes": "Imported from D3adlyRocket/All-in-One-Nuvio at 3f09a6ff4360498895e622877af7a32212f75038. Cloudbank adapter preserves upstream extraction/settings, uses shared TMDB detail metadata when available, caps async result wait at 19s, and returns valid stream arrays. Playback and host settings support require app testing.",
-      "sourceRepository": "https://github.com/D3adlyRocket/All-in-One-Nuvio",
-      "sourceCommit": "3f09a6ff4360498895e622877af7a32212f75038",
-      "runtimeModules": []
-    },
-    {
       "id": "castle",
       "name": "Castle",
       "description": "Multi Lang provider",
@@ -331,38 +263,6 @@
       ],
       "upstreamVersion": "2.0.0",
       "notes": "Castle 2.2.0 verified pipeline: exact normalized TMDB title/original/alias matching, movie/TV validation, revalidated detail IDs, season-1 release-year validation and explicit requested season/episode routing. Large integer IDs preserved as strings before JSON parsing. Current api.hlowb.com security/search/detail/getVideo2 routes and local AES/JNI retained. One 17.5s scan budget covers metadata, key, search, details, decryption and bounded parallel video requests. Shared plus individual audio supported; valid completed sources retained. Preview/denied/blacklisted/expired responses rejected; one videoUrl is emitted once at requested/returned quality, distinct quality URLs preserved. Playback headers and merged video/episode subtitles retained. Android playback unverified.",
-      "sourceRepository": "https://github.com/D3adlyRocket/All-in-One-Nuvio",
-      "sourceCommit": "3f09a6ff4360498895e622877af7a32212f75038",
-      "runtimeModules": []
-    },
-    {
-      "id": "cineby",
-      "name": "Cineby",
-      "description": "Multi-server movie and TV streaming — 4K/1080p/720p from Videasy network without subtitles",
-      "version": "1.9.6",
-      "author": "Nuvio Team",
-      "supportedTypes": [
-        "movie",
-        "tv"
-      ],
-      "filename": "providers/cineby.js",
-      "enabled": true,
-      "hasSettings": true,
-      "formats": [
-        "m3u8"
-      ],
-      "logo": "https://i.postimg.cc/dV1HWbqX/cineby.png",
-      "contentLanguage": [
-        "ar",
-        "en"
-      ],
-      "runtimeTimeoutMs": 20000,
-      "upstreamSupportedTypes": [
-        "movie",
-        "tv"
-      ],
-      "upstreamVersion": "1.9.2",
-      "notes": "Imported from D3adlyRocket/All-in-One-Nuvio at 3f09a6ff4360498895e622877af7a32212f75038. Cloudbank adapter preserves upstream extraction/settings, uses shared TMDB detail metadata when available, caps async result wait at 19s, and returns valid stream arrays. Playback and host settings support require app testing.",
       "sourceRepository": "https://github.com/D3adlyRocket/All-in-One-Nuvio",
       "sourceCommit": "3f09a6ff4360498895e622877af7a32212f75038",
       "runtimeModules": []
@@ -464,7 +364,7 @@
         "tv"
       ],
       "upstreamVersion": "3.0.1",
-      "notes": "Bounded parallel quality extraction: three highest-priority routes processed concurrently, each preserving archive → HubCloud → download → media-probe dependencies. Fourth route starts only as fallback after first batch settles. Retains up to three validated distinct codec/quality files, H.264 ranking and honest codec labels, partial results on failures, 18.7-second total/5.5-second extra collection budgets, exact matching/audio policy and all prior removals. Adds host/total timing logs. v4.1.0 on-device log confirmed three playable sources and subtitle cues; v4.2.0 device timing still needs confirmation.",
+      "notes": "Bounded parallel quality extraction: three highest-priority routes processed concurrently, each preserving archive \u2192 HubCloud \u2192 download \u2192 media-probe dependencies. Fourth route starts only as fallback after first batch settles. Retains up to three validated distinct codec/quality files, H.264 ranking and honest codec labels, partial results on failures, 18.7-second total/5.5-second extra collection budgets, exact matching/audio policy and all prior removals. Adds host/total timing logs. v4.1.0 on-device log confirmed three playable sources and subtitle cues; v4.2.0 device timing still needs confirmation.",
       "sourceRepository": "https://github.com/D3adlyRocket/All-in-One-Nuvio",
       "sourceCommit": "3f09a6ff4360498895e622877af7a32212f75038",
       "runtimeModules": [
@@ -803,42 +703,6 @@
       ]
     },
     {
-      "id": "zinkmovies",
-      "name": "ZinkMovies",
-      "description": "Bollywood Movies, Hollywood Movies, South Indian Movies, Hindi Dubbed Movies, Web Series, OTT Releases, & Trending Cinema",
-      "version": "1.0.4",
-      "author": "Kabir",
-      "supportedTypes": [
-        "movie",
-        "tv"
-      ],
-      "filename": "providers/zinkmovies.js",
-      "enabled": true,
-      "hasSettings": true,
-      "formats": [
-        "mp4",
-        "mkv",
-        "m3u8"
-      ],
-      "logo": "https://i.postimg.cc/XqCZyCgp/zinkmovies.png",
-      "contentLanguage": [
-        "en",
-        "hi",
-        "ta",
-        "te"
-      ],
-      "runtimeTimeoutMs": 20000,
-      "upstreamSupportedTypes": [
-        "movie",
-        "tv"
-      ],
-      "upstreamVersion": "1.0.0",
-      "notes": "Imported from D3adlyRocket/All-in-One-Nuvio at 3f09a6ff4360498895e622877af7a32212f75038. Cloudbank adapter preserves upstream extraction/settings, uses shared TMDB detail metadata when available, caps async result wait at 19s, and returns valid stream arrays. Playback and host settings support require app testing.",
-      "sourceRepository": "https://github.com/D3adlyRocket/All-in-One-Nuvio",
-      "sourceCommit": "3f09a6ff4360498895e622877af7a32212f75038",
-      "runtimeModules": []
-    },
-    {
       "id": "mapple",
       "name": "Mapple",
       "description": "Mapple multi-hoster movies and TV streaming with PoW session verification and direct HLS streams",
@@ -905,7 +769,7 @@
     {
       "id": "cinevibe",
       "name": "Cinevibe",
-      "description": "Cinevibe.cc website Server 1 — movies and exact TV episodes",
+      "description": "Cinevibe.cc website Server 1 \u2014 movies and exact TV episodes",
       "version": "2.0.0",
       "author": "Nuvio Team",
       "supportedTypes": [
@@ -1004,6 +868,27 @@
       "supportsExternalPlayer": true,
       "runtimeTimeoutMs": 20000,
       "notes": "Recovery: restores the v1.0.0 VidSrc.to WebView entry, Yumeflix Referer and 500ms finish grace. Removes v1.0.1 iframe unwrapping/HTML preflight. Optional subtitle payload validation retained; does not navigate directly to vsembed.ru. Native subtitle capture requires companion app support; standalone subtitle completeness and live recovery require device verification."
+    },
+    {
+      "id": "viduki",
+      "name": "Viduki",
+      "version": "1.0.0",
+      "description": "Exact TMDB API 1 streaming player with parallel website subtitles",
+      "author": "Cloudbank",
+      "supportedTypes": [
+        "movie",
+        "tv"
+      ],
+      "filename": "providers/viduki.js",
+      "enabled": true,
+      "formats": [
+        "m3u8",
+        "mpd",
+        "mp4"
+      ],
+      "runtimeTimeoutMs": 20000,
+      "runtimeModules": [],
+      "notes": "Requires VUEO webviewResolve consolidated session bridge. No Node crypto/WASM decoder in provider. Original language is not asserted when upstream audio metadata is absent."
     }
   ]
 }
