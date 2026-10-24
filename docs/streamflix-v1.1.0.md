@@ -1,0 +1,13 @@
+# StreamFlix 1.1.0 — HTTP resolver rebuild
+
+Apply contents at the root of the same Cloudbank repo snapshot provided in this conversation. Replace manifest.json and providers/streamflix.js. No extra Cloudbank/ wrapper folder, app change, workflow or deletion. Refresh repository and verify provider version 1.1.0.
+
+Evidence from uploaded Android playback log: Wasabi root repeatedly returns HTTP 404; bb.streamflixserver.site fails DNS with UnknownHostException, EAI_NODATA. No first frame is confirmed. Independent HEAD checks of Venom (TMDB 580489) returned Wasabi 404 and bb/cf 503 in this environment. The public Firebase movie detail resource returned 401. API catalog/config availability does not establish media availability. No alternative working server has been established.
+
+Pipeline: TMDB metadata -> catalog identity/type match -> fresh server configuration -> unique actual catalog paths -> at most three concurrent HEAD checks (3.5s each, up to six candidates) -> return only successful media MIME responses. All probes preserve playback headers; no large media GET, no guessed download servers or URL rewrites, no segment downloads, no cached signed URLs. HTML, missing MIME, zero-length files, HTTP failures, network failures and timeouts are excluded. HEAD success verifies only HTTP metadata, not bytes, codec support, seek support or Android playback. A server refusing HEAD or reporting an unusual MIME may be excluded despite being playable. No GET fallback is used because the native fetch bridge may buffer a whole movie.
+
+TV: replace unsupported WebSocket and invented episode filename fallback with a public HTTP request for only the requested Firebase season. Authentication rejection returns no sources with a reason. No credential or access-control workaround is attempted. Existing zero-based indexing convention is retained, with explicit episode_number preferred when present; live season schema and TV playback remain unconfirmed.
+
+Validation: syntax check and npm run validate passed for all 36 providers; 8 identity assertions and 16 HTTP workflow assertions passed. Workflow tests cover 404, 200 HTML, 206 media, DNS errors, no guessed episode URLs after 401, URL deduplication, unknown quality, and the entire standalone provider wrapper. Fixtures are mocked; actual successful playback is not claimed. Run node tests/streamflix-matching.cjs and node tests/streamflix-http.cjs at repo root.
+
+Expected outcome with currently broken storage: zero verified sources with explicit probe diagnostics, instead of three unusable player entries. This rebuild cannot repair the upstream storage or recover missing files.

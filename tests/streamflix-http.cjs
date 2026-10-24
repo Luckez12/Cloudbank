@@ -1,0 +1,36 @@
+const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
+const code=fs.readFileSync('providers/streamflix.js','utf8');
+const inner=code.split('/* CLOUDBANK_UPSTREAM_SOURCE_START */')[1].split('/* CLOUDBANK_UPSTREAM_SOURCE_END */')[0];
+let calls=[],mode='media';
+const res=(status,mime='video/x-matroska',data={})=>({ok:status>=200&&status<300,status,headers:{get:n=>n==='content-type'?mime:n==='content-length'?'100000':''},json:async()=>data});
+const config={movies:['https://dead.test/','https://good.test/','https://good.test/'],premium:['https://html.test/']};
+const catalog={data:[{tmdb:'580489',isTV:false,moviename:'Venom: Let There Be Carnage',movieyear:'2021',movielink:'movies/venom.mkv'}]};
+const fetch=async(url,opts={})=>{calls.push([url,opts.method||'GET']);
+ if(url.includes('themoviedb'))return res(200,'application/json',{id:580489,title:'Venom: Let There Be Carnage',release_date:'2021-01-01'});
+ if(url.endsWith('/data.json'))return res(200,'application/json',catalog);
+ if(url.includes('config-streamflixapp'))return res(200,'application/json',config);
+ if(url.includes('firebase'))return res(401,'application/json');
+ if(mode==='fail')throw Error('DNS unavailable');
+ return url.includes('dead.test')?res(404):url.includes('html.test')?res(200,'text/html'):res(206);
+};
+const ctx={module:{exports:{}},require,console,fetch,setTimeout,clearTimeout,AbortController};vm.createContext(ctx);vm.runInContext(inner,ctx);
+(async()=>{
+ let result=await ctx.module.exports.getStreams('580489','movie');
+ assert.equal(result.length,1);assert.equal(result[0].url,'https://good.test/movies/venom.mkv');assert.equal(result[0].quality,'Unknown');
+ assert.equal(calls.filter(x=>x[1]==='HEAD').length,3);
+ assert.ok(!calls.some(x=>x[0].endsWith('.mkv')&&x[1]==='GET'));
+ assert.equal((await ctx.module.exports.getStreams('1561726','movie')).length,0);
+ assert.equal(ctx.sfCandidates('https://good.test/direct.mkv',config,['movies']).length,1);
+ assert.equal(ctx.sfCandidates('javascript:bad',config,['movies']).length,0);
+ assert.equal(ctx.sfCandidates('//untrusted.test/a',config,['movies']).length,0);
+ assert.equal(await ctx.sfVerify('https://dead.test/a','test',0),null);
+ assert.equal(await ctx.sfVerify('https://html.test/a','test',0),null);
+ mode='fail';assert.equal((await ctx.processMovieStreams(catalog.data[0],config)).length,0);mode='media';
+ assert.equal((await ctx.processMovieStreams({movielink:''},config)).length,0);
+ assert.equal((await ctx.processTVStreams({moviekey:'test',moviename:'TV'},config,1,1)).length,0);
+ assert.ok(!calls.some(x=>/episode1\.mkv/.test(x[0])));
+ // Full standalone VUEO wrapper with the same bridge-shaped fetch responses.
+ const whole={module:{exports:{}},require,console,fetch,setTimeout,clearTimeout,AbortController};vm.createContext(whole);vm.runInContext(code,whole);
+ assert.equal((await whole.module.exports.getStreams('580489','movie')).length,1);
+ console.log('PASS: 16 HTTP workflow assertions, including full provider wrapper');
+})().catch(e=>{console.error(e);process.exitCode=1});

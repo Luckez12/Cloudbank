@@ -1,6 +1,6 @@
 {
   "name": "Cloudbank",
-  "version": "1.20.99",
+  "version": "1.20.100",
   "scrapers": [
     {
       "id": "kisskh",
@@ -943,7 +943,7 @@
       "id": "streamflix",
       "name": "StreamFlix",
       "description": "Direct links via StreamFlix API",
-      "version": "1.0.4",
+      "version": "1.1.0",
       "author": "Nuvio Team",
       "supportedTypes": [
         "movie",
@@ -970,7 +970,7 @@
       "runtimeModules": [
         "cheerio-without-node-native"
       ],
-      "notes": "TMDB ID and media-type matching first; exact normalized title/year fallback only without source identity; catalog-miss diagnostics; unique catalog movie URLs and honest Unknown quality. TV resolver unchanged. Playback requires device testing."
+      "notes": "HTTP pipeline: identity-safe catalog match, fresh config, unique configured paths, bounded HEAD media checks; reject dead/nonmedia/unverified hosts before playback. TV uses requested public Firebase season over HTTP, no guessed paths; current Firebase may reject unauthenticated reads. No working storage replacement confirmed."
     },
     {
       "id": "yflix",
