@@ -1,9 +1,7 @@
-# Viduki v1.0.4
+# Viduki v1.0.6
 
 Upload providers/viduki.js and manifest.json to matching paths. No YML.
 
-Video discovery/capture and no-CDN-recheck flow from v1.0.3 preserved. Subtitle collector starts alongside WebView. Immediately on WebView return (including empty capture) or failure/timeout, stop collection and abort outstanding subtitle fetches where AbortController is supported. Late results are ignored and cannot trigger subsequent requests even if transport ignores abort. No subtitle await or post-discovery fetch remains. A 3500ms independent cap can stop subtitle work earlier.
+Strict subtitle allowlist: English (en) and Malay (ms), including regional tags. Normalize aliases before filtering. Every other language and unknown language is rejected BEFORE subtitle file fetching. No fallback to Indonesian, Albanian or other languages. If English/Malay are absent or fail cue validation, return video without subtitles. Maximum two candidates per allowed language, four total. Discovery cancellation, no-extra-wait behavior and video extraction from v1.0.5 remain unchanged.
 
-Only subtitles whose VTT/SRT cues were already validated during discovery are returned. A missing/not_downloaded index is skipped without preparation requests, polling or retries. Captured but unvalidated late subtitle URLs are not forwarded. Zero subtitles is valid and never blocks video.
-
-Tests cover pending index and pending subtitle body at discovery completion, abort signals, late-result suppression, failure cleanup and valid subtitles completed before discovery. Video playback/speed on device remain unverified for this revision.
+Tests cover allowed regional tags/aliases, non-English/Malay rejection, mixed candidate ordering, subtitle cue/MIME validation, exact routes and cancellation/late responses. Device playback/rendering requires testing.
