@@ -67,7 +67,7 @@
       "id": "hdhub4u",
       "name": "HDHub4u",
       "description": "Movie and TV stream provider",
-      "version": "1.7.1",
+      "version": "1.7.2",
       "author": "Luckez",
       "supportedTypes": [
         "movie",
@@ -88,7 +88,7 @@
       "disabledPlatforms": [],
       "supportsExternalPlayer": true,
       "runtimeTimeoutMs": 20000,
-      "notes": "Targeted polish retaining existing extractors and fallback: current domain default, reject retired .free overrides, HLS transport/MIME correction, no guessed 1080p, English/Malay subtitle language/MIME normalization without file fetch."
+      "notes": "Fast site HLS race, no post-first-result grace, defer download mirrors until site HLS fails. Preserve master Auto; inspect already fetched playlist audio languages and reject known non-original-only sources; retain mixed masters with original audio. No additional media/subtitle requests."
     },
     {
       "id": "moviebox",
