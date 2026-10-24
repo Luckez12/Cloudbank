@@ -153,7 +153,7 @@ function cloudbankMetadataFetch(nativeFetch) {
   }
   (function(module, exports, require, fetch, self) {
 /* CLOUDBANK_UPSTREAM_SOURCE_START */
-/* VidLove v2.6.0: parallel English/Malay subtitles; video result never waits. */
+/* VidLove v2.7.0: parallel subtitles, at most 1s grace after video; five tracks per language. */
 var VL_API = 'https://api.vidlove.cc';
 var VL_PLAYER = 'https://player.vidlove.cc';
 var VL_ENGINES = ['moviebox', 'vidapi', 'moviebox2', 'dcloud', 'tcloud'];
@@ -222,16 +222,16 @@ function vlWantedSubtitleLanguage(row, label) {
   return null;
 }
 function vlSubtitles(rows) {
-  var out = [], seen = Object.create(null);
+  var out = [], seen = Object.create(null), counts = { en: 0, ms: 0 };
   if (!Array.isArray(rows)) return out;
   rows.forEach(function(row) {
-    if (!row || typeof row !== 'object' || out.length >= 128) return;
+    if (!row || typeof row !== 'object' || out.length >= 10) return;
     var url = row.url || row.file || row.src;
     if (!vlMediaUrl(url) || seen[url] || /^(?:thumbnails?|chapters?)$/i.test(String(row.kind || ''))) return;
     var label = String(row.name || row.label || row.display || '').trim();
     var language = vlWantedSubtitleLanguage(row, label);
-    if (!language) return;
-    seen[url] = true;
+    if (!language || counts[language] >= 5) return;
+    seen[url] = true; counts[language]++;
     var track = { url: url, language: String(language), name: label || String(language) };
     var mime = String(row.mimeType || row.mime_type || row.type || row.format || '').toLowerCase();
     if (/^(?:text\/vtt|vtt)$/.test(mime) || /\.vtt(?:[?#]|$)/i.test(url)) track.mimeType = 'text/vtt';
@@ -350,10 +350,11 @@ async function vlBrowserSource(id, type, season, episode, remainingMs) {
 }
 function vlParallelSubtitleJob(url, headers, deadline) {
   var controller = typeof self.AbortController === 'function' ? new self.AbortController() : null;
-  var job = { done: false, tracks: [], status: 'pending' }, timer;
+  var job = { done: false, tracks: [], status: 'pending' }, timer, notify;
+  job.ready = new Promise(function(resolve) { notify = resolve; });
   function finish(tracks, status) {
     if (job.done) return;
-    job.done = true; job.tracks = tracks; job.status = status; clearTimeout(timer);
+    job.done = true; job.tracks = tracks; job.status = status; clearTimeout(timer); notify();
   }
   job.cancel = function(reason) {
     if (job.done) return;
@@ -385,7 +386,7 @@ async function getStreams(tmdbId, mediaType, season, episode) {
   // bootstrap is used by its source module.
   var headers = { Accept: 'application/json', Referer: VL_PLAYER + '/', Origin: VL_PLAYER, 'User-Agent': VL_UA };
   var query = '?id=' + encodeURIComponent(id) + (type === 'tv' ? '&season=' + Number(season) + '&episode=' + Number(episode) : '') + '&mode=json';
-  vlLog('ROUTE: v2.6.0 exact TMDB=' + id + ' ' + type + '; video engines parallel=3; English/Malay subtitles parallel; return on video without subtitle wait; no deferred app API');
+  vlLog('ROUTE: v2.7.0 exact TMDB=' + id + ' ' + type + '; video engines parallel=3; English/Malay subtitles parallel; subtitle grace max=1000ms after video; max 5 English + 5 Malay; no deferred app API');
   var videoTask = new Promise(function(resolve) {
     var next = 0, active = 0, finished = false;
     var timer = setTimeout(function() { complete(null); }, Math.max(1, nativeDeadline - Date.now()));
@@ -428,7 +429,7 @@ async function getStreams(tmdbId, mediaType, season, episode) {
     pump();
   });
   var subtitleUrl = VL_API + '/subtitles/' + type + '/' + id + (type === 'tv' ? '/' + Number(season) + '/' + Number(episode) : '');
-  vlLog('SUBTITLE_REQUEST: ' + subtitleUrl + '; parallel=true; waitForSubtitles=false');
+  vlLog('SUBTITLE_REQUEST: ' + subtitleUrl + '; parallel=true; graceAfterVideoMs=1000; maxPerLanguage=5');
   var subtitleJob = vlParallelSubtitleJob(subtitleUrl, headers, deadline);
   var result = await videoTask;
   if (!result) result = await vlBrowserSource(id, type, season, episode, deadline - Date.now());
@@ -437,12 +438,25 @@ async function getStreams(tmdbId, mediaType, season, episode) {
     vlLog('NO_RESULT: no eligible video; nativeCalls=' + calls + ' elapsedMs=' + (Date.now() - started) + '; subtitle work cancelled');
     return [];
   }
-  // Snapshot only what is already parsed. Never await the subtitle request here.
+  // Keep the video result, allowing only a short, shared-deadline-bounded
+  // grace for subtitles. No deferred app API and no extra subtitle request.
   var tracks = vlSubtitles(result.tracks.concat(subtitleJob.tracks));
-  var subtitleStatus = subtitleJob.done ? subtitleJob.status : 'cancelled at video result';
+  var en = tracks.filter(function(track) { return track.language === 'en'; }).length;
+  var ms = tracks.filter(function(track) { return track.language === 'ms'; }).length;
+  var waitStarted = Date.now();
+  var graceMs = Math.max(0, Math.min(1000, deadline - waitStarted));
+  if (!subtitleJob.done && (en < 5 || ms < 5) && graceMs > 0) {
+    try { await vlBounded(function() { return subtitleJob.ready; }, graceMs); } catch (_) {}
+  }
+  tracks = vlSubtitles(result.tracks.concat(subtitleJob.tracks));
+  var waitedMs = Date.now() - waitStarted;
+  var subtitleStatus = subtitleJob.done ? subtitleJob.status : 'grace expired';
   subtitleJob.cancel('video returned');
   if (tracks.length) result.stream.subtitles = tracks;
-  vlLog('SUBTITLES: tracks=' + tracks.length + ' languages=en,ms status=' + subtitleStatus + '; video result does not wait');
+  en = tracks.filter(function(track) { return track.language === 'en'; }).length;
+  ms = tracks.filter(function(track) { return track.language === 'ms'; }).length;
+  vlLog('SUBTITLES: tracks=' + tracks.length + ' en=' + en + ' ms=' + ms + ' status=' + subtitleStatus +
+    ' waitedAfterVideoMs=' + waitedMs + ' graceMaxMs=' + graceMs + '; maxPerLanguage=5');
   vlLog('RESULT: 1 source; route=' + (result.fromWebsite ? 'website' : 'native') + ' engine=' + result.engine + ' nativeCalls=' + calls + ' elapsedMs=' + (Date.now() - started) + '; playback unverified');
   return [result.stream];
 }

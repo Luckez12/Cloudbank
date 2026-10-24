@@ -1,6 +1,6 @@
 {
   "name": "Cloudbank",
-  "version": "1.20.95",
+  "version": "1.20.96",
   "scrapers": [
     {
       "id": "kisskh",
@@ -772,7 +772,7 @@
       "id": "vidlove",
       "name": "VidLove",
       "description": "Fast exact-TMDB API with one website-session fallback when native engines fail.",
-      "version": "2.6.0",
+      "version": "2.7.0",
       "author": "Jeff",
       "supportedTypes": [
         "movie",
