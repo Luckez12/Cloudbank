@@ -1,0 +1,17 @@
+# Vidnest v2.0.0 — menunggu ujian VUEO
+
+Extract ZIP contents directly at the Cloudbank repo root beside manifest.json. No extra Cloudbank folder, no app/workflow/dependency change, no deletion. Refresh to Vidnest v2.0.0. StreamFlix remains on the planned-delete list only.
+
+Source evidence (24 October 2026): public vidnest.fun movie and TV pages, their linked Next.js utility/player chunks. New host new.vidnest.fun and yflix/flixhq/vidzee routes are taken from those scripts. Legacy first.vidnest.fun movie/episode API routes and the old proxy returned HTTP 530 / Cloudflare 1033.
+
+Website v2 protocol: 16-byte URL-safe base64 request nonce; response {d,n,v:2}; SHA-256(n|public frontend constant); AES-256-GCM, 12-byte IV and trailing 16-byte tag. Rebuilt core uses existing CryptoJS AES primitive plus local GHASH with authentication-tag verification, without Node crypto, process.env, WebView or a remote decrypt service. The public client constant is pinned to this observed build; future website rotation may require updating it. Request nonce uses available native random or a fallback only for cache busting; response nonce drives authenticated decryption. No account credentials.
+
+Preserves actual signed URLs, source headers, audio labels and supplied captions. Movie/TV identity follows exact TMDB and requested season/episode routes. Three API calls in parallel (10s bounds), up to three candidates per API, HLS root GET or direct-file HEAD checks (4s bounds), 16s discovery budget and existing outer adapter deadline. No master rewriting, segment/key probes, guessed proxies, cached signed media or HTTP 403 acceptance. Adaptive masters use Auto, unproven resolution Unknown. Response body reading relies on native bridge limits. HEAD evidence does not verify codecs, seeking or playback, and servers refusing HEAD may be excluded.
+
+Live movie evidence: Venom 2 (TMDB 580489), all three APIs returned 200 v2 envelopes. Local decoder matched independent Node authenticated AES-GCM for all three actual responses. FlixHQ returned HTTP 200 HLS playlist; VidZee returned HTTP 200 video/x-matroska for actual MKV; initial yflix media probe returned 403. A complete standalone-provider run using actual curl-backed HTTP produced one VidZee source after all three APIs authenticated; FlixHQ/yflix media checks timed out in that run. An initial 7s API bound timed out; raised to 10s before the successful complete run. No Android first-frame/seek/segment access confirmation.
+
+TV: website script confirms /tv/id/season/episode paths. My Demon S1E3 (TMDB 218539) tested routes returned 502; no TV playback success claimed. An intentionally nonconforming nonce got 403 invalid nonce; production now uses the browser-format 22-character nonce and tests enforce that format.
+
+Validation: syntax check and npm run validate passed for all 36 providers. node tests/vidnest-v2.cjs passes 23 protocol/workflow checks: independent Node-generated encrypted Unicode vectors at varying lengths, tamper/nonce/version rejection, nonce format, exact routing, headers/query/captions, HTML/403 rejection, no legacy/segment requests and full standalone wrapper. Three private actual-envelope comparisons also passed (26 total). Bundled tests generate their own encrypted data; no current signed URLs or actual API payloads included.
+
+Test Venom: Let There Be Carnage (2021) in VUEO and share provider/player logs. Successful HTTP media discovery and successful playback are distinct. Wait for device evidence before continuing to Mapple.

@@ -1,62 +1,28 @@
-# Cloudbank provider review queue
+# Cloudbank — senarai delete dan giliran semakan
 
-Review providers one at a time in this order, as agreed on 21 October 2026
-(Malaysia). This is a review queue, not evidence that these providers have never
-received an earlier patch or that they are all broken. The historical repair
-inventory was incomplete when the queue was assembled.
+Dikemas kini 24 Oktober 2026. Asas: ZIP Cloudbank-main (11), kod dalam workspace dan patch StreamFlix sesi ini. Semakan statik ringkas untuk triage; tiada audit langsung semua laman atau pengesahan playback baharu. Nombor versi, kod import atau obfuscation sahaja bukan bukti outdated. Rekod sejarah tidak lengkap: “tiada bukti pembaikan khusus” bukan “pasti tidak pernah dibaiki”.
 
-Current: **MovieBox v3.0.1 diagnostics prepared; waiting for a 1080p rejection log.**
+## Senarai untuk delete
 
-KissKH v1.4.0 is deferred: the user reported the site down; no playback confirmation.
-Next: **AllMovieLand**, after MovieBox testing or a new user instruction.
+- StreamFlix v1.1.0 — keputusan pengguna: masukkan dalam senarai delete dahulu. Belum dipadam atau dinyahaktifkan dalam manifest. Katalog/config hidup; Wasabi NoSuchBucket, log Android bb NXDOMAIN; tiada sumber berfungsi disahkan.
 
-Passed device test: **OneTouchTV v1.5.0**, confirmed by the user after My Demon
-(TMDb 218539) S1E3: one source, 38 caption tracks received, 32 forwarded by VUEO,
-1.48-second discovery. This confirms that sample, not every title in the catalog.
+## Giliran baiki / semak
 
-1. KissKH — deferred: site down as reported by user; device testing pending.
-2. MovieBox — v3.0.1 diagnostics prepared; 720p first-frame and captions observed for My Demon S1E3, 1080p investigation pending.
-3. AllMovieLand
-4. CineFreak
-5. CinemaCity
-6. DooFlix
-7. HDGharTV
-8. HindMoviez
-9. MoviesDrive
-10. MoviesHunt
-11. Movies4u
-12. NetMirror
-13. VidEasy
-14. VidSrc
-15. VixSrc
-16. VidFast
-17. ZinkMovies
-18. Mapple
-19. Vidnest
-20. HDHub4u
-21. PencuriMovie
-22. MSM21
-23. CineMode
-24. 1Shows
-25. DesiFlix
-26. Cineby
-27. MoonFlix
-28. FibWatch
-29. MovieBlast
-30. Peachify
-31. VidRock
-32. VegaMovies
-33. VidLove
-34. XPass
-35. OnlyKDrama
-36. StreamFlix
-37. YFlix
+| Giliran | Provider | Versi | Bukti dan status |
+|---|---|---|---|
+| 1 | Vidnest | 2.0.0, menunggu ujian VUEO | decryptAesGcm membaca process.env tanpa guard, bergantung aesdec.nuvioapp.space; passphrase dan server list statik; validateStreamUrl menerima 403 dan melangkau HLS. Risiko keserasian runtime/URL tidak terbukti. Import tanpa rekod pembaikan khusus dalam snapshot. |
+| 2 | Mapple | 1.0.4 | solvePow sehingga 50 juta iterasi segerak; boleh menahan event loop dan timer adapter. parseHlsMaster menolak playlist media tanpa EXT-X-STREAM-INF. Manifest merekod adapter/fallback crypto, belum resolver overhaul. |
+| 3 | FibWatch | 1.0.4 | bestMatch menambah -0.2 sahaja untuk tahun salah: tajuk tepat masih melepasi ambang; padanan substring turut diterima. Tiada penapisan movie/TV dalam bestMatch, selector HTML/AJAX khusus memerlukan semakan semasa. |
+| 4 | OnlyKDrama | 1.0.4 | extractCandidateUrls hanya URL mutlak onlykdrama.shop; episod dikunci regex new5.filepress.wiki; titleLooksRelevant menerima satu perkataan bagi tajuk pendek. Risiko domain/parser lapuk dan padanan lemah, belum dibuktikan laman telah berubah. |
+| 5 | YFlix | 1.0.3 | DB, encode, decode dan parse HTML bergantung enc-dec.app; AJAX dikunci 1moviesz.to. Perlu semak sama ada aliran dependency masih sepadan laman; tiada bukti live bahawa ia mati. |
+| 6–12 | 1Shows, DesiFlix, Cineby, MoonFlix, ZinkMovies, MovieBlast, PlayIMDB | 1.0.4 / 1.0.4 / 1.9.6 / 1.0.4 / 1.0.4 / 1.0.5 / 2.0.4 | Nota manifest majoritinya import dan adapter. Banyak core obfuscated. Belum ada kecacatan khusus yang disahkan melalui triage ini; giliran semakan sahaja. MovieBlast pernah consolidation/fallback, jangan label belum pernah disentuh. |
 
-For each provider: inspect actual current code and site behavior; review metadata,
-search, title/year/season/episode matching, direct media, subtitles and latency.
-Separate static tests, successful discovery and confirmed device playback. Keep
-providers already repaired and working out of this queue unless the user reports
-a new issue. Do not change VUEO or delete providers as part of a review patch
-without an instruction to do so.
+## Sudah ada rekod pembaikan khusus — tidak automatik masuk giliran rombak
 
-MovieBox 3.0.0 device evidence: My Demon S1E3 returned one 720p source in 2.905s; 12 captions reached the player and VIDEO_FIRST_FRAME appeared. Two resources from the 1080p request failed selection; v3.0.1 adds reasons without relaxing filters. No full-catalog or original-audio confirmation is inferred.
+KissKH 1.4.0; OneTouchTV 1.5.0; HDHub4u 1.7.0; MovieBox 3.0.1; 4KHDHub 1.9.0; PencuriMovie 1.8.6; MSM21 1.7.6; CineMode 1.3.5; Castle 2.2.0; MoviesDrive 4.2.0; Movies4u 2.1.0; Movix 1.1.0; VidRock 4.0.0; VidLink 1.1.0; VidSrc 3.2.1; VixSrc 2.0.2; VidFast 2.0.0; VidLove 2.8.0; XPass 2.0.0; CineVibe 2.0.0; KShow123 1.0.2; VidZee 1.0.3; VidSrc.to 1.0.2.
+
+Rekod patch bukan bukti playback semua tajuk. MovieBox menunggu log diagnostik 1080p; KissKH pernah ditangguh kerana laporan laman down; VidLink/VidSrc bergantung companion bridge tertentu; VidFast capture/playback belum disahkan. OneTouchTV ada satu sampel lulus device dalam docs/provider-review-queue.md; MoviesDrive mempunyai bukti device v4.1.0, bukan automatik v4.2.0.
+
+## Giliran seterusnya
+
+Vidnest v2.0.0 disediakan menggunakan new.vidnest.fun dan decrypt v2 setempat. Ujian penuh HTTP sebenar menghasilkan satu sumber VidZee MKV HTTP 200 untuk Venom 2; playback Android belum disahkan. API My Demon S1E3 membalas 502. Tunggu log VUEO sebelum Mapple. Tidak meneruskan StreamFlix atau membuang provider lain secara automatik. Senarai lama mengandungi nama yang sudah tiada dalam manifest: AllMovieLand, CineFreak, CinemaCity, DooFlix, HDGharTV, HindMoviez, MoviesHunt, NetMirror, VidEasy, Peachify, VegaMovies; jangan jadikan ia giliran fail sedia ada tanpa semakan identiti dahulu.
