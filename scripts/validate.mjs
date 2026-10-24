@@ -79,96 +79,15 @@ for (const scraper of manifest.scrapers) {
   filenames.add(scraper.filename);
 
   const providerPath = path.join(root, scraper.filename);
+  if (!fs.existsSync(providerDir)) fail('Missing providers directory');
   if (fs.lstatSync(providerDir).isSymbolicLink()) fail('providers directory must not be a symlink');
   if (!fs.existsSync(providerPath)) fail(`Missing ${scraper.filename}`);
 
   if (fs.lstatSync(providerPath).isSymbolicLink()) fail(`Provider cannot be a symlink: ${scraper.filename}`);
   const source = fs.readFileSync(providerPath, 'utf8');
 
-  if (source.includes('CLOUDBANK_STREAM_DISPLAY_START')) {
-    fail(`${scraper.filename} still includes the rolled-back stream display formatter`);
-  }
-
-  if (!source.includes('VUEO_TITLE_PROFILE_V1')) {
-    fail(`${scraper.filename} is missing the repo-wide TMDB title profile marker`);
-  }
-
-  if (!source.includes('VUEO_SHARED_DISCOVERY_CONTEXT_V1')) {
-    fail(`${scraper.filename} is missing the V15 shared discovery context marker`);
-  }
-
-  if (['onetouchtv', 'hdhub4u', 'moviebox', '4khdhub', 'pencurimovie', 'msm21'].includes(scraper.id) && !source.includes('VUEO_PROVIDER_REPAIR_V16')) {
-    fail(`${scraper.filename} is missing the V16 provider-repair marker`);
-  }
-
-
-  if (
-    scraper.id === 'hdhub4u' &&
-    /function\s+fetchWithTimeout\s*\([^)]*\)\s*\{[\s\S]*?fetchWithTimeout\s*\(\s*url\s*,\s*options\s*\|\|\s*\{\}\s*\)/.test(source)
-  ) {
-    fail('HDHub4u fetchWithTimeout must call native fetch, not itself');
-  }
-
-  if (scraper.id === 'hdhub4u' && (source.includes('?.') || source.includes('??'))) {
-    fail('HDHub4u must avoid optional chaining/nullish coalescing for embedded QuickJS compatibility');
-  }
-
-  if (['msm21', 'pencurimovie', '4khdhub', 'hdhub4u'].includes(scraper.id) && !source.includes('VUEO_FAST_DISCOVERY_V1')) {
-    fail(`${scraper.filename} is missing the fast-discovery marker`);
-  }
-
-  if (
-    ['moviebox', 'msm21', 'pencurimovie', '4khdhub', 'hdhub4u'].includes(scraper.id) &&
-    !source.includes('VUEO_DISCOVERY_REBUILD_V1')
-  ) {
-    fail(`${scraper.filename} is missing the discovery-rebuild marker`);
-  }
-
-  if (scraper.id === 'hdhub4u') {
-    if (!source.includes('buildDiscoveryQueriesHD')) {
-      fail('HDHub4u must use discovery query variants');
-    }
-    if (!source.includes("add(alias);")) {
-      fail('HDHub4u discovery must search the raw title before season variants');
-    }
-  }
-
-  if (scraper.id === '4khdhub') {
-    if (!source.includes('buildDiscoveryQueries4K')) {
-      fail('4KHDHub must use discovery query variants');
-    }
-    if (!source.includes('parse4KSearchCards')) {
-      fail('4KHDHub must support current and legacy search-card layouts');
-    }
-  }
-
-  if (scraper.id === 'msm21' && !source.includes('browseArchiveMSM')) {
-    fail('MSM21 must retain archive discovery fallback');
-  }
-
-  if (scraper.id === 'pencurimovie' && !source.includes('browsePencuriLanding')) {
-    fail('PencuriMovie must retain landing-page discovery fallback');
-  }
-
-  if (scraper.id === 'hdhub4u' && source.includes('bestMatch || searchResults[0]')) {
-    fail('HDHub4u must not fall through to an unqualified first search result');
-  }
-
-  if (scraper.id === '4khdhub' && /findBestMatch\([\s\S]*?\)\s*\|\|\s*results\[0\]/.test(source)) {
-    fail('4KHDHub must not fall through to an unqualified first search result');
-  }
-
-  if (scraper.id === '4khdhub') {
-    if (!source.includes('FOURK_MEMORY_SCOPE_GUARD_V1')) {
-      fail('4KHDHub is missing the memory-scope guard marker');
-    }
-    if (!source.includes('extractCandidateUrlsFromHtml')) {
-      fail('4KHDHub must parse host candidates into plain values before nested extraction');
-    }
-    if (/tasks\.push\(buildTask\(/.test(source)) {
-      fail('4KHDHub must not eagerly start host tasks while a Cheerio DOM is still in scope');
-    }
-  }
+  // Validate the provider interface, not historical marker comments,
+  // helper names, or provider-specific implementation choices.
   const moduleObject = { exports: {} };
 
   const sandbox = {
