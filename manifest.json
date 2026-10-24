@@ -1,6 +1,6 @@
 {
   "name": "Cloudbank",
-  "version": "1.20.97",
+  "version": "1.20.98",
   "scrapers": [
     {
       "id": "kisskh",
@@ -804,8 +804,8 @@
     {
       "id": "xpass",
       "name": "XPass",
-      "description": "Play Movie/TV by TMDB ID or IMDb ID",
-      "version": "1.0.4",
+      "description": "Current XPass website: signed authenticated data index, then playlist sources.",
+      "version": "2.0.0",
       "author": "Dustincos",
       "supportedTypes": [
         "movie",
@@ -813,7 +813,7 @@
       ],
       "filename": "providers/xpass.js",
       "enabled": true,
-      "hasSettings": true,
+      "hasSettings": false,
       "formats": [
         "mp4",
         "mkv",
@@ -830,10 +830,12 @@
         "tv"
       ],
       "upstreamVersion": "1.0.0",
-      "notes": "Imported from D3adlyRocket/All-in-One-Nuvio at 3f09a6ff4360498895e622877af7a32212f75038. Cloudbank adapter preserves upstream extraction/settings, uses shared TMDB detail metadata when available, caps async result wait at 19s, and returns valid stream arrays. Playback and host settings support require app testing.",
+      "notes": "Dynamic website loader/build discovery; AES-GCM authenticated index; up to three server requests in parallel; first eligible server; retains HLS/DASH masters and playlist subtitle headers. No media probes; playback unverified.",
       "sourceRepository": "https://github.com/D3adlyRocket/All-in-One-Nuvio",
       "sourceCommit": "3f09a6ff4360498895e622877af7a32212f75038",
-      "runtimeModules": []
+      "runtimeModules": [
+        "crypto-js"
+      ]
     },
     {
       "id": "zinkmovies",
