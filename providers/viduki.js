@@ -1,4 +1,4 @@
-/* Viduki v1.0.6 — exact TMDB player session; no download endpoints. */
+/* Viduki v1.0.7 — exact TMDB player session; no download endpoints. */
 (function () {
 'use strict';
 var BASE='https://www.viduki.net';
@@ -50,18 +50,16 @@ function startCaptions(id,type,s,e){
   var data=await r.json();if(!active)return;
   var candidates=chooseSubtitles(data.subtitles);
   log('SUBTITLE_SELECT: candidates='+candidates.length+' languages='+candidates.map(function(t){return t.language;}).join(','));
-  await Promise.all(candidates.map(async function(track){try{
+  candidates.forEach(function(track){
    if(!active)return;
-   var response=await fetch(track.url,options(track.headers));if(!active||!response.ok)return;
-   var text=String(await response.text()).replace(/^\uFEFF/,'').trim();if(!active)return;
-   if(text.length>2097152||/^\s*[<{[]/.test(text))return;
-   var cue=/(?:^|\n)\s*(?:\d{2,}:)?\d{2}:\d{2}[.,]\d{3}\s*-->\s*(?:\d{2,}:)?\d{2}:\d{2}[.,]\d{3}[^\n]*\r?\n[^\s]/m;
-   if(!cue.test(text))return;
-   var vtt=/^WEBVTT(?:\s|$)/.test(text);
-   if(!vtt&&!/\d{2}:\d{2}:\d{2},\d{3}\s*-->/.test(text))return;
-   track.mimeType=vtt?'text/vtt':'application/x-subrip';track.format=vtt?'vtt':'srt';
+   var ext=/\.(vtt|srt|ass|ssa)(?:[?#]|$)/i.exec(track.url);
+   var format=ext?ext[1].toLowerCase():String(track.format||'').toLowerCase();
+   if(format==='vtt')track.mimeType='text/vtt';
+   else if(format==='srt')track.mimeType='application/x-subrip';
+   else if(format==='ass'||format==='ssa')track.mimeType='text/x-ssa';
+   if(format)track.format=format;
    tracks.push(track);
-  }catch(_){} }));
+  });
  }catch(_){}finally{stop();}})();
  return {stop:stop,snapshot:function(){return tracks.slice().sort(function(a,b){return subtitleRank(a)-subtitleRank(b);});}};
 }
@@ -71,7 +69,7 @@ async function getStreams(id,type,s,e){
  var bridge=typeof globalThis!=='undefined'&&globalThis.webviewResolve;
  if(typeof bridge!=='function'){log('NO_RESULT: WebView bridge unavailable');return [];}
  var page=BASE+'/1/'+type+'/'+id+(type==='tv'?'/'+s+'/'+e:'');
- log('v1.0.6 exact '+type+'/'+id+(type==='tv'?'/'+s+'/'+e:'')+'; API 1 website streaming; no download route');
+ log('v1.0.7 exact '+type+'/'+id+(type==='tv'?'/'+s+'/'+e:'')+'; API 1 website streaming; no download route');
  var subtitles=startCaptions(id,type,s,e);
  try{
  var session=await timed(function(){return bridge(page,{
@@ -118,7 +116,7 @@ async function getStreams(id,type,s,e){
   // Do not re-request the signed CDN URL after the browser already requested it.
   var tracks=subtitles.snapshot();
   log('HANDOFF: CDN rechecks=0; source=captured-session; playback unverified');
-  log('RESULT: 1 '+kind+' source; validatedSubtitles='+tracks.length);
+  log('RESULT: 1 '+kind+' source; subtitleUrls='+tracks.length);
   return [{name:'Viduki',provider:'viduki',title:'Viduki • API 1',serverName:'API 1',url:row.url,headers:headers,type:kind,format:kind,
    mimeType:kind==='hls'?'application/x-mpegURL':kind==='dash'?'application/dash+xml':mime||'video/mp4',
    quality:q?q[1]+'p':'Auto',isAdaptive:kind!=='direct',subtitles:tracks}];

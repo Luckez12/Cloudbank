@@ -872,7 +872,7 @@
     {
       "id": "viduki",
       "name": "Viduki",
-      "version": "1.0.6",
+      "version": "1.0.7",
       "description": "Exact TMDB API 1 streaming player with parallel website subtitles",
       "author": "Cloudbank",
       "supportedTypes": [
@@ -888,7 +888,7 @@
       ],
       "runtimeTimeoutMs": 20000,
       "runtimeModules": [],
-      "notes": "Strict subtitle allowlist: English/en and Malay/ms only (including regional tags). All other/unknown languages discarded before fetching. No language fallback. Stop subtitle work with discovery; no CDN recheck."
+      "notes": "English/Malay subtitle URLs passed to VUEO directly; no subtitle file fetch or cue-regex validation. Subtitle index runs alongside discovery and is stopped at discovery end. Video route unchanged."
     }
   ]
 }

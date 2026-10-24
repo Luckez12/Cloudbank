@@ -1,7 +1,7 @@
-# Viduki v1.0.6
+# Viduki v1.0.7
 
-Upload providers/viduki.js and manifest.json to matching paths. No YML.
+Provider-only patch: upload providers/viduki.js and manifest.json. No VUEO app changes or YML.
 
-Strict subtitle allowlist: English (en) and Malay (ms), including regional tags. Normalize aliases before filtering. Every other language and unknown language is rejected BEFORE subtitle file fetching. No fallback to Indonesian, Albanian or other languages. If English/Malay are absent or fail cue validation, return video without subtitles. Maximum two candidates per allowed language, four total. Discovery cancellation, no-extra-wait behavior and video extraction from v1.0.5 remain unchanged.
+Video capture unchanged from v1.0.6. Subtitle index runs in parallel; choose English/Malay URLs only, maximum two per language. Return URL, normalized language, MIME from extension and headers. Do not download subtitle files or validate cue text in provider; VUEO loads/parses them. Output subtitleUrls counts URLs, not validated files. A broken upstream subtitle URL can still fail in the player.
 
-Tests cover allowed regional tags/aliases, non-English/Malay rejection, mixed candidate ordering, subtitle cue/MIME validation, exact routes and cancellation/late responses. Device playback/rendering requires testing.
+Stop/cancel pending subtitle index at discovery completion or failure. No extra wait, polling, preparation request or language fallback. This removes up to four duplicate sidecar HTTP requests and regex false rejections; it does not promise faster website video generation. Device subtitle rendering still needs testing.
