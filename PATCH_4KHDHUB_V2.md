@@ -1,0 +1,12 @@
+# 4KHDHub 2.0.0 — Cloudbank 1.20.111
+
+Overwrite these files at repository root. No YAML or VUEO app modifications.
+Manifest removes CineVibe and CineMode per user instruction. To remove their physical JavaScript files after applying this patch, run `node scripts/retire-cine-providers.cjs` at repository root, or manually delete `providers/cinevibe.js` and `providers/cinemode.js`. ZIP extraction alone cannot delete files.
+
+The old 4KHDHub extraction engine is replaced. Only its existing display formatter is retained. The new engine searches the live website, requires exact title/type/year, selects exact TV season/episode blocks, decodes public Greenmotors payloads with an embedded Base64 decoder (no atob or CryptoJS dependency), and follows explicit HubCloud download routes. Greenmotors article navigation stops when there is no decoded destination; it is never recursively crawled. Direct Workers/Google file routes are prioritized over mirrors. Two workers share an 18.5s budget with bounded requests and cancellation; valid partial results survive failure. HEAD/ranged file checks and HLS syntax checks reject HTML and HTTP failures. Release quality is a filename/site label, not measured video resolution. Explicit audio languages must contain the original language; unknown languages remain eligible.
+
+The tested wp-json endpoint returned 404; no usable catalogue API was confirmed, so no undocumented API is guessed. Shared VUEO metadata avoids a separate TMDB request when available. Otherwise the existing public TMDB metadata route is used.
+
+Validation: current website Vikings search matches 2013 correctly; captured detail has three S01E01 releases; actual current Greenmotors payload decodes to HubCloud; captured HubCloud page provides a direct Workers file route. Portable decoder and no-article-crawl tests pass without atob/CryptoJS, as do exact episode routing, host-chain success and HTML/404 rejection. `npm run validate` passes for 25 providers. Live final Workers HEAD returned HTTP 200, video/x-matroska, Content-Length 11,747,085,145 for Vikings S01E01 REMUX. This proves file-header availability at check time, not decoded playback. No complete end-to-end Android playback is claimed. Network checks in this environment can time out; compare the device log after installation.
+
+Test Vikings TMDB 44217 S01E01, plus one movie. The log must report v2.0.0. Send the new provider log if there are no results. No signed media URL is cached between scans.

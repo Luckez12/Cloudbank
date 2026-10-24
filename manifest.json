@@ -1,6 +1,6 @@
 {
   "name": "Cloudbank",
-  "version": "1.20.110",
+  "version": "1.20.111",
   "scrapers": [
     {
       "id": "kisskh",
@@ -129,7 +129,7 @@
       "id": "4khdhub",
       "name": "4KHDHub",
       "description": "Movie and TV stream provider",
-      "version": "1.9.0",
+      "version": "2.0.0",
       "author": "Luckez",
       "supportedTypes": [
         "movie",
@@ -150,7 +150,7 @@
       "disabledPlatforms": [],
       "supportsExternalPlayer": true,
       "runtimeTimeoutMs": 20000,
-      "notes": "V17.1 latest-merge repair: restores the repo-wide TMDB title profile and required fast/discovery-rebuild contracts that were lost when the targeted V17 files were overlaid onto an older provider baseline. V16 Provider Repair: coalesced domain lookup, WordPress REST primary-title discovery, primary-first bounded fallback, and explicit wrong-season rejection before expensive host extraction. V15 Shared Discovery Context: TMDB detail metadata is coalesced by VUEO core once per scan when the V15 runtime bridge is available; local TMDB fallback remains for older runtimes. V15 centralized trace hooks emit metadata/candidate/verification stages without changing source extraction. V15 Shared Discovery Context + centralized trace hooks. TMDB metadata is coalesced by VUEO core when available, with provider-local fallback retained. Candidate/verification stages emit lightweight diagnostics. Discovery Rebuild V1: raw aliases are searched before year/season variants, current movie-card and legacy layouts are both parsed, and noisy release metadata is removed before title scoring. Existing memory-scope guard remains. Test-Plugin adaptation: transferred engine first (11s maximum), existing Cloudbank engine retained as fallback (7.5s maximum). Shared metadata, provider identity and display preserved; Android playback unverified. 4KHDHub/V2/V3 consolidated into ordinary provider. Current and original fallback engines retained. V2 nested Hblinks/Hubstream.dad support, cached domain discovery, bounded concurrent independent server collection and verified HLS master output added. Device playback unverified."
+      "notes": "Website engine rebuilt: exact search title/year/type and season/episode releases; portable public gate decoder; deterministic HubCloud download routes, no Greenmotors article crawling. HEAD/ranged media verification; original language selection and release quality labels; shared metadata and display preserved. 18.5s request-scoped budget, two workers and cancellation. No confirmed public catalogue API; Android playback requires testing."
     },
     {
       "id": "pencurimovie",
@@ -207,33 +207,6 @@
       "supportsExternalPlayer": true,
       "notes": "V17.1 latest-merge repair: restores the repo-wide TMDB title profile and required fast/discovery-rebuild contracts that were lost when the targeted V17 files were overlaid onto an older provider baseline. V16 Provider Repair: DNS-dead mirrors are remembered for the current execution so repeated PlayerX failures do not waste the remaining extractor budget; healthy mirrors such as Netu remain eligible. V15 Shared Discovery Context: TMDB detail metadata is coalesced by VUEO core once per scan when the V15 runtime bridge is available; local TMDB fallback remains for older runtimes. V15 centralized trace hooks emit metadata/candidate/verification stages without changing source extraction. V15 Shared Discovery Context + centralized trace hooks. TMDB metadata is coalesced by VUEO core when available, with provider-local fallback retained. Candidate/verification stages emit lightweight diagnostics. Discovery Rebuild V1: supports both legacy display-item and current ml-item/canonical archive cards, searches more TMDB aliases, cleans release noise before scoring, and falls back to the TV/movie archive before declaring a title missing. Test-Plugin adaptation: transferred engine first (11s maximum), existing Cloudbank engine retained as fallback (7.5s maximum). Shared metadata, provider identity and display preserved; Android playback unverified.",
       "runtimeTimeoutMs": 20000
-    },
-    {
-      "id": "cinemode",
-      "name": "CineMode",
-      "description": "Movie and TV stream resolver for the CineMode streaming PWA",
-      "version": "1.3.5",
-      "author": "Luckez",
-      "supportedTypes": [
-        "movie",
-        "tv"
-      ],
-      "filename": "providers/cinemode.js",
-      "enabled": true,
-      "limited": false,
-      "formats": [
-        "m3u8",
-        "mp4",
-        "m4v"
-      ],
-      "logo": "https://www.google.com/s2/favicons?domain=cinemode.fun&sz=128",
-      "contentLanguage": [
-        "en"
-      ],
-      "disabledPlatforms": [],
-      "supportsExternalPlayer": true,
-      "runtimeTimeoutMs": 20000,
-      "notes": "V15 Shared Discovery Context: TMDB detail metadata is coalesced by VUEO core once per scan when the V15 runtime bridge is available; local TMDB fallback remains for older runtimes. V15 centralized trace hooks emit metadata/candidate/verification stages without changing source extraction. V15 Shared Discovery Context + centralized trace hooks. TMDB metadata is coalesced by VUEO core when available, with provider-local fallback retained. Candidate/verification stages emit lightweight diagnostics. Repo-wide TMDB alias matching V1: primary TMDB title plus one highest-priority alternate title fallback, preserving the bounded WebView runtime. Test-Plugin adaptation: transferred engine first (11s maximum), existing Cloudbank engine retained as fallback (7.5s maximum). Shared metadata, provider identity and display preserved; Android playback unverified."
     },
     {
       "id": "castle",
@@ -293,7 +266,7 @@
         "tv"
       ],
       "upstreamVersion": "3.0.1",
-      "notes": "Bounded parallel quality extraction: three highest-priority routes processed concurrently, each preserving archive → HubCloud → download → media-probe dependencies. Fourth route starts only as fallback after first batch settles. Retains up to three validated distinct codec/quality files, H.264 ranking and honest codec labels, partial results on failures, 18.7-second total/5.5-second extra collection budgets, exact matching/audio policy and all prior removals. Adds host/total timing logs. v4.1.0 on-device log confirmed three playable sources and subtitle cues; v4.2.0 device timing still needs confirmation.",
+      "notes": "Bounded parallel quality extraction: three highest-priority routes processed concurrently, each preserving archive \u2192 HubCloud \u2192 download \u2192 media-probe dependencies. Fourth route starts only as fallback after first batch settles. Retains up to three validated distinct codec/quality files, H.264 ranking and honest codec labels, partial results on failures, 18.7-second total/5.5-second extra collection budgets, exact matching/audio policy and all prior removals. Adds host/total timing logs. v4.1.0 on-device log confirmed three playable sources and subtitle cues; v4.2.0 device timing still needs confirmation.",
       "sourceRepository": "https://github.com/D3adlyRocket/All-in-One-Nuvio",
       "sourceCommit": "3f09a6ff4360498895e622877af7a32212f75038",
       "runtimeModules": [
@@ -694,36 +667,6 @@
       ],
       "runtimeModules": [],
       "notes": "Current new.vidnest.fun v2 API for website-mapped yflix/flixhq/vidzee routes. Local SHA-256/AES-256-GCM with authentication-tag checks using existing CryptoJS; no Node crypto/process.env, decrypt service, legacy proxy, WebView or app change. Exact TMDB/season/episode routes; source headers/captions retained; bounded parallel API calls, HLS root check or video HEAD, no 403 acceptance or segment probes. Sample Venom APIs decrypt; FlixHQ HLS 200 and VidZee MKV HEAD 200 observed; Android playback and full catalog unverified. v2.0.1: isolated provider-owned CryptoJS primitives replace unavailable runtime algo.AES; regression tests forbid all runtime module access. API routes and selection unchanged. v2.1.0: EN/MS-only subtitles from source API plus parallel VDRK v1/v2 sidecar metadata (3.5s total subtitle budget). Exact movie/episode path, URL dedupe, up to 8 tracks/language; failures preserve video. Wyzie excluded because current frontend key is rejected. Existing v2.0.1 video decoder/resolver unchanged. v2.1.1: preserve source subtitle label/display/name verbatim; no translated labels or added CC/variant labels. EN/MS filter retained. v2.2.0: collect completed sources for at most 600ms after first verified result; finish sooner with two sources and EN/MS captions. Stop caption lookup after both languages arrive. Snapshot available captions without waiting for subtitle promises; cancel pending HTTP/local waits and ignore late results. Source URLs, video checks, isolated decrypt and source subtitle labels unchanged."
-    },
-    {
-      "id": "cinevibe",
-      "name": "Cinevibe",
-      "description": "Cinevibe.cc website Server 1 — movies and exact TV episodes",
-      "version": "2.0.0",
-      "author": "Nuvio Team",
-      "supportedTypes": [
-        "movie",
-        "tv"
-      ],
-      "filename": "providers/cinevibe.js",
-      "enabled": true,
-      "formats": [
-        "mp4",
-        "m3u8"
-      ],
-      "logo": "https://www.google.com/s2/favicons?domain=cinevibe.cc&sz=128",
-      "contentLanguage": [
-        "en"
-      ],
-      "runtimeTimeoutMs": 20000,
-      "sourceRepository": "https://github.com/yoruix/nuvio-providers",
-      "sourceCommit": "ed38d1aee0024f56479369c9423fefb278e0b62a",
-      "upstreamVersion": "1.0.0",
-      "upstreamSupportedTypes": [
-        "movie"
-      ],
-      "runtimeModules": [],
-      "notes": "Rebuilt for the user-specified cinevibe.cc site after inspecting its watch-player JavaScript and actual movie/TV iframe routes. Uses published Server 1 TMDB embed in the existing generic VUEO WebView with Cinevibe iframe context. Removes old .asia API, fixed fingerprint/session and token generator. Movie and exact TV season/episode supported. First validated MP4 ranged GET or HLS playlist wins; 403/429 stop. No VUEO source change. Android playback not yet verified."
     },
     {
       "id": "kshow123",
