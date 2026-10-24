@@ -1,0 +1,7 @@
+# 4KHDHub 2.0.1 — metadata regression fix
+
+Apply at repository root, overwriting files. Includes 2.0.0 website engine, so it can also be applied directly over 1.9.0. No YAML. Manifest 1.20.112 retains the previously authorized CineVibe/CineMode removal. Run node scripts/retire-cine-providers.cjs to remove their physical files if needed.
+
+Fix: 2.0.0 could accept a matching TMDB ID without a usable title. An incomplete shared context produced an empty query list, no HTTP request, and misleading title-not-found output. Normalize flat, nested and JSON-string metadata, reject mismatched identities/types and blank titles, then try the shared async metadata bridge (bounded at 1.5 seconds) before native TMDB fallback. A failed fallback is reported as metadata failure, not search failure. Extraction routes and website download flow remain unchanged; this does not add Watch Now support.
+
+Tests: complete nested context, flat title/year, incomplete nested context, JSON string, invalid JSON, wrong ID, absent context and async bridge; all reach the expected Vikings search and successful simulated host chain. Missing contexts use fallback; usable bridge results avoid an extra TMDB request. Existing portable gate, exact episode, article rejection and media failure tests pass. Repository validates 25 providers. On-device movie TMDB 1108427 playback remains to be tested; the exact runtime metadata payload was not present in the supplied log.

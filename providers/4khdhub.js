@@ -1,4 +1,4 @@
-/* 4KHDHub 2.0.0 — website search -> exact release -> public gate -> file host.
+/* 4KHDHub 2.0.1 — website search -> exact release -> public gate -> file host.
  * One engine; no article crawling, legacy engine, external decrypt service or guessed API.
  */
 (function(){
@@ -35,7 +35,29 @@ if(/file not found|file has been (?:deleted|removed)|NoSuchKey/i.test(r.text))re
 var next=links(r.text,r.url);log('STEP '+depth+' host='+host(r.url)+' download routes='+next.length);for(var j=0;j<next.length&&active;j++){var hit=await resolve(next[j],r.url,depth+1,path);if(hit)return hit;}
 }catch(e){log('REQUEST '+String(e.message||e)+' host='+host(u));}return null;}
 var timer=setTimeout(stop,LIMIT);try{
-var context=globalThis.VUEO_DISCOVERY_CONTEXT;if(typeof context==='string')context=JSON.parse(context);var meta=context&&(context.tmdb||context);if(!meta||String(context.tmdbId||meta.id)!==id){var md=await request('https://api.themoviedb.org/3/'+type+'/'+id+'?api_key=1865f43a0549ca50d341dd9ab8b29f49');meta=JSON.parse(md.text);}
+var metadataUrl='https://api.themoviedb.org/3/'+type+'/'+id+'?api_key=1865f43a0549ca50d341dd9ab8b29f49';
+function normalizeMetadata(raw){
+ if(typeof raw==='string'){try{raw=JSON.parse(raw);}catch(_){return null;}}
+ if(!raw||typeof raw!=='object'||raw.error)return null;
+ var m=raw.tmdb&&typeof raw.tmdb==='object'?raw.tmdb:raw;
+ var suppliedId=raw.tmdbId||m.id;
+ if(suppliedId!=null&&String(suppliedId)!==id)return null;
+ var suppliedType=raw.mediaType==='series'?'tv':raw.mediaType;
+ if(suppliedType&&suppliedType!==type)return null;
+ var name=String(m.title||m.name||raw.title||'').trim();if(!name)return null;
+ return {id:id,title:type==='movie'?name:undefined,name:type==='tv'?name:undefined,
+ original_title:m.original_title||raw.originalTitle||name,original_name:m.original_name||raw.originalTitle||name,
+ release_date:m.release_date||(raw.year?String(raw.year)+'-01-01':''),first_air_date:m.first_air_date||(raw.year?String(raw.year)+'-01-01':''),
+ original_language:m.original_language||raw.originalLanguage||''};
+}
+var meta=normalizeMetadata(globalThis.VUEO_DISCOVERY_CONTEXT);
+if(!meta&&typeof globalThis.vueoDiscoveryContext==='function'){
+ var shared=await new Promise(function(resolve){var done=false,t=setTimeout(function(){finish(null);},Math.min(1500,remaining()));function finish(v){if(done)return;done=true;clearTimeout(t);resolve(v);}Promise.resolve().then(function(){return globalThis.vueoDiscoveryContext(metadataUrl);}).then(finish,function(){finish(null);});});
+ meta=normalizeMetadata(shared);
+}
+if(!meta){log('METADATA: shared title missing or mismatched; request TMDB fallback');var md=await request(metadataUrl);if(!md.ok)throw Error('metadata HTTP '+md.status);meta=normalizeMetadata(JSON.parse(md.text));}
+if(!meta){log('METADATA: no usable title; search not started');return [];}
+log('METADATA: title ready; website search starting');
 var title=meta.title||meta.name,year=String(meta.release_date||meta.first_air_date||'').slice(0,4),aliases=[title,meta.original_title||meta.original_name].filter(Boolean);var detail='';
 for(var qi=0;qi<aliases.length&&!detail;qi++){if(qi&&norm(aliases[qi])===norm(aliases[0]))continue;var sr=await request(SITE+'/?s='+encodeURIComponent(aliases[qi]));if(!sr.ok)continue;var $=require('cheerio-without-node-native').load(sr.text);$('.movie-card').each(function(_,el){var c=$(el),name=c.find('.movie-card-title').text().trim(),text=c.text(),href=url(c.find('a[href]').first().attr('href'),SITE),fm=c.find('.movie-card-format').text(),y=/\b(19\d{2}|20\d{2})\b/.exec(text);if(aliases.some(function(a){return norm(a)===norm(name);})&&(!year||!y||year===y[1])&&(type==='tv'?/series/i.test(fm)||/-series-/.test(href):/movie/i.test(fm)||/-movie-/.test(href)))detail=href;});}
 if(!detail){log('SEARCH: no exact title/year/type');return [];}
@@ -44,7 +66,7 @@ nodes.each(function(_,el){var a=$(el),text=a.text().replace(/\s+/g,' ').trim();i
 releases.sort(function(a,b){return a.priority-b.priority||a.size-b.size;});log('MATCH '+title+' releases='+releases.length);var index=0;
 async function worker(){while(active&&index<releases.length&&results.length<3){var r=releases[index++],hit=await resolve(r.url,detail,0,[]);if(hit&&active&&!seen[hit.url]){seen[hit.url]=true;results.push(Object.assign({name:'4KHDHub',title:title,serverName:host(hit.url),audioLanguages:r.langs,subtitles:[],sourceVerified:true,playbackVerified:false},hit,{quality:hit.quality||r.quality}));}}}
 await Promise.all([worker(),worker()]);return results;
-}catch(e){log('FAILED '+String(e.message||e));return results;}finally{clearTimeout(timer);stop();log('v2.0.0 sources='+results.length);}}
+}catch(e){log('FAILED '+String(e.message||e));return results;}finally{clearTimeout(timer);stop();log('v2.0.1 sources='+results.length);}}
 module.exports={getStreams:function(id,type,s,e){type=type==='series'?'tv':type;if(!/^[1-9]\d*$/.test(String(id))||['movie','tv'].indexOf(type)<0||type==='tv'&&(s==null||e==null||!Number.isInteger(+s)||+s<0||!Number.isInteger(+e)||+e<1))return Promise.resolve([]);return run(String(id),type,+s,+e);}};
 if(typeof globalThis!=='undefined'){globalThis.getStreams=module.exports.getStreams;globalThis.fourKWebsiteTest={gate:gate,links:links,b64:b64};}
 })();

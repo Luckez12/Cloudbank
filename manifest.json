@@ -1,6 +1,6 @@
 {
   "name": "Cloudbank",
-  "version": "1.20.111",
+  "version": "1.20.112",
   "scrapers": [
     {
       "id": "kisskh",
@@ -129,7 +129,7 @@
       "id": "4khdhub",
       "name": "4KHDHub",
       "description": "Movie and TV stream provider",
-      "version": "2.0.0",
+      "version": "2.0.1",
       "author": "Luckez",
       "supportedTypes": [
         "movie",
@@ -150,7 +150,7 @@
       "disabledPlatforms": [],
       "supportsExternalPlayer": true,
       "runtimeTimeoutMs": 20000,
-      "notes": "Website engine rebuilt: exact search title/year/type and season/episode releases; portable public gate decoder; deterministic HubCloud download routes, no Greenmotors article crawling. HEAD/ranged media verification; original language selection and release quality labels; shared metadata and display preserved. 18.5s request-scoped budget, two workers and cancellation. No confirmed public catalogue API; Android playback requires testing."
+      "notes": "Website engine rebuilt: exact search title/year/type and season/episode releases; portable public gate decoder; deterministic HubCloud download routes, no Greenmotors article crawling. HEAD/ranged media verification; original language selection and release quality labels; shared metadata and display preserved. 18.5s request-scoped budget, two workers and cancellation. No confirmed public catalogue API; Android playback requires testing. 2.0.1: normalize nested/flat/string shared metadata, validate title before searching, bounded async metadata bridge and TMDB fallback for incomplete context. Distinct missing-metadata logs."
     },
     {
       "id": "pencurimovie",
