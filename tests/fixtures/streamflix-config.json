@@ -1,0 +1,14 @@
+{
+   "latest":105,
+   "banner":"chilflix-1779213835",
+   "video":"https://youtube.com/shorts/O05EqngUm0A",
+   "newapp": true,
+   "newpackage": "com.ajpro.streamflix2",
+   "notice":false,
+   "title":"Anouncement!",
+   "text":"Dear Users! \n We have installed new merged old and new Download system. Both are availlabe in our app. You can use whatever suits you best. \n\nThanks for your Love & Support. Enjoy",
+   "movies": ["https://bb.streamflixserver.site/file/streamflix/","https://bb.streamflixserver.site/file/streamflix-sv-2/"],
+   "tv": ["https://bb.streamflixserver.site/file/streamflix/","https://bb.streamflixserver.site/file/streamflix-sv-2/"],
+   "premium": ["https://s3.ap-southeast-1.wasabisys.com/streamflix/","https://s3.ap-southeast-1.wasabisys.com/streamflix/"],
+   "download": ["https://cf.streamflixserver.site/", "https://cf.streamflixserver.site/", "https://cf.streamflixserver.site/"]
+}

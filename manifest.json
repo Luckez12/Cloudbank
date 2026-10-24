@@ -1,6 +1,6 @@
 {
   "name": "Cloudbank",
-  "version": "1.20.98",
+  "version": "1.20.99",
   "scrapers": [
     {
       "id": "kisskh",
@@ -943,7 +943,7 @@
       "id": "streamflix",
       "name": "StreamFlix",
       "description": "Direct links via StreamFlix API",
-      "version": "1.0.3",
+      "version": "1.0.4",
       "author": "Nuvio Team",
       "supportedTypes": [
         "movie",
@@ -970,7 +970,7 @@
       "runtimeModules": [
         "cheerio-without-node-native"
       ],
-      "notes": "Independent Yoruix import at ed38d1aee0024f56479369c9423fefb278e0b62a. Existing provider versions remain intact. Uses the Cloudbank adapter; upstream enabled/settings/platform flags preserved. Playback is not verified. Native WebSocket is preferred for TV; without it, upstream HTTP fallback remains. Node ws is not required by the adapter."
+      "notes": "TMDB ID and media-type matching first; exact normalized title/year fallback only without source identity; catalog-miss diagnostics; unique catalog movie URLs and honest Unknown quality. TV resolver unchanged. Playback requires device testing."
     },
     {
       "id": "yflix",

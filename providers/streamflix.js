@@ -240,70 +240,40 @@ function getData() {
     });
 }
 
-// Search for content by title
-function searchContent(title, year, mediaType) {
-  console.log(`[StreamFlix] Searching for: "${title}" (${year})`);
-  
-  return getData()
-    .then(data => {
-      if (!data || !data.data) {
-        throw new Error('Invalid data structure received');
-      }
-
-      const searchQuery = title.toLowerCase();
-      const results = data.data.filter(item => {
-        if (!item.moviename) return false;
-        
-        const itemTitle = item.moviename.toLowerCase();
-        const titleWords = searchQuery.split(/\s+/);
-        
-        // Check if all words from search query are present in the item title
-        return titleWords.every(word => itemTitle.includes(word));
-      });
-
-      console.log(`[StreamFlix] Found ${results.length} search results`);
-      return results;
+// Prefer source-provided identity; never use substring scoring for identity.
+function normalizeStreamflixTitle(value) {
+  return String(value || '').normalize('NFKD').replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
+}
+function searchContent(title, year, mediaType, tmdbId, tmdbData = {}) {
+  return getData().then(data => {
+    if (!data || !Array.isArray(data.data)) throw new Error('Invalid catalog: data must be an array');
+    const typed = data.data.filter(item => item &&
+      (item.isTV === true || item.isTV === 'true' || item.isTV === 1 ? 'tv' :
+       item.isTV === false || item.isTV === 'false' || item.isTV === 0 ? 'movie' : null) === mediaType);
+    const exact = typed.filter(item => String(item.tmdb || '') === String(tmdbId));
+    console.log(`[StreamFlix] Catalog: ${data.data.length} entries; ${typed.length} ${mediaType}; TMDB matches: ${exact.length}`);
+    if (exact.length) return exact;
+    const alternatives = tmdbData.alternative_titles || {};
+    const aliases = [title, tmdbData.original_title, tmdbData.original_name]
+      .concat((alternatives.titles || alternatives.results || []).map(x => x.title || x.name));
+    const names = new Set(aliases.filter(Boolean).map(normalizeStreamflixTitle));
+    const matches = typed.filter(item => {
+      // A different explicit TMDB ID must never be overridden by a title match.
+      if (/^[1-9]\d*$/.test(String(item.tmdb || ''))) return false;
+      return year && String(item.movieyear) === String(year) && names.has(normalizeStreamflixTitle(item.moviename));
     });
+    if (matches.length === 1) {
+      console.log('[StreamFlix] Exact title/year fallback: 1 match without catalog TMDB ID');
+      return matches;
+    }
+    console.log(matches.length ? '[StreamFlix] Ambiguous title/year match; refusing to guess' :
+      `[StreamFlix] Catalog miss: TMDB ${tmdbId} (${title}, ${year}); no safe match. This does not prove a network failure.`);
+    return [];
+  });
 }
-
-// Find best match from search results
 function findBestMatch(targetTitle, results) {
-  if (!results || results.length === 0) {
-    return null;
-  }
-
-  let bestMatch = null;
-  let bestScore = 0;
-
-  for (const result of results) {
-    const score = calculateSimilarity(
-      targetTitle.toLowerCase(),
-      result.moviename.toLowerCase()
-    );
-    
-    if (score > bestScore) {
-      bestScore = score;
-      bestMatch = result;
-    }
-  }
-
-  console.log(`[StreamFlix] Best match: "${bestMatch?.moviename}" (score: ${bestScore.toFixed(2)})`);
-  return bestMatch;
-}
-
-// Calculate string similarity
-function calculateSimilarity(str1, str2) {
-  const words1 = str1.split(/\s+/);
-  const words2 = str2.split(/\s+/);
-  
-  let matches = 0;
-  for (const word of words1) {
-    if (word.length > 2 && words2.some(w => w.includes(word) || word.includes(w))) {
-      matches++;
-    }
-  }
-  
-  return matches / Math.max(words1.length, words2.length);
+  return results && results.length ? results[0] : null;
 }
 
 // WebSocket-based episode fetching (real implementation per series.py/api.js)
@@ -465,7 +435,7 @@ function getStreams(tmdbId, mediaType = 'movie', seasonNum = null, episodeNum = 
       console.log(`[StreamFlix] TMDB Info: "${title}" (${year})`);
 
       // Search for content
-      return searchContent(title, year, mediaType)
+      return searchContent(title, year, mediaType, tmdbId, tmdbData)
         .then(searchResults => {
           if (searchResults.length === 0) {
             console.log('[StreamFlix] No search results found');
@@ -497,53 +467,36 @@ function getStreams(tmdbId, mediaType = 'movie', seasonNum = null, episodeNum = 
     });
 }
 
-// Process movie streams
+// Use only paths supplied by the catalog; quality is not proven by a bucket name.
 function processMovieStreams(movieData, config) {
-  console.log(`[StreamFlix] Processing movie streams for: ${movieData.moviename}`);
-  
   const streams = [];
-  
-  // Premium streams (higher quality)
-  if (config.premium && movieData.movielink) {
-    config.premium.forEach((baseUrl, index) => {
-      const streamUrl = `${baseUrl}${movieData.movielink}`;
-      streams.push({
-        name: "StreamFlix",
-        title: `${movieData.moviename} - Premium Quality`,
-        url: streamUrl,
-        quality: "1080p",
-        size: movieData.movieduration || "Unknown",
-        type: 'direct',
-        headers: {
-          'Referer': 'https://api.streamflix.app',
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-        }
+  const seen = new Set();
+  const link = typeof movieData.movielink === 'string' ? movieData.movielink.trim() : '';
+  if (!link) {
+    console.log('[StreamFlix] Matched catalog entry has no movie path');
+    return streams;
+  }
+  function add(url, serverName) {
+    if (!/^https?:\/\/[^/\s]+(?:\/|$)/i.test(url) || seen.has(url)) return;
+    seen.add(url);
+    streams.push({ name: 'StreamFlix', title: movieData.moviename, url,
+      quality: 'Unknown', serverName, type: 'direct',
+      headers: { Referer: STREAMFLIX_API_BASE, 'User-Agent': 'Mozilla/5.0' } });
+  }
+  if (/^https?:\/\//i.test(link)) add(link, 'Catalog');
+  else if (!/^[a-z][a-z0-9+.-]*:/i.test(link) && !link.startsWith('//')) {
+    ['premium', 'movies'].forEach(group => {
+      const bases = config && config[group];
+      if (!Array.isArray(bases)) return;
+      bases.forEach((base, index) => {
+        if (typeof base === 'string') add(base.replace(/\/+$/, '') + '/' + link.replace(/^\/+/, ''), group + ' ' + (index + 1));
       });
     });
   }
-  
-  // Regular movie streams
-  if (config.movies && movieData.movielink) {
-    config.movies.forEach((baseUrl, index) => {
-      const streamUrl = `${baseUrl}${movieData.movielink}`;
-      streams.push({
-        name: "StreamFlix",
-        title: `${movieData.moviename} - Standard Quality`,
-        url: streamUrl,
-        quality: "720p",
-        size: movieData.movieduration || "Unknown",
-        type: 'direct',
-        headers: {
-          'Referer': 'https://api.streamflix.app',
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-        }
-      });
-    });
-  }
-
-  console.log(`[StreamFlix] Generated ${streams.length} movie streams`);
+  console.log(`[StreamFlix] Generated ${streams.length} unique catalog movie URLs; playback unverified`);
   return streams;
 }
+
 
 // Process TV show streams
 function processTVStreams(tvData, config, seasonNum, episodeNum) {
