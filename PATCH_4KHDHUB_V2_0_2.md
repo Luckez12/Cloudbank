@@ -1,0 +1,9 @@
+# 4KHDHub 2.0.2 — Watch Online first
+
+Apply at repo root and refresh VUEO; provider must show 2.0.2. No YAML or VUEO app changes. Includes prior metadata and portable gate fixes. Manifest preserves authorized CineVibe/CineMode removal; the bundled script can remove their physical files.
+
+Verified actual Moana website HTML: #videoPlayer iframe uses https://player.videasy.net/movie/1108427. The page lists Autoembed as another option, but this patch uses only the actual default iframe published in the page, never a guessed fallback embed. Watch capture starts through the existing generic webviewResolve bridge (8.5 second ceiling); only matching TMDB movie/TV season/episode routes are eligible. Captured HLS/MP4 is validated with session headers; captured external subtitle sidecars are forwarded. No download routes run after successful Watch capture. If capture is unavailable or fails, the existing Download resolver is retained within the shared 18.5 second budget. TV pages without an exact published #videoPlayer iframe use Download; no claim is made that every series offers Watch Online.
+
+Download now returns at the first validated source and cancels other work. 2.0.1 waited for two workers to settle and could emit four sources despite a three-source target. 2.0.2 intentionally trades extra links for faster return. A failed Pixeldrain mirror can log 404 while other sources succeed. Watch route speed remains dependent on the embedded service; no fixed latency is promised.
+
+Tests pass: Watch exact movie iframe, wrong-ID rejection, session cookie/referer preservation, HLS checks, HTML rejection, subtitle forwarding and no download on Watch success; portable decoder, metadata variants, exact season/episode and download chain regressions. Repository validates 25 providers. Actual page HTML was inspected; Android Watch capture/playback has not been verified. Send the new VUEO log for the same Moana title after installation.

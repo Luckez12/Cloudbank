@@ -1,4 +1,4 @@
-/* 4KHDHub 2.0.1 — website search -> exact release -> public gate -> file host.
+/* 4KHDHub 2.0.2 — website search -> exact release -> public gate -> file host.
  * One engine; no article crawling, legacy engine, external decrypt service or guessed API.
  */
 (function(){
@@ -21,9 +21,9 @@ return out.filter(function(v,i,a){return v&&a.indexOf(v)===i;}).sort(function(a,
 async function run(id,type,season,episode){var start=Date.now(),active=true,pending=[],cache={},results=[],seen={};
 function remaining(){return LIMIT-(Date.now()-start);}
 function stop(){active=false;pending.slice().forEach(function(f){f();});}
-async function request(u,method,referer,range){if(!active||remaining()<100)throw Error('deadline');var key=(method||'GET')+u+(range||'');if(cache[key])return cache[key];return cache[key]=new Promise(function(resolve,reject){var done=false,c=typeof AbortController==='function'?new AbortController():null;
+async function request(u,method,referer,range,extraHeaders){if(!active||remaining()<100)throw Error('deadline');var key=(method||'GET')+u+(range||'');if(cache[key])return cache[key];return cache[key]=new Promise(function(resolve,reject){var done=false,c=typeof AbortController==='function'?new AbortController():null;
 function finish(err,r){if(done)return;done=true;clearTimeout(timer);pending=pending.filter(function(x){return x!==cancel;});if(err){if(c)c.abort();reject(err);}else resolve(r);}
-function cancel(){finish(Error('cancelled'));}pending.push(cancel);var timer=setTimeout(function(){finish(Error('timeout'));},Math.min(6000,remaining()));var h={'User-Agent':UA,Referer:referer||SITE+'/'};if(range)h.Range=range;
+function cancel(){finish(Error('cancelled'));}pending.push(cancel);var timer=setTimeout(function(){finish(Error('timeout'));},Math.min(6000,remaining()));var h=Object.assign({'User-Agent':UA,Referer:referer||SITE+'/'},extraHeaders||{});if(range)h.Range=range;
 Promise.resolve().then(function(){return fetch(u,{method:method||'GET',headers:h,signal:c?c.signal:undefined,redirect:'follow'});}).then(async function(r){var ct=head(r,'content-type'),binary=method==='HEAD'||range||/^video\//i.test(ct)||/octet-stream|matroska/i.test(ct);var text=binary?'':await r.text();if(binary&&r.body&&r.body.cancel)Promise.resolve(r.body.cancel()).catch(function(){});finish(null,{status:r.status,ok:r.ok,url:r.url||u,headers:r.headers,text:text});}).catch(function(e){finish(e);});});}
 function episodeOK(text){if(type!=='tv')return true;var re=/\bS0*(\d+)[ ._-]*E0*(\d+)\b/ig,m;while((m=re.exec(text)))if(+m[1]!==season||+m[2]!==episode)return false;return true;}
 async function resolve(u,ref,depth,path){if(!active||depth>8||path.indexOf(u)>=0)return null;path=path.concat(u);try{var file=/\.(mkv|mp4|webm|m4v)(?:[?#]|$)|workers\.dev|googleusercontent\.|pixeldrain\./i.test(u),r;if(file){u=u.replace(/(pixeldrain\.[^/]+)\/u\/([^/?#]+)/i,'$1/api/file/$2?download');r=await request(u,'HEAD',ref);if([403,405].indexOf(r.status)>=0)r=await request(u,'GET',ref,'bytes=0-1');}else r=await request(u,'GET',ref);
@@ -59,14 +59,42 @@ if(!meta){log('METADATA: shared title missing or mismatched; request TMDB fallba
 if(!meta){log('METADATA: no usable title; search not started');return [];}
 log('METADATA: title ready; website search starting');
 var title=meta.title||meta.name,year=String(meta.release_date||meta.first_air_date||'').slice(0,4),aliases=[title,meta.original_title||meta.original_name].filter(Boolean);var detail='';
-for(var qi=0;qi<aliases.length&&!detail;qi++){if(qi&&norm(aliases[qi])===norm(aliases[0]))continue;var sr=await request(SITE+'/?s='+encodeURIComponent(aliases[qi]));if(!sr.ok)continue;var $=require('cheerio-without-node-native').load(sr.text);$('.movie-card').each(function(_,el){var c=$(el),name=c.find('.movie-card-title').text().trim(),text=c.text(),href=url(c.find('a[href]').first().attr('href'),SITE),fm=c.find('.movie-card-format').text(),y=/\b(19\d{2}|20\d{2})\b/.exec(text);if(aliases.some(function(a){return norm(a)===norm(name);})&&(!year||!y||year===y[1])&&(type==='tv'?/series/i.test(fm)||/-series-/.test(href):/movie/i.test(fm)||/-movie-/.test(href)))detail=href;});}
+for(var qi=0;qi<aliases.length&&!detail;qi++){if(qi&&norm(aliases[qi])===norm(aliases[0]))continue;var sr=await request(SITE+'/?s='+encodeURIComponent(aliases[qi]));if(!sr.ok)continue;var $=require('cheerio-without-node-native').load(sr.text);$('.movie-card').each(function(_,el){var c=$(el),name=c.find('.movie-card-title').text().trim(),text=c.text(),href=url((c.is('a[href]')?c.attr('href'):c.find('a[href]').first().attr('href')),SITE),fm=c.find('.movie-card-format').text(),y=/\b(19\d{2}|20\d{2})\b/.exec(text);if(aliases.some(function(a){return norm(a)===norm(name);})&&(!year||!y||year===y[1])&&(type==='tv'?/series/i.test(fm)||/-series-/.test(href):/movie/i.test(fm)||/-movie-/.test(href)))detail=href;});}
 if(!detail){log('SEARCH: no exact title/year/type');return [];}
-var page=await request(detail),$=require('cheerio-without-node-native').load(page.text),releases=[];var nodes=type==='tv'?$('.episodes-list .season-item').filter(function(_,el){var s=/\b(?:Season\s*|S)0*(\d+)\b/i.exec($(el).find('.episode-number').first().text());return s&&+s[1]===season;}).find('.episode-download-item'):$('.download-item');
+var page=await request(detail),$=require('cheerio-without-node-native').load(page.text),releases=[];
+var watch=url($('#videoPlayer').attr('src'),detail);
+function watchMatches(u){try{var p=new URL(u),parts=p.pathname.split('/').filter(Boolean);if(!/^(?:player\.videasy\.net|player\.autoembed\.cc)$/.test(p.hostname))return false;var ti=parts.indexOf(type);return ti>=0&&parts[ti+1]===id&&(type==='movie'||(+parts[ti+2]===season&&+parts[ti+3]===episode));}catch(_){return false;}}
+if(watch&&watchMatches(watch)&&typeof globalThis.webviewResolve==='function'&&remaining()>3000){
+ log('WATCH: website iframe first host='+host(watch));
+ var watchMs=Math.min(8500,remaining()-1500);
+ var session=await new Promise(function(resolve){var done=false,t=setTimeout(function(){finish(null);},watchMs+200);function finish(v){if(done)return;done=true;clearTimeout(t);resolve(v);}Promise.resolve().then(function(){return globalThis.webviewResolve(watch,{referer:SITE+'/',directLoad:false,timeoutMs:watchMs,finishAfterFirstMs:0,waitForMediaReady:false,captureSubtitles:true,suppressPopups:true,blockMatchedRequests:false,match:['.m3u8','.mp4'],blocked:['youtube.com','googlevideo.com','doubleclick','googlesyndication','/trailer','/preview']});}).then(finish,function(){finish(null);});});
+ var captured=session&&Array.isArray(session.streams)?session.streams:[];
+ for(var wi=0;wi<Math.min(captured.length,2)&&active;wi++){
+ var row=captured[wi],media=url(row&&row.url);if(!media||!/\.(?:m3u8|mp4)(?:[?#]|$)/i.test(media)||/youtube|googlevideo|\/(?:trailer|preview|sample)/i.test(media))continue;
+ var h={};Object.keys(row.headers||{}).forEach(function(k){var v=String(row.headers[k]);if(!/^(?:host|connection|content-length|range|accept-encoding)$/i.test(k)&&!/[\r\n]/.test(k+v))h[k]=v;});
+ if(!Object.keys(h).some(function(k){return k.toLowerCase()==='referer';}))h.Referer=watch;
+// Capture headers belong to this browser session; retain them for validation and playback.
+ var ct='',r;
+ try{
+ var isHls=/\.m3u8(?:[?#]|$)/i.test(media);
+ r=await request(media,isHls?'GET':'HEAD',h.Referer||h.referer||watch,undefined,h);
+ ct=head(r,'content-type');
+ if(!r.ok||/html|json|javascript/i.test(ct))continue;
+ if(isHls&&(!/^\s*#EXTM3U\b/.test(r.text)||!/#EXT(?:INF|-X-STREAM-INF):/.test(r.text)))continue;
+ if(!isHls&&!/^video\//i.test(ct)&&!/octet-stream/i.test(ct))continue;
+ var subs=session&&Array.isArray(session.subtitles)?session.subtitles.filter(function(x){return x&&url(x.url)&&/\.(?:vtt|srt)(?:[?#]|$)/i.test(x.url)&&!/thumbnail|sprite/i.test(x.label||'');}):[];
+ results.push({name:'4KHDHub',title:title,serverName:'Watch Online',url:r.url,headers:h,mimeType:isHls?'application/vnd.apple.mpegurl':ct,type:isHls?'hls':'direct',quality:isHls&&/#EXT-X-STREAM-INF:/.test(r.text)?'Auto':'Unknown',subtitles:subs,sourceVerified:true,playbackVerified:false});
+ log('WATCH: first verified source; returning immediately');return results;
+ }catch(e){log('WATCH: verification '+String(e.message||e));}
+ }
+ log('WATCH: no verified capture; download fallback');
+}else log('WATCH: no exact published iframe or browser bridge; download fallback');
+var nodes=type==='tv'?$('.episodes-list .season-item').filter(function(_,el){var s=/\b(?:Season\s*|S)0*(\d+)\b/i.exec($(el).find('.episode-number').first().text());return s&&+s[1]===season;}).find('.episode-download-item'):$('.download-item');
 nodes.each(function(_,el){var a=$(el),text=a.text().replace(/\s+/g,' ').trim();if(type==='tv'){var ep=/Episode-?0*(\d+)/i.exec(a.find('.episode-file-info').text());if(!ep||+ep[1]!==episode||!episodeOK(text))return;}var names={English:'en',Hindi:'hi',Japanese:'ja',Korean:'ko',Chinese:'zh',Tamil:'ta',Telugu:'te',Malay:'ms',French:'fr',German:'de',Spanish:'es'},langs=[];Object.keys(names).forEach(function(k){if(new RegExp('\\b'+k+'\\b','i').test(text))langs.push(names[k]);});if(langs.length&&meta.original_language&&langs.indexOf(meta.original_language)<0)return;var size=/(\d+(?:\.\d+)?)\s*(GB|MB)/i.exec(text),quality=/\b(2160|1080|720|480)p\b/i.exec(text);a.find('a[href]').each(function(_,e){var label=$(e).text(),u=url($(e).attr('href'),detail);if(/HubCloud|HubDrive/i.test(label)&&u)releases.push({url:u,text:text,quality:quality?quality[0]:'Unknown',langs:langs,size:size?+size[1]*(size[2].toUpperCase()==='GB'?1024:1):Infinity,priority:/HubCloud/i.test(label)?0:1});});});
 releases.sort(function(a,b){return a.priority-b.priority||a.size-b.size;});log('MATCH '+title+' releases='+releases.length);var index=0;
-async function worker(){while(active&&index<releases.length&&results.length<3){var r=releases[index++],hit=await resolve(r.url,detail,0,[]);if(hit&&active&&!seen[hit.url]){seen[hit.url]=true;results.push(Object.assign({name:'4KHDHub',title:title,serverName:host(hit.url),audioLanguages:r.langs,subtitles:[],sourceVerified:true,playbackVerified:false},hit,{quality:hit.quality||r.quality}));}}}
+async function worker(){while(active&&index<releases.length&&results.length<1){var r=releases[index++],hit=await resolve(r.url,detail,0,[]);if(hit&&active&&!seen[hit.url]){seen[hit.url]=true;results.push(Object.assign({name:'4KHDHub',title:title,serverName:host(hit.url),audioLanguages:r.langs,subtitles:[],sourceVerified:true,playbackVerified:false},hit,{quality:hit.quality||r.quality}));log('DOWNLOAD: first verified source; returning immediately');stop();}}}
 await Promise.all([worker(),worker()]);return results;
-}catch(e){log('FAILED '+String(e.message||e));return results;}finally{clearTimeout(timer);stop();log('v2.0.1 sources='+results.length);}}
+}catch(e){log('FAILED '+String(e.message||e));return results;}finally{clearTimeout(timer);stop();log('v2.0.2 sources='+results.length);}}
 module.exports={getStreams:function(id,type,s,e){type=type==='series'?'tv':type;if(!/^[1-9]\d*$/.test(String(id))||['movie','tv'].indexOf(type)<0||type==='tv'&&(s==null||e==null||!Number.isInteger(+s)||+s<0||!Number.isInteger(+e)||+e<1))return Promise.resolve([]);return run(String(id),type,+s,+e);}};
 if(typeof globalThis!=='undefined'){globalThis.getStreams=module.exports.getStreams;globalThis.fourKWebsiteTest={gate:gate,links:links,b64:b64};}
 })();
