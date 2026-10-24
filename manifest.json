@@ -872,7 +872,7 @@
     {
       "id": "viduki",
       "name": "Viduki",
-      "version": "1.0.1",
+      "version": "1.0.2",
       "description": "Exact TMDB API 1 streaming player with parallel website subtitles",
       "author": "Cloudbank",
       "supportedTypes": [
@@ -888,7 +888,7 @@
       ],
       "runtimeTimeoutMs": 20000,
       "runtimeModules": [],
-      "notes": "Exact API 1 player. Finish on first observed media; no media-ready wait. Website subtitle payloads require valid VTT/SRT text cues; language and MIME normalized. Playback on Android requires device testing."
+      "notes": "Mapple/VidFast basic-vs-detailed bridge compatibility, VidSrc.to capture/playlist flow. Raw/filtered/session diagnostics. Only HTTP-validated media and cue-validated subtitles returned. Android end-to-end validation pending."
     }
   ]
 }

@@ -1,9 +1,14 @@
-# Viduki v1.0.1
+# Viduki v1.0.2
 
-Upload providers/viduki.js and manifest.json to the same repo paths. No YML.
+Upload providers/viduki.js and manifest.json to the matching repo paths. No YML, no app change.
 
-Changes: WebView waitForMediaReady=false, finishAfterFirstMs=150. Keep API 1 website internal fallback; do not scan all APIs. Keep one small video playlist HTTP check. Website subtitle fetch and content verification start alongside WebView. Verify a maximum of four subtitle URLs concurrently, with bounded waits. Only valid VTT/SRT text cues are returned, with normalized language, MIME and headers. Invalid or missing subtitles do not block a video result.
+Based on working repo patterns:
+- Mapple/VidFast: basic bridge can omit observation flags; detailed responses or explicitly negative observation fields require positive native evidence.
+- VidSrc.to: one exact TMDB WebView, viewport/play interactions, 500ms first-candidate grace, HLS HTTP content verification. No media-readiness wait and no JSON API response capture.
+- Preserve Viduki website internal server fallback and parallel website subtitle retrieval/validation. No cross-API sweep or separate direct-API session.
 
-Tests: exact movie/TV routes, bridge completion options, English language/MIME, valid VTT, HTML subtitle rejection while video succeeds, video HTTP errors/HTML, low quality, unobserved URLs, invalid input. Tests use controlled fixtures. Android end-to-end performance and subtitle rendering are unverified for this version. This removes deliberate media-readiness waiting; it cannot guarantee a fixed speed because API/host latency varies.
+Capture log reports raw and accepted candidate counts, bridge version, known finish reason, filter rejection counters and limited video diagnostics. Basic bridge candidates still require a successful HTTP playlist check. Invalid HTTP statuses, HTML, invalid playlists, known low quality and explicit dub-only are rejected. Only a maximum of two candidates are checked; each fetch plus body read has an 1800ms bound.
 
-Original audio and quality limitations from v1.0.0 remain. Unknown audio is not labelled original; unknown quality remains Auto.
+Subtitle cue validation and normalized language/MIME from v1.0.1 retained. Empty/HTML subtitles are discarded; missing subtitles do not invalidate video. Unknown audio remains unlabelled. Adaptive/unknown resolution may remain Auto.
+
+Validation: controlled bridge tests cover absent evidence flags on basic and detailed bridges, explicit negative evidence, captured HTTP error, playlist HTTP error/HTML, invalid/low playlist, VTT/SRT language/MIME, empty/HTML subtitles, movie/TV identity and invalid input. No Android playback or speed claim for this version. Prior log did not include raw count; this is a compatible fix and diagnostic improvement, not proof that missing flags caused that specific failure.
