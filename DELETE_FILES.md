@@ -1,10 +1,5 @@
-# Files approved for deletion
+# Retired provider
 
-- providers/streamflix.js
-- providers/fibwatch.js
-- providers/onlykdrama.js
-- providers/yflix.js
-- providers/1shows.js
-- providers/desiflix.js
-- providers/cineby.js
-- providers/zinkmovies.js
+- providers/moonflix.js
+
+MoonFlix removed from manifest per user decision. Delete its file manually.

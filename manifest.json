@@ -268,43 +268,10 @@
       "runtimeModules": []
     },
     {
-      "id": "moonflix",
-      "name": "MoonFlix",
-      "description": "Current MoonFlix website streaming APIs, main then backup, exact TMDB movie/episode",
-      "version": "2.0.1",
-      "author": "Nuvio Team",
-      "supportedTypes": [
-        "movie",
-        "tv"
-      ],
-      "filename": "providers/moonflix.js",
-      "enabled": true,
-      "hasSettings": false,
-      "formats": [
-        "mp4",
-        "mkv"
-      ],
-      "logo": "https://i.postimg.cc/90dVRJJq/moonflix.png",
-      "contentLanguage": [
-        "en",
-        "hi"
-      ],
-      "runtimeTimeoutMs": 20000,
-      "upstreamSupportedTypes": [
-        "movie",
-        "tv"
-      ],
-      "upstreamVersion": "1.0.0",
-      "notes": "Current website API main then backup, with website getStreamPlaybackUrl proxy transformation before verification and playback handoff. Retains proxy playlist audio/subtitle rewrites. HTTP errors/expired signed URLs rejected. Device playback pending.",
-      "sourceRepository": "https://github.com/D3adlyRocket/All-in-One-Nuvio",
-      "sourceCommit": "3f09a6ff4360498895e622877af7a32212f75038",
-      "runtimeModules": []
-    },
-    {
       "id": "movieblast",
       "name": "MovieBlast",
       "description": "MovieBlast - Hindi, Tamil, Telugu & English Movies/Series with multi-quality streams",
-      "version": "1.0.5",
+      "version": "2.0.0",
       "author": "Nuvio Team",
       "supportedTypes": [
         "movie",
@@ -331,7 +298,7 @@
         "tv"
       ],
       "upstreamVersion": "1.0.0",
-      "notes": "Imported from D3adlyRocket/All-in-One-Nuvio at 3f09a6ff4360498895e622877af7a32212f75038. Cloudbank adapter preserves upstream extraction/settings, uses shared TMDB detail metadata when available, caps async result wait at 19s, and returns valid stream arrays. Playback and host settings support require app testing. Version consolidation: alternate cores embedded as bounded delayed/failed-primary fallbacks; provider identity, playback metadata and settings preserved. Source disabled/platform flags retained per engine. Playback requires app testing.",
+      "notes": "Single current API implementation: exact title/year, strict TMDB identity in detail, exact TV episode, original language and >=720p/unknown filter; English/Malay subtitle URLs. No merged engine, WebView, media probe, or default English assumption. Runtime requires crypto-js HMAC.",
       "sourceRepository": "https://github.com/D3adlyRocket/All-in-One-Nuvio",
       "sourceCommit": "3f09a6ff4360498895e622877af7a32212f75038",
       "runtimeModules": [
