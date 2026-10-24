@@ -1,6 +1,6 @@
 {
   "name": "Cloudbank",
-  "version": "1.20.109",
+  "version": "1.20.110",
   "scrapers": [
     {
       "id": "kisskh",
@@ -293,7 +293,7 @@
         "tv"
       ],
       "upstreamVersion": "3.0.1",
-      "notes": "Bounded parallel quality extraction: three highest-priority routes processed concurrently, each preserving archive \u2192 HubCloud \u2192 download \u2192 media-probe dependencies. Fourth route starts only as fallback after first batch settles. Retains up to three validated distinct codec/quality files, H.264 ranking and honest codec labels, partial results on failures, 18.7-second total/5.5-second extra collection budgets, exact matching/audio policy and all prior removals. Adds host/total timing logs. v4.1.0 on-device log confirmed three playable sources and subtitle cues; v4.2.0 device timing still needs confirmation.",
+      "notes": "Bounded parallel quality extraction: three highest-priority routes processed concurrently, each preserving archive → HubCloud → download → media-probe dependencies. Fourth route starts only as fallback after first batch settles. Retains up to three validated distinct codec/quality files, H.264 ranking and honest codec labels, partial results on failures, 18.7-second total/5.5-second extra collection budgets, exact matching/audio policy and all prior removals. Adds host/total timing logs. v4.1.0 on-device log confirmed three playable sources and subtitle cues; v4.2.0 device timing still needs confirmation.",
       "sourceRepository": "https://github.com/D3adlyRocket/All-in-One-Nuvio",
       "sourceCommit": "3f09a6ff4360498895e622877af7a32212f75038",
       "runtimeModules": [
@@ -698,7 +698,7 @@
     {
       "id": "cinevibe",
       "name": "Cinevibe",
-      "description": "Cinevibe.cc website Server 1 \u2014 movies and exact TV episodes",
+      "description": "Cinevibe.cc website Server 1 — movies and exact TV episodes",
       "version": "2.0.0",
       "author": "Nuvio Team",
       "supportedTypes": [
