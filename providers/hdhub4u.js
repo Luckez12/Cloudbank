@@ -89,7 +89,7 @@ const TMDB_API_KEY = '439c478a771f35c05022f9feabcca01c';
 const TMDB_BASE_URL = 'https://api.themoviedb.org/3';
 
 // HDHub4u Configuration
-let MAIN_URL = "https://new3.hdhub4u.free";
+let MAIN_URL = "https://new8.hdhub4u.cl";
 const DOMAINS_URL = "https://raw.githubusercontent.com/phisher98/TVVVV/refs/heads/main/domains.json";
 const DOMAIN_CACHE_TTL = 4 * 60 * 60 * 1000; // 4 hours
 let domainCacheTimestamp = 0;
@@ -261,7 +261,12 @@ function fetchAndUpdateDomain() {
         return response.json();
     }).then(function(data) {
         if (data && data.HDHUB4u) {
-            const newDomain = data.HDHUB4u;
+            let newDomain;
+            try {
+                const parsed = new URL(String(data.HDHUB4u));
+                if (!/^https?:$/.test(parsed.protocol) || !/(^|\.)hdhub4u\.[a-z]+$/i.test(parsed.hostname) || parsed.hostname.endsWith('.free') || parsed.username || parsed.password) return null;
+                newDomain = parsed.origin;
+            } catch (_) { return null; }
             if (newDomain !== MAIN_URL) {
                 MAIN_URL = newDomain;
                 HEADERS.Referer = MAIN_URL + '/';
@@ -1575,8 +1580,8 @@ var cloudbankTestPluginProvider = (function() {
 "use strict";
 
 var PROVIDER = "HDHub4u";
-var VERSION = "1.2.0-cloudbank";
-var PRIMARY_BASE = "https://new3.hdhub4u.free";
+var VERSION = "1.7.1-cloudbank";
+var PRIMARY_BASE = "https://new8.hdhub4u.cl";
 var FALLBACK_BASES = ["https://new6.hdhub4u.cl", "https://new6.hdhub4u.fo", "https://hdhub4u.frl"];
 var DOMAINS_URL = "https://raw.githubusercontent.com/phisher98/TVVVV/refs/heads/main/domains.json";
 var SEARCH_BASE = "https://search.hdhub4u.glass/collections/post/documents/search";
@@ -1809,7 +1814,7 @@ function discoverCurrentBase() {
     var raw = data && data.HDHUB4u;
     try {
       var parsed = new URL(String(raw || ''));
-      if (!/^https?:$/.test(parsed.protocol) || !/(^|\.)hdhub4u\.[a-z]+$/i.test(parsed.hostname)) return null;
+      if (!/^https?:$/.test(parsed.protocol) || !/(^|\.)hdhub4u\.[a-z]+$/i.test(parsed.hostname) || parsed.hostname.endsWith(".free") || parsed.username || parsed.password) return null;
       hdhubDomainCache = parsed.origin; hdhubDomainCachedAt = Date.now();
       return hdhubDomainCache;
     } catch (_) { return null; }
@@ -2368,7 +2373,7 @@ function parseHlsVariants(body, playlistUrl, referer, headers, fallbackQuality) 
       referer: referer || "",
       headers: headers || {},
       isHls: true,
-      quality: Number(fallbackQuality || 0) || 1080,
+      quality: Number(fallbackQuality || 0),
       bandwidth: 0
     }];
   }
@@ -3192,7 +3197,8 @@ function toStream(hit, info, mediaType, season, episode) {
     title: info.title + suffix + " • " + (hit.isMaster ? "Auto" : qualityLabel(hit.quality)) + " • " + (hit.label || hostOf(hit.url)),
     url: hit.url,
     quality: hit.isMaster ? "Auto" : qualityLabel(hit.quality),
-    type: "direct",
+    type: hit.isHls ? "hls" : "direct",
+    mimeType: hit.isHls ? "application/x-mpegURL" : undefined,
     headers: headers,
     subtitles: hit.subtitles || []
   };
@@ -3464,6 +3470,29 @@ function cloudbankDisplayInstall(provider, providerName, providerId) {
   };
   return adapted;
 }
+/* HDHUB_POLISH_V171_START */
+function hdhubPolish(provider){
+ function language(v){var x=String(v||'').trim().toLowerCase().replace(/_/g,'-');return ({english:'en',eng:'en',malay:'ms',melayu:'ms',msa:'ms',may:'ms'})[x]||x;}
+ var original=provider.getStreams;
+ return Object.assign({},provider,{getStreams:function(){var args=arguments;return Promise.resolve().then(function(){return original.apply(provider,args);}).then(function(rows){return (Array.isArray(rows)?rows:[]).map(function(row){
+  var out=Object.assign({},row);
+  if(/\.m3u8(?:[?#]|$)/i.test(out.url||'')||/^(hls|application\/x-mpegurl)$/i.test(out.type||'')){out.type='hls';out.mimeType='application/x-mpegURL';}
+  var seen={};out.subtitles=(Array.isArray(out.subtitles)?out.subtitles:[]).map(function(track){
+   if(!track)return null;var code=language(track.language||track.lang||track.srclang||track.label),u=track.url||track.file||track.src;
+   if(!/^(en|ms)(?:-|$)/.test(code)||!/^https?:\/\//i.test(u||'')||seen[u])return null;seen[u]=true;
+   var t=Object.assign({},track,{url:u,language:code,lang:code});
+   var format=String(t.mimeType||t.format||t.type||'').toLowerCase();
+   if(/\.vtt(?:[?#]|$)/i.test(u)||/^(vtt|text\/vtt)$/.test(format))t.mimeType='text/vtt';
+   else if(/\.srt(?:[?#]|$)/i.test(u)||/srt|subrip/.test(format))t.mimeType='application/x-subrip';
+   else if(/\.(ass|ssa)(?:[?#]|$)/i.test(u))t.mimeType='text/x-ssa';
+   return t;
+  }).filter(Boolean);
+  return out;
+ });});}});
+}
+module.exports=hdhubPolish(module.exports);
+/* HDHUB_POLISH_V171_END */
+
 module.exports = cloudbankDisplayInstall(module.exports, "HDHub4u", "hdhub4u");
 if (typeof globalThis !== "undefined") globalThis.getStreams = module.exports.getStreams;
 if (typeof global !== "undefined") global.getStreams = module.exports.getStreams;

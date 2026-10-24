@@ -67,7 +67,7 @@
       "id": "hdhub4u",
       "name": "HDHub4u",
       "description": "Movie and TV stream provider",
-      "version": "1.7.0",
+      "version": "1.7.1",
       "author": "Luckez",
       "supportedTypes": [
         "movie",
@@ -88,7 +88,7 @@
       "disabledPlatforms": [],
       "supportsExternalPlayer": true,
       "runtimeTimeoutMs": 20000,
-      "notes": "V17.1 latest-merge repair: restores the repo-wide TMDB title profile and required fast/discovery-rebuild contracts that were lost when the targeted V17 files were overlaid onto an older provider baseline. V16 Provider Repair: coalesced domain lookup, WordPress REST primary-title discovery, primary-first search, then bounded alias fallback. Low-confidence unrelated cards never enter extraction. V15 Shared Discovery Context: TMDB detail metadata is coalesced by VUEO core once per scan when the V15 runtime bridge is available; local TMDB fallback remains for older runtimes. V15 centralized trace hooks emit metadata/candidate/verification stages without changing source extraction. V15 Shared Discovery Context + centralized trace hooks. TMDB metadata is coalesced by VUEO core when available, with provider-local fallback retained. Candidate/verification stages emit lightweight diagnostics. Discovery Rebuild V1: raw TMDB title is searched before season/year variants; current and legacy result-card layouts are parsed; noisy release strings are normalized before scoring so valid title matches are not lost. Existing QuickJS recursion/parser hotfixes remain. Test-Plugin adaptation: transferred engine first (11s maximum), existing Cloudbank engine retained as fallback (7.5s maximum). Shared metadata, provider identity and display preserved; Android playback unverified. HDHub4u/V2/V3 consolidated: current engine and original fallback retained; imported domain fallbacks, broader Hblinks host dispatch, Vidstack subtitle preservation, verified HLS master priority, server-preserving deduplication, body request limits and season-zero handling. Device playback unverified."
+      "notes": "Targeted polish retaining existing extractors and fallback: current domain default, reject retired .free overrides, HLS transport/MIME correction, no guessed 1080p, English/Malay subtitle language/MIME normalization without file fetch."
     },
     {
       "id": "moviebox",
@@ -266,44 +266,6 @@
       "sourceRepository": "https://github.com/D3adlyRocket/All-in-One-Nuvio",
       "sourceCommit": "3f09a6ff4360498895e622877af7a32212f75038",
       "runtimeModules": []
-    },
-    {
-      "id": "movieblast",
-      "name": "MovieBlast",
-      "description": "MovieBlast - Hindi, Tamil, Telugu & English Movies/Series with multi-quality streams",
-      "version": "2.0.0",
-      "author": "Nuvio Team",
-      "supportedTypes": [
-        "movie",
-        "tv"
-      ],
-      "filename": "providers/movieblast.js",
-      "enabled": true,
-      "hasSettings": true,
-      "formats": [
-        "mp4",
-        "mkv",
-        "m3u8"
-      ],
-      "logo": "https://i.postimg.cc/qqkLSyhN/movieblast.png",
-      "contentLanguage": [
-        "en",
-        "hi",
-        "ta",
-        "te"
-      ],
-      "runtimeTimeoutMs": 20000,
-      "upstreamSupportedTypes": [
-        "movie",
-        "tv"
-      ],
-      "upstreamVersion": "1.0.0",
-      "notes": "Single current API implementation: exact title/year, strict TMDB identity in detail, exact TV episode, original language and >=720p/unknown filter; English/Malay subtitle URLs. No merged engine, WebView, media probe, or default English assumption. Runtime requires crypto-js HMAC.",
-      "sourceRepository": "https://github.com/D3adlyRocket/All-in-One-Nuvio",
-      "sourceCommit": "3f09a6ff4360498895e622877af7a32212f75038",
-      "runtimeModules": [
-        "crypto-js"
-      ]
     },
     {
       "id": "moviesdrive",

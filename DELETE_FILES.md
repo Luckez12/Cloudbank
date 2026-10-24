@@ -1,5 +1,6 @@
-# Retired provider
+# Retired files
 
 - providers/moonflix.js
+- providers/movieblast.js
 
-MoonFlix removed from manifest per user decision. Delete its file manually.
+Both removed from manifest per user decision. Remove files manually through GitHub.
