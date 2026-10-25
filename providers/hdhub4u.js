@@ -1591,7 +1591,7 @@ fetch=function(url,options){
  });
 };
 var PROVIDER = "HDHub4u";
-var VERSION = "1.8.2-cloudbank";
+var VERSION = "1.9.0-cloudbank";
 var PRIMARY_BASE = "https://new8.hdhub4u.cl";
 var FALLBACK_BASES = ["https://new6.hdhub4u.cl", "https://new6.hdhub4u.fo", "https://hdhub4u.frl"];
 var DOMAINS_URL = "https://raw.githubusercontent.com/phisher98/TVVVV/refs/heads/main/domains.json";
@@ -3093,20 +3093,41 @@ function hdFirstEligible(tasks,info,budget){
   }).catch(function(){}).then(function(){pending--;if(!pending)finish([]);});});
  });
 }
-function resolveMoviePage(html,detailUrl,info){
- var streamLinks=siteStreamLinks(html,detailUrl).slice(0,2);
- var fast=streamLinks.filter(function(item){var a=hdDeclaredAudio(item.label);return !info.originalLanguage||!a.length||a.indexOf(info.originalLanguage)>=0;}).map(function(item){return function(){return resolveSiteStream(item,detailUrl).then(function(hit){return expandResolvedHit(hit,item.quality||0);});};});
- console.log('[HDHub4u] FAST: site-stream tasks='+fast.length+'; stop on first eligible HLS; no quality grace');
- return hdFirstEligible(fast,info,MULTI_TASK_TIMEOUT_MS).then(function(hits){
-  if(hits.length){console.log('[HDHub4u] FAST: source ready; download fallback not started');return hits;}
-  var blocks=movieBlocks(html,detailUrl),tasks=[];
-  [2160,1080,720].forEach(function(q){var block=preferredMovieBlock(blocks,q);if(!block)return;
-   var a=hdDeclaredAudio(block.text);if(info.originalLanguage&&a.length&&a.indexOf(info.originalLanguage)<0)return;
-   tasks.push(function(){return resolveServer(block.url,detailUrl).then(function(hit){if(!hit)return [];if(!hit.isHls)hit.quality=q;return expandResolvedHit(hit,q);});});
-  });
-  console.log('[HDHub4u] FALLBACK: quality tasks='+tasks.length);
-  return hdFirstEligible(tasks,info,MULTI_TASK_TIMEOUT_MS);
+function hdAlternativeScore(hit){
+ var q=Number(hit.quality||0),codec=String(hit.videoCodec||'');
+ if(q===1080&&codec==='H.264')return 1000;
+ if(hit.isMaster)return 900;
+ if(q===720&&codec==='H.264')return 850;
+ if(q===1080)return 800;
+ if(q===720)return 700;
+ if(q>=2160)return 400;
+ return 500;
+}
+function hdCollectAlternatives(tasks,info,budget,grace){
+ return new Promise(function(resolve){
+ var ended=false,index=0,active=0,completed=0,hits=[],seen={},extraTimer=null;
+ var timer=setTimeout(finish,budget);
+ function finish(){if(ended)return;ended=true;clearTimeout(timer);if(extraTimer)clearTimeout(extraTimer);resolve(hits.sort(function(a,b){return hdAlternativeScore(b)-hdAlternativeScore(a);}).slice(0,3));}
+ function pump(){if(ended)return;while(active<3&&index<tasks.length){var task=tasks[index++];active++;Promise.resolve().then(task).then(function(rows){
+ if(ended)return;(Array.isArray(rows)?rows:[]).forEach(function(hit){if(!hdEligible(hit,info)||seen[hit.url])return;seen[hit.url]=true;hits.push(hit);});
+ if(hits.length&&!extraTimer)extraTimer=setTimeout(finish,grace);
+ if(hits.length>=3)finish();
+ }).catch(function(){}).then(function(){active--;completed++;if(ended)return;if(completed===tasks.length)finish();else pump();});}
+ if(!tasks.length)finish();}
+ pump();
  });
+}
+function resolveMoviePage(html,detailUrl,info){
+ var tasks=siteStreamLinks(html,detailUrl).slice(0,2).filter(function(item){var a=hdDeclaredAudio(item.label);return !info.originalLanguage||!a.length||a.indexOf(info.originalLanguage)>=0;}).map(function(item){return function(){return resolveSiteStream(item,detailUrl).then(function(hit){return expandResolvedHit(hit,item.quality||0);});};});
+ var blocks=movieBlocks(html,detailUrl),queued={};
+ [1080,720,1080,2160].forEach(function(q){
+ var eligible=blocks.filter(function(b){var a=hdDeclaredAudio(b.text);return !info.originalLanguage||!a.length||a.indexOf(info.originalLanguage)>=0;});
+ var block=preferredMovieBlock(eligible.filter(function(b){return !queued[b.url];}),q);if(!block)return;queued[block.url]=true;
+ tasks.push(function(){return resolveServer(block.url,detailUrl).then(function(hit){if(!hit)return [];if(!hit.isHls){hit.quality=q;var t=String(block.text||'');var avc=/\b(?:x264|h[ .-]?264|avc)\b/i.test(t),hevc=/\b(?:x265|h[ .-]?265|hevc)\b/i.test(t);hit.videoCodec=avc&&!hevc?'H.264':hevc&&!avc?'HEVC':'';hit.codecSource=hit.videoCodec?'release':'';hit.releaseSource=t;}
+ return expandResolvedHit(hit,q);});});
+ });
+ console.log('[HDHub4u] ALTERNATIVES: tasks='+tasks.length+' workers=3 maxSources=3; 1080p H.264 release preferred; post-first budget=3500ms');
+ return hdCollectAlternatives(tasks,info,9500,3500);
 }
 
 function resolveTvPage(html, detailUrl, episode) {
@@ -3161,7 +3182,9 @@ function toStream(hit, info, mediaType, season, episode) {
     headers: headers,
     audioLanguages: hit.audioLanguages || [],
     audioLanguage: (hit.audioLanguages || []).indexOf(info.originalLanguage) >= 0 ? info.originalLanguage : undefined,
-    subtitles: hit.subtitles || []
+    subtitles: hit.subtitles || [],
+    videoCodec:hit.videoCodec||undefined, codecSource:hit.codecSource||undefined,
+    sourcePreference:hdAlternativeScore(hit)
   };
 }
 
@@ -3209,10 +3232,7 @@ function getStreams(tmdbId, mediaType, season, episode) {
       return toStream(hit, info, type, s, e);
     });
 
-    streams.sort(function(a, b) {
-      if ((a.quality === "Auto") !== (b.quality === "Auto")) return a.quality === "Auto" ? -1 : 1;
-      return qualityNumber(b.quality) - qualityNumber(a.quality);
-    });
+    streams.sort(function(a,b){return Number(b.sourcePreference||0)-Number(a.sourcePreference||0);});
 
     return streams;
   });
