@@ -1591,7 +1591,7 @@ fetch=function(url,options){
  });
 };
 var PROVIDER = "HDHub4u";
-var VERSION = "1.8.1-cloudbank";
+var VERSION = "1.8.2-cloudbank";
 var PRIMARY_BASE = "https://new8.hdhub4u.cl";
 var FALLBACK_BASES = ["https://new6.hdhub4u.cl", "https://new6.hdhub4u.fo", "https://hdhub4u.frl"];
 var DOMAINS_URL = "https://raw.githubusercontent.com/phisher98/TVVVV/refs/heads/main/domains.json";
@@ -2365,7 +2365,7 @@ function parseHlsVariants(body, playlistUrl, referer, headers, fallbackQuality) 
       referer: referer || "",
       headers: headers || {},
       isHls: true,
-      quality: q || Number(fallbackQuality || 0),
+      quality: q,
       bandwidth: bm ? Number(bm[1]) : 0
     });
   }
@@ -2376,7 +2376,7 @@ function parseHlsVariants(body, playlistUrl, referer, headers, fallbackQuality) 
       referer: referer || "",
       headers: headers || {},
       isHls: true,
-      quality: Number(fallbackQuality || 0),
+      quality: 0,
       bandwidth: 0
     }];
   }
@@ -2549,13 +2549,13 @@ function resolveHdstream4u(url, referer) {
         "Sec-Fetch-Site": "cross-site"
       }).then(function(hit) {
         if (hit) {
-          var pageQ = qualityNumber(raw) || 1080;
+          var pageQ = qualityNumber(raw);
           hit.label = "WATCH";
-          if (!hit.quality) hit.quality = pageQ;
+          if (!hit.isHls && !hit.quality) hit.quality = pageQ;
           if (Array.isArray(hit.variants)) {
             hit.variants.forEach(function(v) {
               v.label = "WATCH";
-              if (!v.quality) v.quality = pageQ;
+              if (!v.isHls && !v.quality) v.quality = pageQ;
             });
           }
           return hit;
@@ -2770,11 +2770,11 @@ function resolveHubCdn(url, referer) {
     return verifyHls(direct, url, { "Referer": url }).then(function(hit) {
       if (!hit) return null;
       hit.label = "HubCDN";
-      if (!hit.quality) hit.quality = 480;
+      if (!hit.isHls && !hit.quality) hit.quality = 480;
       if (Array.isArray(hit.variants)) {
         hit.variants.forEach(function(v) {
           v.label = "HubCDN";
-          if (!v.quality) v.quality = 480;
+          if (!v.isHls && !v.quality) v.quality = 480;
         });
       }
       return hit;
@@ -3027,7 +3027,7 @@ function expandResolvedHit(hit, fallbackQuality) {
   return rows.map(function(row) {
     var out = {};
     Object.keys(row || {}).forEach(function(k) { out[k] = row[k]; });
-    if (!out.quality && !out.isMaster) out.quality = Number(fallbackQuality || hit.quality || 0);
+    if (!out.quality && !out.isHls && !out.isMaster) out.quality = Number(fallbackQuality || hit.quality || 0);
     if (!out.label) out.label = hit.label || "";
     if (!out.referer) out.referer = hit.referer || "";
     if (!out.headers) out.headers = hit.headers || {};
@@ -3102,7 +3102,7 @@ function resolveMoviePage(html,detailUrl,info){
   var blocks=movieBlocks(html,detailUrl),tasks=[];
   [2160,1080,720].forEach(function(q){var block=preferredMovieBlock(blocks,q);if(!block)return;
    var a=hdDeclaredAudio(block.text);if(info.originalLanguage&&a.length&&a.indexOf(info.originalLanguage)<0)return;
-   tasks.push(function(){return resolveServer(block.url,detailUrl).then(function(hit){if(!hit)return [];hit.quality=q;return expandResolvedHit(hit,q);});});
+   tasks.push(function(){return resolveServer(block.url,detailUrl).then(function(hit){if(!hit)return [];if(!hit.isHls)hit.quality=q;return expandResolvedHit(hit,q);});});
   });
   console.log('[HDHub4u] FALLBACK: quality tasks='+tasks.length);
   return hdFirstEligible(tasks,info,MULTI_TASK_TIMEOUT_MS);
@@ -3118,7 +3118,7 @@ function resolveTvPage(html, detailUrl, episode) {
       var block = direct[i];
       return resolveServer(block.url, detailUrl).then(function(v) {
         if (v) {
-          v.quality = block.quality || 0;
+          if(!v.isHls)v.quality = block.quality || 0;
           return v;
         }
         return tryDirect(i + 1);
@@ -3133,7 +3133,7 @@ function resolveTvPage(html, detailUrl, episode) {
     if (i >= redirects.length || i >= 5) return Promise.resolve(null);
     var b = redirects[i];
     return resolveTvQualityRedirect(b, detailUrl, episode).then(function(v) {
-      if (v) { v.quality = b.quality; return v; }
+      if (v) { if(!v.isHls)v.quality = b.quality; return v; }
       return next(i + 1);
     });
   }
@@ -3201,7 +3201,7 @@ function getStreams(tmdbId, mediaType, season, episode) {
     }).map(function(hit) {
       console.log(
         "[HDHub4u] READY host=" + hostOf(hit.url) +
-        " q=" + qualityLabel(hit.quality) +
+        " q=" + (hit.isMaster ? "Auto" : qualityLabel(hit.quality)) +
         " mode=" + (hit.isHls ? "hls" : "direct") +
         " source=" + (hit.label || "?") +
         " elapsed=" + (Date.now() - started) + "ms"
@@ -3344,6 +3344,7 @@ function cloudbankDisplayInstall(provider, providerName, providerId) {
     var resolution = /\b(2160|1440|1080|720|576|480|360|240|144)p?\b/i.exec(quality);
     if (!resolution) resolution = /\b(2160|1440|1080|720|576|480|360|240|144)p\b/i.exec(text);
     var qualityLabel = resolution ? (resolution[1] === "2160" ? "4K" : resolution[1] + "p") : (/\b4k\b/i.test(quality + " " + text) ? "4K" : "");
+    if (/^auto$/i.test(clean(stream.quality))) qualityLabel = "Auto";
     var audioLang = language(stream.audioLanguage || stream.language || stream.lang);
     var audioLanguages = Array.isArray(stream.audioLanguages) ? unique(stream.audioLanguages.map(language)) : [];
     if (!audioLang && audioLanguages.length === 1) audioLang = audioLanguages[0];
