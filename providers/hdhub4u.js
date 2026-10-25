@@ -1591,7 +1591,7 @@ fetch=function(url,options){
  });
 };
 var PROVIDER = "HDHub4u";
-var VERSION = "1.9.0-cloudbank";
+var VERSION = "1.9.1-cloudbank";
 var PRIMARY_BASE = "https://new8.hdhub4u.cl";
 var FALLBACK_BASES = ["https://new6.hdhub4u.cl", "https://new6.hdhub4u.fo", "https://hdhub4u.frl"];
 var DOMAINS_URL = "https://raw.githubusercontent.com/phisher98/TVVVV/refs/heads/main/domains.json";
@@ -2188,6 +2188,9 @@ function verifySeekRange(url, referer, total) {
 }
 
 function verifyDirect(url, referer) {
+  if(isR2Storage(url)&&!/\.(?:m3u8|mpd)(?:$|[?#])/i.test(url)){
+    console.log('[HDHub4u] reject R2 direct host='+hostOf(url)+' reason=device-seek-reset');return Promise.resolve(null);
+  }
   function finish(res, originalUrl) {
     var info = responseMediaInfo(res, originalUrl);
     if (!info.playable) return Promise.resolve(null);
@@ -2222,6 +2225,9 @@ function verifyDirect(url, referer) {
       " ok=true"
     );
 
+    if(isR2Storage(info.url)){
+      console.log('[HDHub4u] reject redirected R2 direct host='+hostOf(info.url)+' reason=device-seek-reset');return Promise.resolve(null);
+    }
     return verifySeekRange(
       info.url,
       referer,
@@ -2839,7 +2845,7 @@ function resolveHubCloud(url, referer) {
 
     function acceptOrContinue(hit, index) {
       if (!hit) return next(index + 1);
-      if (hit.weakSeek) {
+      if (hit.weakSeek || (!hit.isHls && isR2Storage(hit.url))) {
         console.log(
           "[HDHub4u] skip weak-seek host=" +
           hostOf(hit.url) +
@@ -3076,6 +3082,7 @@ function hdAudioCode(value){var x=String(value||'').toLowerCase().trim();return 
 function hdDeclaredAudio(text){var names=String(text||'').match(/\b(?:english|hindi|japanese|korean|tamil|telugu|malay)\b/gi)||[];return unique(names.map(hdAudioCode));}
 function hdEligible(hit,info){
  if(!hit||!hit.url)return false;
+ if(!hit.isHls&&isR2Storage(hit.url))return false;
  if(!hit.isMaster&&Number(hit.quality)>0&&Number(hit.quality)<720)return false;
  if(Array.isArray(hit.playlistHeights)&&hit.playlistHeights.length&&Math.max.apply(null,hit.playlistHeights)<720)return false;
  var original=info&&info.originalLanguage,audios=hit.audioLanguages||[];
@@ -3106,19 +3113,29 @@ function hdAlternativeScore(hit){
 function hdCollectAlternatives(tasks,info,budget,grace){
  return new Promise(function(resolve){
  var ended=false,index=0,active=0,completed=0,hits=[],seen={},extraTimer=null;
+ var pendingSite=tasks.filter(function(t){return t.hdSite;}).length;
  var timer=setTimeout(finish,budget);
- function finish(){if(ended)return;ended=true;clearTimeout(timer);if(extraTimer)clearTimeout(extraTimer);resolve(hits.sort(function(a,b){return hdAlternativeScore(b)-hdAlternativeScore(a);}).slice(0,3));}
- function pump(){if(ended)return;while(active<3&&index<tasks.length){var task=tasks[index++];active++;Promise.resolve().then(task).then(function(rows){
+ function selection(){
+ var sorted=hits.slice().sort(function(a,b){return hdAlternativeScore(b)-hdAlternativeScore(a);}),counts={},chosen=[];
+ var hls=sorted.filter(function(h){return h.isHls;})[0];
+ if(hls){chosen.push(hls);counts[hostOf(hls.url)]=1;}
+ sorted.forEach(function(hit){if(chosen.length>=3||hls&&hit.url===hls.url)return;var host=hostOf(hit.url);if((counts[host]||0)>=2)return;counts[host]=(counts[host]||0)+1;chosen.push(hit);});
+ return chosen.sort(function(a,b){return hdAlternativeScore(b)-hdAlternativeScore(a);});
+ }
+ function finish(){if(ended)return;ended=true;clearTimeout(timer);if(extraTimer)clearTimeout(extraTimer);resolve(selection());}
+ function launch(task){active++;Promise.resolve().then(task).then(function(rows){
  if(ended)return;(Array.isArray(rows)?rows:[]).forEach(function(hit){if(!hdEligible(hit,info)||seen[hit.url])return;seen[hit.url]=true;hits.push(hit);});
  if(hits.length&&!extraTimer)extraTimer=setTimeout(finish,grace);
- if(hits.length>=3)finish();
- }).catch(function(){}).then(function(){active--;completed++;if(ended)return;if(completed===tasks.length)finish();else pump();});}
- if(!tasks.length)finish();}
+ }).catch(function(){}).then(function(){active--;completed++;if(task.hdSite)pendingSite--;if(ended)return;
+ var chosen=selection();if(chosen.length>=3&&(pendingSite===0||chosen.some(function(h){return h.isHls;}))){finish();return;}
+ if(completed===tasks.length)finish();else pump();});}
+ function pump(){if(ended)return;while(active<3&&index<tasks.length)launch(tasks[index++]);if(!tasks.length)finish();}
  pump();
  });
 }
+
 function resolveMoviePage(html,detailUrl,info){
- var tasks=siteStreamLinks(html,detailUrl).slice(0,2).filter(function(item){var a=hdDeclaredAudio(item.label);return !info.originalLanguage||!a.length||a.indexOf(info.originalLanguage)>=0;}).map(function(item){return function(){return resolveSiteStream(item,detailUrl).then(function(hit){return expandResolvedHit(hit,item.quality||0);});};});
+ var tasks=siteStreamLinks(html,detailUrl).slice(0,2).filter(function(item){var a=hdDeclaredAudio(item.label);return !info.originalLanguage||!a.length||a.indexOf(info.originalLanguage)>=0;}).map(function(item){var task=function(){return resolveSiteStream(item,detailUrl).then(function(hit){return expandResolvedHit(hit,item.quality||0);});};task.hdSite=true;return task;});
  var blocks=movieBlocks(html,detailUrl),queued={};
  [1080,720,1080,2160].forEach(function(q){
  var eligible=blocks.filter(function(b){var a=hdDeclaredAudio(b.text);return !info.originalLanguage||!a.length||a.indexOf(info.originalLanguage)>=0;});
@@ -3126,7 +3143,7 @@ function resolveMoviePage(html,detailUrl,info){
  tasks.push(function(){return resolveServer(block.url,detailUrl).then(function(hit){if(!hit)return [];if(!hit.isHls){hit.quality=q;var t=String(block.text||'');var avc=/\b(?:x264|h[ .-]?264|avc)\b/i.test(t),hevc=/\b(?:x265|h[ .-]?265|hevc)\b/i.test(t);hit.videoCodec=avc&&!hevc?'H.264':hevc&&!avc?'HEVC':'';hit.codecSource=hit.videoCodec?'release':'';hit.releaseSource=t;}
  return expandResolvedHit(hit,q);});});
  });
- console.log('[HDHub4u] ALTERNATIVES: tasks='+tasks.length+' workers=3 maxSources=3; 1080p H.264 release preferred; post-first budget=3500ms');
+ console.log('[HDHub4u] ALTERNATIVES: tasks='+tasks.length+' workers=3 maxSources=3 maxPerHost=2 HLS-slot-reserved; 1080p H.264 release preferred; post-first budget=3500ms');
  return hdCollectAlternatives(tasks,info,9500,3500);
 }
 
