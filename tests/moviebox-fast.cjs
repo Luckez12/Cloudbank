@@ -49,9 +49,16 @@ async function main(){
  const wrongEpisode=make((url,opts)=>url.includes('/subject-api/resource')?response({code:0,data:{list:[{...resource,ep:2}],pager:{hasMore:false}}}):ordinary(url,opts));
  check((await wrongEpisode.run()).length===0&&!wrongEpisode.calls.some(c=>c.url.startsWith('https://cdn.example')),'wrong episode resource is never probed/returned');
  const wrongYear=make((url,opts)=>url.includes('/subject-api/search')?response({code:0,data:{items:[{...subject,releaseDate:'2024-01-01'}]}}):ordinary(url,opts));
- check((await wrongYear.run()).length===0&&!wrongYear.calls.some(c=>c.url.includes('/subject-api/resource')),'known wrong year rejected before resources');
+ check((await wrongYear.run()).length===1,'single exact title ignores wrong year');
+ check(wrongYear.logs.some(x=>x.includes('SEARCH_REJECTIONS:')),'search rejection categories logged');
  const dup=make((url,opts)=>url.includes('/subject-api/search')?response({code:0,data:{items:[subject,{...subject,subjectId:'other'}]}}):ordinary(url,opts));
  check((await dup.run()).length===0&&!dup.calls.some(c=>c.url.includes('/subject-api/resource')),'duplicate exact title/year is ambiguous');
+ const chooseYear=make((url,opts)=>url.includes('/subject-api/search')?response({code:0,data:{items:[{...subject,subjectId:'wrong',releaseDate:'2024-01-01'},subject]}}):ordinary(url,opts));
+ check((await chooseYear.run()).length===1,'multiple exact titles resolve by year');
+ const noYear=make((url,opts)=>url.includes('/subject-api/search')?response({code:0,data:{items:[{...subject,releaseDate:'2024-01-01'},{...subject,subjectId:'other',releaseDate:'2025-01-01'}]}}):ordinary(url,opts));
+ check((await noYear.run()).length===0,'multiple titles with no matching year are unresolved');
+ const badSearchAudio=make((url,opts)=>url.includes('/subject-api/search')?response({code:0,data:{items:[{...subject,language:'Hindi'}]}}):ordinary(url,opts));
+ check((await badSearchAudio.run()).length===0&&badSearchAudio.logs.some(x=>x.includes('SEARCH_REJECTIONS:')&&x.includes('"audio":1')),'search audio restriction retained and diagnosed');
  const explicitDub=make((url,opts)=>url.includes('/subject-api/resource')?response({code:0,data:{list:[{...resource,language:'Hindi'}],pager:{hasMore:false}}}):ordinary(url,opts));
  check((await explicitDub.run()).length===0,'known foreign dubbed audio is not returned');
  check(explicitDub.logs.some(x=>x.includes('RESOURCE_PAGE:')&&x.includes('"audioRejected":1')),'audio rejections are visible before candidate selection');
@@ -129,6 +136,13 @@ async function main(){
  const budget=make(()=>new Promise(()=>{}));budget.box.setTimeout=(f,ms)=>setTimeout(f,Math.min(ms,15));
  check((await budget.run()).length===0&&budget.calls.length<=5,'hung hosts do not start unrestricted request fanout');
  check((await a.run('218539','tv',0,3)).length===0&&(await a.run('bad','movie')).length===0,'invalid request rejected');
+ const inspect=make();
+ vm.runInContext(code.replace(/return module.exports;/g,'if(typeof chooseAcrossMirrors === "function") module.exports._choose=chooseAcrossMirrors; return module.exports;'),inspect.box);
+ inspect.box.h5api=vm.runInContext('movieboxWebFactory(fetch,globalThis,"ko",1)',inspect.box);
+ const h5info={title:'My Demon',year:'2023',aliases:[]};
+ check(inspect.box.h5api._choose([{host:'https://h5.test',items:[{...subject,releaseDate:'2024-01-01'}]}],h5info,'tv')!==null,'H5 unique title ignores wrong year');
+ check(inspect.box.h5api._choose([{host:'https://h5.test',items:[{...subject,subjectId:'wrong',releaseDate:'2024-01-01'},subject]}],h5info,'tv').item.subjectId===subject.subjectId,'H5 multiple IDs choose matching year');
+ check(inspect.box.h5api._choose([{host:'https://h5.test',items:[subject,{...subject,subjectId:'other'}]}],h5info,'tv')===null,'H5 same year ambiguity rejected');
  console.log('MovieBox regression checks passed:',checks);
 }
 main().catch(e=>{console.error(e);process.exitCode=1;});

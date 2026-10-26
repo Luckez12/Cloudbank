@@ -3,7 +3,7 @@
 /* VUEO_PROVIDER_REPAIR_V16 */
 /* VUEO_FAST_DISCOVERY_V1 */
 /* VUEO_DISCOVERY_REBUILD_V1 */
-var MOVIEBOX_VERSION = "3.0.1";
+var MOVIEBOX_VERSION = "3.0.2";
 function movieboxLog(stage, data) {
   console.log("[MovieBox] " + stage + ": " + JSON.stringify(data || {}));
   try { if (typeof globalThis.vueoTrace === "function") globalThis.vueoTrace(stage, data || {}); } catch (_) {}
@@ -159,7 +159,7 @@ function movieboxMobileFactory(fetch,globalThis,originalAudioLanguage,movieboxSe
 var module={exports:{}};
 
 const PROVIDER = "MovieBox";
-const VERSION = "3.0.1";
+const VERSION = "3.0.2";
 const TMDB_BASE = "https://api.themoviedb.org/3";
 const TMDB_API_KEY = "1865f43a0549ca50d341dd9ab8b29f49";
 var CryptoJS = null;
@@ -517,8 +517,6 @@ function itemMatches(item, info) {
   });
   if (!titleMatch) return false;
 
-  var itemYear = parseYear(item.releaseDate);
-  if (info.year && itemYear && (info.type === "movie" || info.season <= 1) && info.year !== itemYear) return false;
   if (!movieboxAudioAllowed(item, info.originalLanguage)) return false;
   return true;
 }
@@ -529,8 +527,9 @@ function chooseBest(items, info) {
     var id=String(item.subjectId||"");if(!id||seen[id])return false;seen[id]=true;return true;
   });
   var exact=matched.filter(function(item){return info.year&&parseYear(item.releaseDate)===info.year;});
-  if(exact.length===1)return exact[0];
+  console.log("[MovieBox] MATCH_POLICY: " + JSON.stringify({exactCandidates:matched.length,yearMatches:exact.length,policy:matched.length===1?"unique-title-ignore-year":"year-disambiguation"}));
   if(matched.length===1)return matched[0];
+  if(exact.length===1)return exact[0];
   if(matched.length>1)console.log("[MovieBox] MATCH_REJECT: ambiguous exact title/year");
   return null;
 }
@@ -550,6 +549,13 @@ function findSubject(info) {
     }).then(function (result) {
       var data = result && result.data ? result.data : {};
       var items = Array.isArray(data.items) ? data.items : [];
+      var rejected={title:0,type:0,audio:0};
+      items.forEach(function(item){
+        if(!item || !info.titles.some(function(title){return normalizeTitle(title)===normalizeTitle(item.title);})) rejected.title++;
+        else if(Number(item.subjectType)!==(info.type==="movie"?1:2)) rejected.type++;
+        else if(!movieboxAudioAllowed(item,info.originalLanguage)) rejected.audio++;
+      });
+      console.log("[MovieBox] SEARCH_REJECTIONS: "+JSON.stringify(rejected));
       var selected = chooseBest(items, info);
       console.log("[MovieBox] mobile search host=" + (result ? result.host : "none") + " query='" + query + "' items=" + items.length + " match=" + (selected ? "yes" : "no") + " elapsed=" + (Date.now() - searchStartedAt) + "ms");
       if (selected) return selected;
@@ -2039,7 +2045,6 @@ function scoreCandidate(item,info,mediaType) {
   var exact=titles.some(function(title){return normalizeTitle(item&&item.title)===normalizeTitle(title);});
   if(!exact||!typeMatches(item,mediaType)||!movieboxAudioAllowed(item,originalAudioLanguage))return -Infinity;
   var year=itemYear(item);
-  if(info.year&&year&&(mediaType==="movie"||movieboxSeason<=1)&&String(info.year)!==String(year))return -Infinity;
   return 100+(info.year&&String(info.year)===String(year)?20:0);
 }
 function orderedHosts(seedHost) {
@@ -2196,9 +2201,15 @@ function chooseAcrossMirrors(
     return null;
   }
 
+  candidates = candidates.filter(function(c){return isFinite(c.score);});
   var validIds={};
-  candidates.forEach(function(c){if(isFinite(c.score))validIds[String(c.item.subjectId)]=true;});
-  if(Object.keys(validIds).length>1)return null;
+  candidates.forEach(function(c){validIds[String(c.item.subjectId)]=true;});
+  if(Object.keys(validIds).length>1) {
+    candidates=candidates.filter(function(c){return info.year && String(itemYear(c.item))===String(info.year);});
+    validIds={};candidates.forEach(function(c){validIds[String(c.item.subjectId)]=true;});
+  }
+  console.log("[MovieBox] H5_MATCH_POLICY: "+JSON.stringify({remainingIds:Object.keys(validIds).length}));
+  if(Object.keys(validIds).length!==1)return null;
   return candidates[0];
 }
 
