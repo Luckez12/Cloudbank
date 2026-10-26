@@ -1,11 +1,11 @@
-# HDHub4u 2.1.0
+# HDHub4u 2.1.1
 
-Search → one detail page → WATCH and PLAYER-2 concurrently → return both successful results with distinct serverName labels.
+Two corrections to 2.1.0:
+- Emit `server` as well as `serverName`. VUEO PluginRuntimeParsing reads server/extractor/host/embedder, not serverName. Source cards can now show WATCH or PLAYER-2 without modifying VUEO.
+- PLAYER-2 follows API streamingConfig order and adjustments (disabled entries, params, /hls/ domain routing), selecting the first available configured delivery. 2.1.0 always selected source (In-House), ignoring website delivery preferences. API-designated HLS delivery may use a .txt playlist URL; MIME remains HLS.
 
-One link per player is selected on the matched detail page. Each player request has a 4-second limit; the existing 12-second total deadline remains. Both tasks settle before results return, so the slower player can extend scan time. A failed or missing player does not discard the other. No quality collection grace, download chain, WebView or media/seek probes.
+WATCH extraction and headers remain unchanged. WATCH and PLAYER-2 still start concurrently, with one request each, a 4s request limit and existing total deadline. No new playlist, segment, subtitle or seek probes. English/Malay filter retained.
 
-PLAYER-2: Hubstream /api/v1/video with player dimensions and empty external-referrer parameter, matching standalone player navigation. Decode API AES-CBC response locally. Return its source HLS and English/Malay subtitle metadata without extra subtitle requests. WATCH behavior remains unchanged. Quality remains Auto; no invented rendition labels.
+Evidence from uploaded performance log: initial session first frame 3.083s; later attempt restarts at 7.295s and first frame 14.247s; repeated subsequent buffer waits 2.219, 6.087 and 6.292s. Another session first frame 8.422s. No explicit HTTP/player error or URL-to-server mapping is recorded, so the failing server and retry cause cannot be conclusively assigned. Scan count is zero during these playback samples. EN subtitle cues were delivered.
 
-Live check: Moana detail page exposed WATCH and hubstream.art/#rvcces. The PLAYER-2 API returned an encrypted response containing source HLS and an English subtitle. Stream playback itself has not been tested here. Requests using the detail-site hostname as the API r parameter were rejected, while standalone r= succeeded.
-
-Validation: simple regression suite, concurrency/failure-isolation/encrypted API suite, provider validation (25). VUEO is unchanged. No YAML files included.
+Validation: original simple-flow suite; parallel start and isolated failure suite; encrypted API; server metadata; delivery order/disabled/URL adjustments; all 25 providers validate. Playback improvement is not yet verified on device. These changes fix confirmed provider errors, not a proven diagnosis of every buffering event.

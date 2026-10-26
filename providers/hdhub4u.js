@@ -1,8 +1,8 @@
-/* HDHub4u 2.1.0 — HTTP search -> detail -> parallel WATCH + PLAYER-2 -> extracted streams.
+/* HDHub4u 2.1.1 — HTTP search -> detail -> parallel WATCH + PLAYER-2 -> extracted streams.
  * No legacy engine, download resolver, mirror collector, media/seek probes or WebView.
  */
 (function(){
-var BASE='https://new9.hdhub4u.cl',VERSION='2.1.0',UA='Mozilla/5.0';
+var BASE='https://new9.hdhub4u.cl',VERSION='2.1.1',UA='Mozilla/5.0';
 function log(s){console.log('[HDHub4u] '+s);}
 function url(value,base){try{var u=new URL(String(value||''),base);return /^https?:$/.test(u.protocol)&&!u.username&&!u.password?u.href:'';}catch(_){return '';}}
 function norm(s){return String(s||'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();}
@@ -10,6 +10,8 @@ function metadata(raw,id,type){if(typeof raw==='string'){try{raw=JSON.parse(raw)
 function subtitleTracks($,base,extra){var rows=extra||[];$('track[src]').each(function(_,e){var a=$(e);rows.push({url:a.attr('src'),label:a.attr('label'),language:a.attr('srclang'),kind:a.attr('kind')});});$('script').each(function(_,e){var t=$(e).html()||'',re=/\{[^{}]{0,1600}\}/g,m;while((m=re.exec(t))){var obj=m[0],file=/(?:file|src|url)\s*:\s*['"]([^'"]+\.(?:vtt|srt)(?:\?[^'"]*)?)['"]/i.exec(obj);if(!file)continue;var label=/(?:label|name)\s*:\s*['"]([^'"]+)['"]/i.exec(obj),language=/(?:srclang|lang|language)\s*:\s*['"]([^'"]+)['"]/i.exec(obj);rows.push({url:file[1],label:label&&label[1],language:language&&language[1],kind:obj});}});
 var seen={};return rows.map(function(r){var u=url(r.url,base),text=String(r.language||r.label||'').toLowerCase(),lang=/^(?:en|eng|english)(?:$|[-_ (])/.test(text)?'en':/^(?:ms|msa|may|malay|bahasa melayu|melayu)(?:$|[-_ (])/.test(text)?'ms':'';if(!u||!lang||seen[u]||/thumbnail|sprite|chapter/i.test(String(r.kind||'')+' '+r.label))return null;seen[u]=true;return{url:u,language:lang,lang:lang,label:r.label||(lang==='en'?'English':'Bahasa Melayu'),mimeType:/\.srt(?:[?#]|$)/i.test(u)?'application/x-subrip':'text/vtt',headers:{Referer:base,'User-Agent':UA}};}).filter(Boolean);}
 function extractStreams(text,base){var raw=String(text||'').replace(/\\\//g,'/').replace(/&amp;/g,'&'),out=[],seen={},re=/(?:file|source|src)\s*[:=]\s*['"]([^'"]+)['"]|['"](https?:\/\/[^'"]+\.m3u8(?:[?#][^'"]*)?)['"]/ig,m;while((m=re.exec(raw))){var u=url(m[1]||m[2],base);if(!u||!/\.m3u8(?:[?#]|$)/i.test(u)||/youtube|googlevideo|\/trailer|\/preview/i.test(u)||seen[u])continue;seen[u]=true;out.push(u);}return out;}
+// Match Hubstream's delivery order and URL adjustments using the same API response.
+function player2Stream(payload,base){var config={order:['Tiktok','Google','Cloudflare','In-House'],adjust:{}};try{var parsed=typeof payload.streamingConfig==='string'?JSON.parse(payload.streamingConfig):payload.streamingConfig;if(parsed&&Array.isArray(parsed.order))config=parsed;}catch(_){}var fields={'Tiktok':payload.hlsVideoTiktok,'Google':payload.hlsVideoGoogle,'Cloudflare':payload.cf,'In-House':payload.source};for(var i=0;i<config.order.length;i++){var kind=config.order[i],adjust=(config.adjust||{})[kind]||{},u=fields[kind]?url(fields[kind],base):'';if(adjust.disabled||!u)continue;var target=new URL(u);if(adjust.params&&typeof adjust.params==='object')Object.keys(adjust.params).forEach(function(k){target.searchParams.set(k,adjust.params[k]);});if(adjust.domain&&target.pathname.indexOf('/hls/')>=0)target.pathname=target.pathname.replace('/hls/','/hlsmod/'+adjust.domain+'/');return{url:target.href,delivery:kind};}return null;}
 function unbasePacker(word, radix) {
   var alphabet62 = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
   var alphabet95 = " !\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~";
@@ -78,13 +80,13 @@ var pu=new URL(item.url),id2=pu.hash.slice(1).split('&')[0]||pu.pathname.split('
 var api=pu.origin+'/api/v1/video?id='+encodeURIComponent(id2)+'&w=412&h=915&r=';
 var response=await text(api,item.url),payload=null,encoded=response.text.trim();
 if(/^[0-9a-f]{32,}$/i.test(encoded)&&encoded.length%32===0){var C=require('crypto-js');for(var i=0;i<2&&!payload;i++){try{var decoded=C.AES.decrypt({ciphertext:C.enc.Hex.parse(encoded)},C.enc.Utf8.parse('kiemtienmua911ca'),{iv:C.enc.Utf8.parse(i?'0123456789abcdef':'1234567890oiuytr'),mode:C.mode.CBC,padding:C.pad.Pkcs7}).toString(C.enc.Utf8);payload=JSON.parse(decoded);}catch(_){}}}else{try{payload=JSON.parse(encoded);}catch(_){}}
-if(!payload||!payload.source)throw Error('API returned no source');
-player={url:item.url};var source=url(payload.source,item.url);streams=source&&/\.m3u8(?:[?#]|$)/i.test(source)?[source]:[];
+if(!payload)throw Error('invalid API payload');
+player={url:item.url};var selected=player2Stream(payload,item.url);streams=selected?[selected.url]:[];if(selected)log('PLAYER-2: delivery='+selected.delivery+' host='+new URL(selected.url).hostname);
 var entries=payload.subtitle||payload.subtitles||{},rows=[];Object.keys(entries).forEach(function(k){var v=entries[k];if(typeof v==='string')rows.push({url:v,language:k,label:k});else if(v)rows.push({url:v.url||v.file||v.src,language:v.language||v.lang||k,label:v.label||v.name,kind:v.kind});});
 $p=require('cheerio-without-node-native').load('');captions=subtitleTracks($p,item.url,rows);
 }
 log(item.kind+': HLS='+streams.length+' subtitles='+captions.length);
-return streams.slice(0,3).map(function(u){return{name:'HDHub4u',title:meta.title+(type==='tv'?' S'+season+'E'+episode:''),serverName:item.kind,url:u,type:'hls',mimeType:'application/x-mpegURL',quality:'Auto',headers:{'User-Agent':UA,Referer:player.url,Origin:new URL(player.url).origin},subtitles:captions,sourceVerified:false,playbackVerified:false};});
+return streams.slice(0,3).map(function(u){return{name:'HDHub4u',title:meta.title+(type==='tv'?' S'+season+'E'+episode:''),server:item.kind,serverName:item.kind,url:u,type:'hls',mimeType:'application/x-mpegURL',quality:'Auto',headers:{'User-Agent':UA,Referer:player.url,Origin:new URL(player.url).origin},subtitles:captions,sourceVerified:false,playbackVerified:false};});
 }catch(e){log(item.kind+': '+String(e.message||e));return [];}}));
 var result=[].concat.apply([],groups);log('RETURN: sources='+result.length+'; no playlist/segment/seek probes; elapsed='+(Date.now()-started)+'ms');return result;
 }catch(e){log('NO_RESULT: '+String(e.message||e));return [];}finally{clearTimeout(deadline);stop();}}
