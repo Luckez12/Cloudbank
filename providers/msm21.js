@@ -2802,7 +2802,7 @@ function firstChecked(streams, mirror, choice) {
   var hls = candidates.filter(function(s){return s.mimeType === 'application/x-mpegURL' || /\.m3u8(?:[?#]|$)/i.test(s.url);});
   var direct = candidates.filter(function(s){return hls.indexOf(s)<0;});
   function group(items) { return firstResult(items.map(function(s){return checkSource(s).then(function(v){
-    if (!v) return [];v.label=mirror.label || v.label;v.choiceId=choice;return [v];
+    if (!v) return [];v.extractorLabel=v.label;v.mirrorHost=hostOf(mirror.url);v.label=mirror.label || v.label;v.choiceId=choice;return [v];
   });})); }
   return group(hls).then(function(result){return result.length ? result : group(direct);});
 }
@@ -3046,16 +3046,6 @@ function validateDirectPage(html, details, mediaType) {
   var accepted = acceptedTitleSet(details);
   if (!accepted[normalizeTitle(identity.title)]) return null;
 
-  var targetYear = Number(details.year || 0);
-  var itemYear = Number(identity.year || 0);
-  if (
-    mediaType === "movie" &&
-    targetYear && itemYear &&
-    Math.abs(targetYear - itemYear) > 1
-  ) {
-    return null;
-  }
-
   return identity;
 }
 
@@ -3166,15 +3156,6 @@ function scoreCandidate(item, details, mediaType) {
   var targetYear = Number(details.year || 0);
   var itemYear = Number(item.year || 0);
 
-  if (
-    mediaType === "movie" &&
-    targetYear &&
-    itemYear &&
-    Math.abs(targetYear - itemYear) > 1
-  ) {
-    return null;
-  }
-
   var score = 100;
   if (title === normalizeTitle(details.title)) score += 40;
   if (targetYear && itemYear && targetYear === itemYear) score += 30;
@@ -3206,7 +3187,12 @@ function findBestTitle(base, details, mediaType) {
         if (!seen[item.url]) seen[item.url] = item;
       });
 
-      var ranked = items.map(function (item) {
+      var candidateUrls = {};
+      var ranked = items.filter(function(item) {
+        if (candidateUrls[item.url]) return false;
+        candidateUrls[item.url] = true;
+        return true;
+      }).map(function (item) {
         return { item: item, score: scoreCandidate(item, details, mediaType) };
       }).filter(function (x) {
         return typeof x.score === "number";
@@ -3214,6 +3200,13 @@ function findBestTitle(base, details, mediaType) {
         return b.score - a.score;
       });
 
+      if (ranked.length > 1) {
+        var exactYear = ranked.filter(function(x) {
+          return details.year && String(x.item.year) === String(details.year);
+        });
+        ranked = exactYear.length === 1 ? exactYear : [];
+      }
+      console.log("[MSM21] MATCH_POLICY " + JSON.stringify({candidates: items.length, selected: ranked.length, policy: "unique-title-else-unique-year"}));
       if (ranked.length) {
         console.log(
           "[MSM21] matched title='" + ranked[0].item.rawTitle +
@@ -4058,6 +4051,27 @@ function resolveGeneric(url, referer, depth) {
   });
 }
 
+function resolveByse(url, referer) {
+  if (!/(^|\.)bysesukior\.com$/.test(hostOf(url))) return Promise.resolve(null);
+  if (typeof globalThis.webviewResolve !== "function") {
+    console.log("[MSM21] BYSE_UNAVAILABLE reason=webview-missing");
+    return Promise.resolve([]);
+  }
+  return globalThis.webviewResolve(url, {
+    referer: referer, timeoutMs: 4500, finishAfterFirstMs: 400,
+    clickDelaysMs: [650, 1300, 2200, 3400],
+    match: [".m3u8", ".mp4", ".m4v"],
+    blocked: ["doubleclick", "googlesyndication", "/ads/", "vast"]
+  }).then(function(result) {
+    return (result && Array.isArray(result.streams) ? result.streams : []).filter(function(x) {
+      return x && mediaAllowed(x.url);
+    }).map(function(x) {
+      return {url:x.url, headers:x.headers || {}, referer:url, label:"ByseSX",
+        mimeType:/\.m3u8(?:[?#]|$)/i.test(x.url) ? "application/x-mpegURL" : undefined};
+    });
+  }).catch(function() { console.log("[MSM21] BYSE_FAILED stage=webview"); return []; });
+}
+
 function resolveMirror(mirror, pageUrl, depth) {
   var url = String(mirror && mirror.url || "");
   if (!url) return Promise.resolve([]);
@@ -4073,7 +4087,8 @@ function resolveMirror(mirror, pageUrl, depth) {
     });
   }
 
-  return resolvePlayerX(url, pageUrl)
+  var byse = resolveByse(url, pageUrl);
+  return (byse || resolvePlayerX(url, pageUrl))
     .then(function (streams) {
       if (streams.length) return streams;
       return resolvePlaymate(url);
@@ -4134,6 +4149,7 @@ function formatStreams(streams) {
     var label = String(stream.label || "MSM21").replace(/\bMalaySub\b/ig, "").replace(/\s+/g, " ").trim() || "MSM21";
     var headers = playbackHeaders(stream);
 
+    console.log("[MSM21] SOURCE " + JSON.stringify({index:out.length+1, server:label, extractor:stream.extractorLabel || "", mirrorHost:stream.mirrorHost || "", mediaHost:hostOf(url)}));
     out.push({
       name: PROVIDER,
       title: label + " • " + quality + " • MalaySub",
@@ -4185,7 +4201,7 @@ function getStreams(tmdbId, mediaType, season, episode) {
       });
 
       var streams = formatStreams(flat);
-      console.log("[MSM21] v1.0.6 checked sources=" + streams.length);
+      console.log("[MSM21] v1.7.7 checked sources=" + streams.length);
       return streams;
     })
     .catch(function (error) {

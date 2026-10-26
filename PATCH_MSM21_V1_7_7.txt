@@ -1,0 +1,11 @@
+MSM21 v1.7.7
+
+Changes:
+- Active title resolver: a unique exact title ignores year. Multiple exact candidates require one exact year match; ambiguous candidates are rejected.
+- Byses JavaScript frontend now has a dedicated VUEO WebView route (4.5s bound, existing 6.5s scan cap unchanged). Host restricted to bysesukior.com and subdomains. Captured headers are preserved.
+- Existing HLS/Range probes and one checked winner per website option remain unchanged because probes select the winning stream.
+- SOURCE logs include index, server label, extractor, mirror host and media host; no signed URL printed.
+
+Validation: JavaScript syntax; targeted mocked title selection, host restriction, missing bridge, captured headers and stream filtering checks. Byses player assets were inspected live; on-device extraction/playback is NOT yet verified. New Byses route may keep a scan open longer, within the existing cap.
+
+Install providers/msm21.js and manifest.json at repository root paths. No YAML files. Only MSM21 changed in provider code.
