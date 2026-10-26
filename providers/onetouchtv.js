@@ -2,7 +2,7 @@
 /* VUEO_PROVIDER_REPAIR_V16 */
 /* Exact title first; season/year disambiguate multiple candidates only. */
 /* VUEO_FAST_DISCOVERY_V1 — one title query before conditional alias fallback. */
-var PROVIDER_NAME = "OneTouchTV", VERSION = "1.5.1";
+var PROVIDER_NAME = "OneTouchTV", VERSION = "1.5.2";
 var BASE_URL = "https://api3.devcorp.me";
 var TMDB_API_KEY = "1c29a5198ee1854bd5eb45dbe8d17d92";
 var AES_KEY_TEXT = "im72charPasswordofdInitVectorStm", AES_IV_TEXT = "im72charPassword";
@@ -64,8 +64,9 @@ function api(run, path, stage) {
     if (!text) throw new Error("Empty API response");
     if (/^[\[{]/.test(text)) return unwrapPayload(parseJsonLenient(text, stage));
     try {
-      var result = unwrapPayload(parseJsonLenient(decryptString(text), stage));
-      trace("DECRYPT", {method:"local", stage:stage}); return result;
+      var decodeStart=Date.now(), decoded=decryptString(text), decodeMs=Date.now()-decodeStart;
+      var parseStart=Date.now(), result = unwrapPayload(parseJsonLenient(decoded, stage));
+      trace("DECRYPT", {method:"local", stage:stage,bytes:text.length,decodeMs:decodeMs,parseMs:Date.now()-parseStart}); return result;
     } catch (error) {
       trace("DECRYPT_FALLBACK", {stage:stage, reason:error.message});
       // Compatibility only; never adds a remote round trip when local AES works.
@@ -203,10 +204,14 @@ function buildSubtitles(payload) {
   return tracks.map(function(track) {
     var kind=String(track.kind||track.type||"").toLowerCase();
     if(kind && /^(thumbnails|chapters|preview)$/.test(kind)) return null;
+    var explicit=String(firstValue(track,["language","lang"])||"").trim().toLowerCase();
+    if (/^(?:ms[-_]ind|id|ind|indonesian|indonesia)(?:$|[-_ ])/.test(explicit)) return null;
+    var lang=subtitleLanguage(explicit);
+    if (!explicit || /^(und|unknown|__)$/.test(explicit)) lang=subtitleLanguage(firstValue(track,["name","label"]));
+    if (lang.code!=="en" && lang.code!=="ms") return null;
     var url=safeUrl(firstValue(track,["file","url","src"]));if(!url||seen[url])return null;seen[url]=true;
-    var lang=subtitleLanguage(firstValue(track,["name","label","language","lang"]));
     var m=/\.(vtt|srt|ass|ssa)(?:[?#]|$)/i.exec(url);
-    return {url:url,lang:lang.code,language:lang.label,label:lang.label,format:m?m[1].toLowerCase():"",
+    return {url:url,lang:lang.code,language:lang.code,label:lang.label,format:m?m[1].toLowerCase():"",
       headers:normalizeHeaders(track.headers,track.referer||BASE_URL+"/"),default:track.default===true||track.isDefault===true};
   }).filter(Boolean);
 }
@@ -322,6 +327,17 @@ function gfMul(a, b) {
   return result & 0xff;
 }
 
+// Reused inverse MixColumns products; no bitwise multiplication inside rounds.
+var AES_INV_PRODUCTS = (function() {
+  var tables = {}, factors = [9,11,13,14];
+  factors.forEach(function(factor) {
+    var table = new Array(256);
+    for (var i=0;i<256;i++) table[i]=gfMul(i,factor);
+    tables[factor]=table;
+  });
+  return tables;
+})();
+var cachedExpandedKey = null;
 function rotWord(word) {
   return [word[1], word[2], word[3], word[0]];
 }
@@ -371,30 +387,29 @@ function addRoundKey(state, expandedKey, round) {
 }
 
 function invSubBytes(state) {
-  for (var i = 0; i < 16; i++) state[i] = AES_INV_SBOX[state[i]];
+  var table = AES_INV_SBOX;
+  for (var i = 0; i < 16; i++) state[i] = table[state[i]];
 }
 
 function invShiftRows(state) {
-  var copy = state.slice();
-  for (var row = 0; row < 4; row++) {
-    for (var col = 0; col < 4; col++) {
-      var sourceCol = (col - row + 4) % 4;
-      state[row + 4 * col] = copy[row + 4 * sourceCol];
-    }
-  }
+  var t=state[13];state[13]=state[9];state[9]=state[5];state[5]=state[1];state[1]=t;
+  t=state[2];state[2]=state[10];state[10]=t;
+  t=state[6];state[6]=state[14];state[14]=t;
+  t=state[3];state[3]=state[7];state[7]=state[11];state[11]=state[15];state[15]=t;
 }
 
 function invMixColumns(state) {
+  var m9=AES_INV_PRODUCTS[9],m11=AES_INV_PRODUCTS[11],m13=AES_INV_PRODUCTS[13],m14=AES_INV_PRODUCTS[14];
   for (var col = 0; col < 4; col++) {
     var i = col * 4;
     var a0 = state[i];
     var a1 = state[i + 1];
     var a2 = state[i + 2];
     var a3 = state[i + 3];
-    state[i] = gfMul(a0, 14) ^ gfMul(a1, 11) ^ gfMul(a2, 13) ^ gfMul(a3, 9);
-    state[i + 1] = gfMul(a0, 9) ^ gfMul(a1, 14) ^ gfMul(a2, 11) ^ gfMul(a3, 13);
-    state[i + 2] = gfMul(a0, 13) ^ gfMul(a1, 9) ^ gfMul(a2, 14) ^ gfMul(a3, 11);
-    state[i + 3] = gfMul(a0, 11) ^ gfMul(a1, 13) ^ gfMul(a2, 9) ^ gfMul(a3, 14);
+    state[i] = m14[a0] ^ m11[a1] ^ m13[a2] ^ m9[a3];
+    state[i + 1] = m9[a0] ^ m14[a1] ^ m11[a2] ^ m13[a3];
+    state[i + 2] = m13[a0] ^ m9[a1] ^ m14[a2] ^ m11[a3];
+    state[i + 3] = m11[a0] ^ m13[a1] ^ m9[a2] ^ m14[a3];
   }
 }
 
@@ -456,7 +471,7 @@ function decryptString(encrypted) {
     throw new Error("Encrypted OneTouchTV payload is not AES block aligned");
   }
 
-  var expandedKey = expandAes256Key(asciiBytes(AES_KEY_TEXT));
+  var expandedKey = cachedExpandedKey || (cachedExpandedKey = expandAes256Key(asciiBytes(AES_KEY_TEXT)));
   var iv = asciiBytes(AES_IV_TEXT);
   var plain = [];
   var previous = iv;
@@ -744,7 +759,7 @@ function subtitleLanguage(name) {
   var value = String(name || "").trim();
   var lower = value.toLowerCase();
   var aliases = {
-    en: ["english", "eng", "en"], ms: ["malay", "malaysia", "ms"], id: ["indonesian", "indonesia", "id"],
+    en: ["english", "eng", "en"], ms: ["malay", "bahasa melayu", "malaysia", "msa", "may", "ms"], id: ["indonesian", "indonesia", "id"],
     ko: ["korean", "kor", "ko"], zh: ["chinese", "chi", "zh", "zho"], ja: ["japanese", "jpn", "ja"],
     th: ["thai", "tha", "th"], vi: ["vietnamese", "vie", "vi"], ar: ["arabic", "ara", "ar"],
     es: ["spanish", "spa", "es"], fr: ["french", "fra", "fr"], pt: ["portuguese", "por", "pt"]

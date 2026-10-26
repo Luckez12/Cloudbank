@@ -19,7 +19,7 @@ async function main(){
  check(out.length===1,'encrypted cold path returns source');
  check(a.calls.length===3,'cold path is search/detail/episode only, no remote decrypt');
  check(a.calls.filter(c=>c.url.includes('/detail')).length===1,'uppercase/lowercase slug duplicates avoid repeated detail');
- check(out[0].subtitles.length===2&&out[0].subtitles[1].lang==='fr','subtitle tracks returned and French not classified as English');
+ check(out[0].subtitles.length===1&&out[0].subtitles[0].lang==='en','only English retained; French rejected');
  check(out[0].headers.Referer==='https://player.example/'&&out[0].headers.Authorization==='Bearer source-token'&&!out[0].headers.Host,'source headers preserved, hop header removed');
  let before=a.calls.length;await a.run();check(a.calls.length-before===2,'mapping cache skips search and refreshes signed episode payload');
  const live=fs.readFileSync(path.join(__dirname,'fixtures/onetouchtv-live-search.txt'),'utf8');
@@ -88,6 +88,15 @@ async function main(){
  check((await stale.run()).length===1&&stale.calls.some(c=>c.url.includes('themoviedb.org')),'stale shared metadata is not used');
  const idMismatch=make(url=>url.includes('/detail')?response(encrypt({...detail,id:'other'})):ordinary(url));check((await idMismatch.run()).length===0,'detail ID mismatch is rejected');
  const subtitlesAbsent=make(url=>url.includes('/episode/')?response(encrypt({sources:payload.sources})):ordinary(url));check((await subtitlesAbsent.run())[0].subtitles.length===0,'video returned even without subtitles');
+ const langs=make(url=>url.includes('/episode/')?response(encrypt({...payload,track:[
+ {label:'Malay',file:'https://sub.test/ms.vtt'},{lang:'en-US',file:'https://sub.test/en.vtt'},
+ {lang:'id',label:'Malay',file:'https://sub.test/id.vtt'},{lang:'ms-ind',file:'https://sub.test/mix.vtt'},
+ {label:'Unknown',file:'https://sub.test/und.vtt'},{label:'Malayalam',file:'https://sub.test/ml.vtt'},
+ {lang:'und',label:'English',file:'https://sub.test/en2.vtt'}]})):ordinary(url));
+ const langRows=await langs.run();check(langRows[0].subtitles.length===3,'only identified EN/MS accepted, mixed Indonesian rejected');
+ check(langRows[0].subtitles.every(s=>['en','ms'].includes(s.language)),'canonical EN/MS language fields');
+ check(langs.calls.length===3,'language filtering adds no requests');
+ check(langs.logs.some(l=>l.includes('decodeMs')&&l.includes('parseMs')),'decode and parse durations recorded');
  const sourceSubs=make(url=>url.includes('/episode/')?response(encrypt({sources:[{...payload.sources[0],subtitles:[{label:'Malay',url:'https://subs.example/ms.srt'}]}],track:payload.track})):ordinary(url));
  check((await sourceSubs.run())[0].subtitles.some(s=>s.lang==='ms'),'source-level caption tracks merged with shared tracks');
  const dedupe=make(url=>url.includes('/episode/')?response(encrypt({sources:[payload.sources[0],payload.sources[0],{...payload.sources[0],headers:{Referer:'https://different.example/'}},{url:'javascript:alert(1)'},{url:'https://cdn.example/watch.html'}],track:[payload.track[0],payload.track[0]]})):ordinary(url));
