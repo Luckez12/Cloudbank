@@ -79,8 +79,7 @@ async function tests() {
   const runningContext = {tmdbId:'33238',mediaType:'tv',title:'Running Man',year:'2010'};
   function continuousHandler(options = {}) {
     return url => {
-      if (url.includes('/Search?')) return response([{id:100,title:'Running Man'}]);
-      if (url.includes('themoviedb.org/3/tv/33238?')) return response({id:options.tmdbId || 33238,seasons: options.seasons || [{season_number:1,episode_count:828}]});
+      if (url.includes('/Search?')) return response(options.rows || [{id:100,title:'Running Man',episodesCount:825}]);
       if (url.includes('/Drama/100?')) return response(drama(options.title || 'Running Man',100,'2021',
         (options.detailNumbers || [820,821]).map(n => ({id:200000+n,number:n}))));
       if (url.includes('/Episode/200821.')) return response({Video:'https://cdn.example/running-e821.m3u8'});
@@ -91,16 +90,18 @@ async function tests() {
   const running = make(continuousHandler(),runningContext);
   result = await running.run('33238','tv',17,821);
   check(result.length === 1 && result[0].url.includes('running-e821'), 'continuous season uses exact E821 from unlabelled catalogue');
-  check(running.calls.length === 5, 'only continuous fallback adds one season metadata request');
+  check(running.calls.length === 4 && !running.calls.some(c => c.url.includes('themoviedb')), 'reduced app metadata needs no numbering metadata request');
+  check(running.logs.some(l => l.includes('seasonVerified') && l.includes('false')), 'catalogue route does not claim verified requested season');
   const runningBefore = running.calls.length;
   await running.run('33238','tv',17,821);
   check(running.calls.length - runningBefore === 2, 'verified continuous mapping reused without season/search/detail requests');
   for (const [options,label] of [
-    [{seasons:[{season_number:1,episode_count:828},{season_number:2,episode_count:10}]},'multiple canonical seasons'],
-    [{seasons:[{season_number:1,episode_count:820}]},'requested episode beyond TMDB catalogue'],
-    [{tmdbId:999},'wrong TMDB identity'],
+    [{rows:[{id:100,title:'Running Man'},{id:101,title:'Running Man Season 2'}]},'explicit season sibling'],
+    [{rows:[{id:100,title:'Running Man'},{id:101,title:'Running Man'}]},'ambiguous catalogue titles'],
+    [{rows:[{id:101,title:'Running Man Season 1'}]},'explicit wrong season'],
     [{title:'Running Man Thailand'},'wrong catalogue title'],
-    [{detailNumbers:[820]},'requested episode absent from KissKH']
+    [{detailNumbers:[820]},'requested episode absent from KissKH'],
+    [{detailNumbers:[821,821]},'duplicate catalogue episode']
   ]) {
     const rejected = make(continuousHandler(options),runningContext);
     check((await rejected.run('33238','tv',17,821)).length === 0,label+' cannot produce a source');

@@ -2,11 +2,11 @@
 /* VUEO_TITLE_PROFILE_V1 — exact aliases, year and explicit season; no first-result fallback. */
 /* VUEO_FAST_DISCOVERY_V1 — one primary API query, bounded alias/host fallback. */
 var PROVIDER_NAME = "KissKH";
-var VERSION = "1.4.4";
+var VERSION = "1.4.5";
 var TMDB_API_KEY = "1c29a5198ee1854bd5eb45dbe8d17d92";
 var HOSTS = ["https://kisskh.id", "https://kisskh.do"];
 var USER_AGENT = "Mozilla/5.0 (Linux; Android 15) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0 Mobile Safari/537.36";
-var CACHE_SLOT = "__CLOUDBANK_KISSKH_MATCH_V2__";
+var CACHE_SLOT = "__CLOUDBANK_KISSKH_MATCH_V3__";
 var localCache = { matches: {}, details: {}, host: "", hostAt: 0 };
 var MATCH_TTL = 30 * 24 * 60 * 60 * 1000;
 var MAX_MATCHES = 500;
@@ -102,7 +102,7 @@ function metadata(run, id, type) {
 }
 function acceptsTitle(title, info, type, season) {
   var parsed = titleParts(title);
-  if (type === "tv" && parsed.season !== season && !(info.continuousSeason && !parsed.explicit)) return false;
+  if (type === "tv" && parsed.season !== season && !(info.catalogueNumbering && !parsed.explicit)) return false;
   return info.aliases.some(function(alias) {
     return norm(type === "tv" ? titleParts(alias).title : alias) === norm(type === "tv" ? parsed.title : String(title).replace(/\s*[([](?:19|20)\d{2}[)\]]\s*$/, ""));
   });
@@ -125,31 +125,13 @@ function compactDetail(detail, candidate, base, info, type, season) {
     return e && /^\d+$/.test(String(e.id)) && Number.isFinite(Number(e.number));
   }).map(function(e) { return { id: String(e.id), number: Number(e.number) }; });
   if (!episodes.length) throw new Error("No valid episodes");
-  if (info.continuousSeason && !episodes.some(function(e) { return e.number === info.requestEpisode; })) throw new Error("Exact continuous episode missing");
+  if (info.catalogueNumbering && episodes.filter(function(e) { return e.number === info.requestEpisode; }).length !== 1) throw new Error("Exact catalogue episode missing");
   return { id: String(candidate.id), title: String(detail.title || candidate.title), base: base,
-    continuousSeason: !!info.continuousSeason, year: actualYear, episodes: episodes, completed: /^(completed|complete|finished)$/i.test(String(detail.status || "")) };
+    catalogueNumbering: !!info.catalogueNumbering, year: actualYear, episodes: episodes, completed: /^(completed|complete|finished)$/i.test(String(detail.status || "")) };
 }
 function detailRequest(run, base, candidate, info, type, season) {
   return request(run, base + "/api/DramaList/Drama/" + encodeURIComponent(candidate.id) + "?isq=false", base, "detail", 4000, false)
     .then(function(detail) { return compactDetail(detail, candidate, base, info, type, season); });
-}
-// A caller may group a continuous series by year while TMDB and KissKH
-// publish one canonical season. Confirm that catalogue before ignoring the
-// caller's season label; retain the exact requested episode number.
-function continuousSeason(run, info, season) {
-  if (info.continuousCheck) return info.continuousCheck;
-  var url = "https://api.themoviedb.org/3/tv/" + encodeURIComponent(info.tmdbId) + "?api_key=" + TMDB_API_KEY;
-  var root = info.raw && Array.isArray(info.raw.seasons) ? Promise.resolve(info.raw) :
-    request(run, url, "https://api.themoviedb.org", "catalogue-numbering", 2200, false);
-  info.continuousCheck = root.then(function(data) {
-    var seasons = data && Array.isArray(data.seasons) ? data.seasons.filter(function(s) { return Number(s.season_number) > 0; }) : [];
-    var valid = data && String(data.id) === info.tmdbId && seasons.length === 1 &&
-      Number(seasons[0].season_number) === 1 && Number(seasons[0].episode_count) >= info.requestEpisode;
-    info.continuousSeason = !!valid;
-    trace("NUMBERING", { singleCatalogue: !!valid, requestedSeason: season, episode: info.requestEpisode });
-    return !!valid;
-  }).catch(function(error) { trace("NUMBERING", { singleCatalogue: false, reason: error.message }); return false; });
-  return info.continuousCheck;
 }
 function selectCandidate(run, base, rows, info, type, season) {
   if (!Array.isArray(rows)) throw new Error("Invalid search schema");
@@ -162,17 +144,23 @@ function selectCandidate(run, base, rows, info, type, season) {
     candidates = candidates.filter(function(c) { return titleParts(c.title).explicit; });
   }
   trace("CANDIDATES", { exact: candidates.length, results: rows.length, season: type === "tv" ? season : null });
-  if (!candidates.length) {
-    var unlabelled = type === "tv" && season > 1 && info.requestEpisode > 1 && info.year && rows.some(function(row) {
-      return row && /^\d+$/.test(String(row.id)) && !titleParts(row.title).explicit &&
-        acceptsTitle(row.title, info, type, 1) && (!yearOf(row) || yearOf(row) === info.year);
+  if (!candidates.length && type === "tv" && season > 1 && info.requestEpisode > 1 && !info.catalogueNumbering) {
+    // Missing season text is unknown, not proof of season 1. Use the site's
+    // numbered catalogue only when one exact unlabelled title is unambiguous.
+    // An explicitly season-labelled sibling means this show is split by season.
+    var sameTitle = rows.filter(function(row) {
+      return row && /^\d+$/.test(String(row.id)) && acceptsTitle(row.title, info, type, titleParts(row.title).season);
     });
-    if (unlabelled && !info.continuousCheck) return continuousSeason(run, info, season).then(function(valid) {
-      return valid ? selectCandidate(run, base, rows, info, type, season) : null;
-    });
-    return Promise.resolve(null);
+    var unlabelled = sameTitle.filter(function(row) { return !titleParts(row.title).explicit; });
+    if (unlabelled.length === 1 && sameTitle.length === 1) {
+      info.catalogueNumbering = true;
+      candidates = unlabelled;
+      trace("NUMBERING", { route: "website-catalogue", requestedSeason: season, episode: info.requestEpisode,
+        seasonVerified: false, additionalRequests: 0 });
+    }
   }
-  if (info.continuousSeason && candidates.length !== 1) return Promise.resolve(null);
+  if (!candidates.length) return Promise.resolve(null);
+  if (info.catalogueNumbering && candidates.length !== 1) return Promise.resolve(null);
   // A known year can disambiguate a remake. Unknown duplicate years must be verified in detail.
   var preferred = candidates.filter(function(c) { return info.year && yearOf(c) === info.year; });
   if (preferred.length === 1) candidates = preferred;
@@ -229,14 +217,14 @@ function findDrama(run, id, info, type, season, episode) {
   var store = cacheStore(), key = type + "/" + id + "/" + season;
   function remember(detail) {
     if (!detail) throw new Error("No verified title/season match");
-    cacheWrite(store.matches, key, { id: detail.id, title: detail.title, base: detail.base, year: info.year, continuousSeason: !!detail.continuousSeason }, MAX_MATCHES);
+    cacheWrite(store.matches, key, { id: detail.id, title: detail.title, base: detail.base, year: info.year, catalogueNumbering: !!detail.catalogueNumbering }, MAX_MATCHES);
     if (detail.episodes.length <= 1000) cacheWrite(store.details, key, { value: detail }, 32);
     return detail;
   }
   var match = cacheRead(store.matches, key, MATCH_TTL);
-  if (match && match.continuousSeason) info.continuousSeason = true;
+  if (match && match.catalogueNumbering) info.catalogueNumbering = true;
   if (match && (match.year !== info.year || HOSTS.indexOf(match.base) < 0 || !acceptsTitle(match.title, info, type, season))) {
-    delete store.matches[key]; delete store.details[key]; match = null; info.continuousSeason = false;
+    delete store.matches[key]; delete store.details[key]; match = null; info.catalogueNumbering = false;
   }
   if (!match) {
     trace("CACHE", { hit: false });
@@ -397,7 +385,7 @@ function getStreams(id, mediaType, season, episode) {
   trace("START", { version: VERSION, tmdb: String(id), type: type, season: season, episode: episode });
   return metadata(run, String(id), type).then(function(info) {
     if (!info.title || !info.aliases.length) throw new Error("Missing title metadata");
-    info.tmdbId = String(id); info.requestEpisode = episode;
+    info.requestEpisode = episode;
     return findDrama(run, String(id), info, type, season, episode).then(function(detail) {
       var selected;
       if (type === "movie") {
