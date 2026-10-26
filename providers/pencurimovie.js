@@ -2194,7 +2194,7 @@ var cloudbankTestPluginProvider = (function() {
   (function(module, exports, fetch) {
 /* CLOUDBANK_TEST_PLUGIN_SOURCE_START */
 const PROVIDER = "PencuriMovie";
-const VERSION = "1.8.7";
+const VERSION = "1.8.8";
 const BASE = "https://ww44.pencurimovie.baby";
 const TMDB_BASE = "https://api.themoviedb.org/3";
 const TMDB_API_KEY = "1865f43a0549ca50d341dd9ab8b29f49";
@@ -2205,19 +2205,33 @@ function getCheerio() {
   return require("cheerio-without-node-native");
 }
 
+var pageRequests = Object.create(null);
 function fetchResponse(url, options) {
-  return fetch(url, options || {}).then(function (res) {
-    if (!res || !res.ok) {
-      throw new Error("HTTP " + (res ? res.status : "unknown") + " " + url);
+  options = options || {};
+  var method = String(options.method || "GET").toUpperCase();
+  var key = method === "GET" ? String(url) + "|" + JSON.stringify(options.headers || {}) : "";
+  if (key && pageRequests[key]) return pageRequests[key];
+  var promise = new Promise(function (resolve, reject) {
+    var done = false;
+    var controller = typeof AbortController === "function" ? new AbortController() : null;
+    var opts = Object.assign({}, options);
+    if (controller) opts.signal = controller.signal;
+    function finish(error, value) {
+      if (done) return;
+      done = true; clearTimeout(timer);
+      if (error) reject(error); else resolve(value);
     }
-    return res.text().then(function (text) {
-      return {
-        text: text,
-        url: res.url || url,
-        status: res.status
-      };
-    });
+    var timer = setTimeout(function () {
+      finish(new Error("Page request timeout"));
+      if (controller) controller.abort();
+    }, 3500);
+    Promise.resolve().then(function () { return fetch(url, opts); }).then(function (res) {
+      if (!res || !res.ok) throw new Error("HTTP " + (res ? res.status : "unknown") + " " + url);
+      return res.text().then(function (text) { return {text: text, url: res.url || url, status: res.status}; });
+    }).then(function (value) { finish(null, value); }, function (error) { finish(error); });
   });
+  if (key) pageRequests[key] = promise;
+  return promise;
 }
 
 function fetchText(url, options) {
@@ -2830,7 +2844,7 @@ function randomToken(length) {
 }
 
 function resolveDood(url, referer) {
-  if (!/(?:dood|dsvplay|ds2play|vide0\.net|myvidplay)/i.test(url)) return Promise.resolve([]);
+  if (!/(?:dood|dsvplay|ds2play|vide0\.net|myvidplay|playmogo\.com)/i.test(url)) return Promise.resolve([]);
   var embedUrl = String(url).replace("/d/", "/e/");
 
   return fetchResponse(embedUrl, {
@@ -3269,38 +3283,24 @@ function resolveMirrors(mirrors, pageUrl) {
     return hostOf(x.url) + "[" + String(x.label || "") + "]";
   }).join(" | "));
 
-  // Collect available server choices without waiting indefinitely for slow mirrors.
-  // No playlist, byte-range, segment or seek probes.
-  return new Promise(function (resolve) {
-    var groups = [], pending = selected.length, finished = false, grace = null;
-    var deadline = setTimeout(finish, 8000);
-    function finish() {
-      if (finished) return;
-      finished = true; clearTimeout(deadline); if (grace) clearTimeout(grace);
-      var flat = [];
-      groups.sort(function (a, b) { return a.ordinal - b.ordinal; }).forEach(function (group) { flat = flat.concat(group.streams); });
-      resolve(flat);
-    }
-    if (!pending) { finish(); return; }
-    selected.forEach(function (mirror) {
-      var ordinal = (mirrors || []).indexOf(mirror) + 1;
+  // Each mirror owns its budget; the first source cannot cancel a later server.
+  return Promise.all(selected.map(function (mirror) {
+    return new Promise(function (resolve) {
+      var done = false;
+      var timer = setTimeout(function () { finish([]); }, 6500);
+      function finish(streams) { if (done) return; done = true; clearTimeout(timer); resolve(streams); }
       Promise.resolve().then(function () { return resolveMirror(mirror, pageUrl, 0); })
-        .then(function (streams) { return selectServerStream(streams, mirror, ordinal); })
-        .catch(function () { return []; })
-        .then(function (streams) {
-          if (finished) return;
-          if (streams.length) {
-            groups.push({ ordinal: ordinal, streams: streams });
-            if (!grace) grace = setTimeout(finish, 400);
-          }
-          pending--;
-          if (!pending) finish();
-        });
+        .then(function (streams) { return selectServerStream(streams, mirror, (mirrors || []).indexOf(mirror) + 1); })
+        .then(finish, function () { finish([]); });
     });
+  })).then(function (groups) {
+    var flat = []; groups.forEach(function (group) { flat = flat.concat(group); });
+    return flat;
   });
 }
 
 function getStreams(tmdbId, mediaType, season, episode) {
+  pageRequests = Object.create(null);
   mediaType = mediaType === "tv" ? "tv" : "movie";
   season = Number(season || 1);
   episode = Number(episode || 1);

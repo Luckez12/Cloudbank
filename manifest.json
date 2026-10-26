@@ -1,6 +1,6 @@
 {
   "name": "Cloudbank",
-  "version": "1.20.140",
+  "version": "1.20.141",
   "scrapers": [
     {
       "id": "kisskh",
@@ -156,7 +156,7 @@
       "id": "pencurimovie",
       "name": "PencuriMovie",
       "description": "Malaysia and Indonesia movie and TV streams with multi-server playback",
-      "version": "1.8.7",
+      "version": "1.8.8",
       "author": "Luckez",
       "supportedTypes": [
         "movie",
@@ -177,7 +177,7 @@
       ],
       "disabledPlatforms": [],
       "supportsExternalPlayer": true,
-      "notes": "Website stream extraction without media probes in primary engine. One extracted HLS per mirror (page order), otherwise direct source; original headers/server labels retained. Parallel mirrors collected up to 400ms after first result, earlier if all finish, 8s mirror budget. Single exact title ignores year; multiple search matches require unique matching year. Legacy rescan fallback disabled; no second discovery pass. No VUEO changes. Extracted URLs are not playback verified.",
+      "notes": "No media probes or legacy rescan. Parallel mirrors have independent 6.5s limits, no 400ms first-result cutoff. GET page promises reused by URL and headers within scan only; request timeout 3.5s, abort when available. Playmogo recognized as Dood family. Existing HGCloud fallback retained because live loader script returned 403; no unverified new API. Live samples: Playmogo challenge, Streamtape unavailable, VOE 404. Server labels/headers preserved; no VUEO/subtitle changes. Extraction and playback remain device dependent.",
       "runtimeTimeoutMs": 20000
     },
     {

@@ -3,7 +3,7 @@ const source=fs.readFileSync(require('path').join(__dirname,'../providers/pencur
 const inner=source.split('/* CLOUDBANK_TEST_PLUGIN_SOURCE_START */')[1].split('/* CLOUDBANK_TEST_PLUGIN_SOURCE_END */')[0];
 let checks=0;const check=(v,l)=>{assert.ok(v,l);checks++;};
 const box={module:{exports:{}},require,URL,setTimeout,clearTimeout,Promise,console:{log:()=>{}},fetch:()=>{throw Error('Unexpected media request');}};
-vm.createContext(box);vm.runInContext(inner+'\nmodule.exports={selectServerStream,formatStreams,resolveMirrors,validatePage,findBestTitle};',box);
+vm.createContext(box);vm.runInContext(inner+'\nmodule.exports={selectServerStream,formatStreams,resolveMirrors,validatePage,findBestTitle,fetchResponse,resolveDood};',box);
 const api=box.module.exports;
 (async()=>{
 const mirror={url:'https://hgcloud.to/e/id',label:'Server 3'};
@@ -24,11 +24,23 @@ box.items.push({title:'Example',rawTitle:'Example (2010)',year:'2010',mediaType:
 check((await api.findBestTitle({title:'Example',year:'2010'},'movie')).url.endsWith('/two'),'multiple titles use matching year');
 box.items[0].year='2010';check(await api.findBestTitle({title:'Example',year:'2010'},'movie')===null,'remaining year ambiguity rejected');
 vm.runInContext(`resolveMirror=function(m){if(m.label==='Slow') return new Promise(function(){});return Promise.resolve([{url:'https://cdn.test/'+m.label+'.m3u8',label:'HGCloud'}]);};`,box);
+box.setTimeout=(fn,ms)=>setTimeout(fn,ms===6500?800:ms);
+vm.runInContext(`resolveMirror=function(m){if(m.label==='Slow')return new Promise(function(){});return new Promise(function(resolve){setTimeout(function(){resolve([{url:'https://cdn.test/'+m.label+'.m3u8',label:'HGCloud'}]);},m.label==='Server 2'?500:0);});};`,box);
 const start=Date.now();result=await api.resolveMirrors([{url:'https://hgcloud.to/e/a',label:'Server 1'},{url:'https://hgcloud.to/e/b',label:'Server 2'},{url:'https://other.test/e/c',label:'Slow'}],'https://site.test/title');
 check(result.length===2,'both completed server choices returned');
-check(Date.now()-start<1000,'hung mirror does not hold completed sources');
+check(Date.now()-start<1200,'individual timeout bounds hung mirror without cutting source after 500ms');
 vm.runInContext('resolveMirror=function(){return Promise.resolve([]);};',box);
 check((await api.resolveMirrors([mirror],'https://site.test')).length===0,'all failed mirrors finish without collection wait');
+check(!inner.includes('setTimeout(finish, 400)'), 'first-result cutoff removed');
+let calls=0;box.fetch=async url=>{calls++;return{ok:true,status:200,url,text:async()=>'<html>unchanged</html>'};};
+await Promise.all([api.fetchResponse('https://test.page/e/id'),api.fetchResponse('https://test.page/e/id')]);
+check(calls===1,'parallel requests reuse one page fetch');
+await api.fetchResponse('https://test.page/e/id');check(calls===1,'generic parser reuses existing page');
+box.fetch=async url=>({ok:true,status:200,url,text:async()=>url.includes('/pass_md5/')?'https://cdn.test/direct/':`<script>fetch('/pass_md5/session/token')</script>`});
+const dood=await api.resolveDood('https://playmogo.com/e/id','https://site.test/');
+check(dood.length===1&&dood[0].url.startsWith('https://cdn.test/direct/'),'Playmogo uses existing Dood parser');
+box.fetch=async url=>({ok:true,status:200,url,text:async()=>'<html>turnstile-container</html>'});
+check((await api.resolveDood('https://playmogo.com/e/challenge','https://site.test/')).length===0,'challenge page cannot fabricate stream');
 check(!inner.includes('checkMedia(')&&!inner.includes('firstChecked('),'primary media probe implementation removed');
 check(!source.includes('RESOLVER_FALLBACK'),'old fallback does not repeat discovery after no sources');
 console.log('PencuriMovie regression checks passed:',checks);
