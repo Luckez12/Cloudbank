@@ -2194,7 +2194,7 @@ var cloudbankTestPluginProvider = (function() {
   (function(module, exports, fetch) {
 /* CLOUDBANK_TEST_PLUGIN_SOURCE_START */
 const PROVIDER = "PencuriMovie";
-const VERSION = "1.0.8";
+const VERSION = "1.8.7";
 const BASE = "https://ww44.pencurimovie.baby";
 const TMDB_BASE = "https://api.themoviedb.org/3";
 const TMDB_API_KEY = "1865f43a0549ca50d341dd9ab8b29f49";
@@ -2373,9 +2373,6 @@ function validatePage(html, details, mediaType) {
 
   var targetYear = Number(details.year || 0);
   var itemYear = Number(identity.year || 0);
-  if (mediaType === "movie" && targetYear && itemYear && Math.abs(targetYear - itemYear) > 1) {
-    return null;
-  }
 
   return identity;
 }
@@ -2465,9 +2462,6 @@ function scoreCandidate(item, details, mediaType) {
 
   var targetYear = Number(details.year || 0);
   var itemYear = Number(item.year || 0);
-  if (mediaType === "movie" && targetYear && itemYear && Math.abs(targetYear - itemYear) > 1) {
-    return null;
-  }
 
   var score = 100;
   if (title === normalizeTitle(details.title)) score += 40;
@@ -2511,7 +2505,11 @@ function findBestTitle(details, mediaType) {
         return b.score - a.score;
       });
 
-      if (ranked.length) {
+      if (ranked.length > 1) {
+        var sameYear = ranked.filter(function (entry) { return details.year && String(entry.item.year) === String(details.year); });
+        ranked = sameYear;
+      }
+      if (ranked.length === 1) {
         console.log("[PencuriMovie] matched title='" + ranked[0].item.rawTitle + "' url=" + ranked[0].item.url);
         return ranked[0].item;
       }
@@ -3208,7 +3206,7 @@ function formatStreams(streams) {
     if (!url || seen[key]) return;
     seen[key] = true;
 
-    var quality = stream.hlsVerified ? "Auto" : qualityFromUrl(url);
+    var quality = isHlsStream(stream) ? "Auto" : qualityFromUrl(url);
     var label = String(stream.label || "Server").trim();
     var headers = checkHeaders(stream);
 
@@ -3218,45 +3216,11 @@ function formatStreams(streams) {
       url: url,
       quality: quality,
       headers: headers,
-      mimeType: stream.hlsVerified ? "application/x-mpegURL" : (stream.mimeType || undefined)
+      mimeType: isHlsStream(stream) ? "application/x-mpegURL" : (stream.mimeType || undefined)
     });
   });
 
   return out;
-}
-
-// The same short validation budget applies to every host/candidate.
-const MEDIA_CHECK_MS = 2000;
-function checkedRequest(url, options, read) {
-  var controller = typeof AbortController === "function" ? new AbortController() : null;
-  var opts = Object.assign({}, options || {});
-  if (controller) opts.signal = controller.signal;
-  var cancel;
-  var request = new Promise(function (resolve) {
-    var settled = false;
-    var timer;
-    cancel = function () {
-      if (settled) return;
-      settled = true; clearTimeout(timer);
-      if (controller) controller.abort();
-      resolve(null);
-    };
-    timer = setTimeout(function () {
-      if (settled) return;
-      settled = true;
-      if (controller) controller.abort();
-      resolve(null);
-    }, MEDIA_CHECK_MS);
-    Promise.resolve().then(function () { return fetch(url, opts); }).then(read).then(function (result) {
-      if (settled) return;
-      settled = true; clearTimeout(timer); resolve(result);
-    }, function () {
-      if (settled) return;
-      settled = true; clearTimeout(timer); resolve(null);
-    });
-  });
-  request.cancel = function () { cancel(); };
-  return request;
 }
 
 function checkHeaders(stream) {
@@ -3272,57 +3236,6 @@ function isHlsStream(stream) {
   return /\.m3u8(?:[?#]|$)|\/engine\/hls\d*\//i.test(stream.url) || String(stream.label || "").toUpperCase() === "VOE";
 }
 
-function checkMedia(stream, hls) {
-  var headers = checkHeaders(stream);
-  if (!hls) headers.Range = "bytes=0-0";
-  return checkedRequest(stream.url, { headers: headers }, function (res) {
-    if (!res || (res.status !== 200 && res.status !== 206)) return null;
-    if (hls) return res.text().then(function (body) {
-      var text = String(body || "").replace(/^\uFEFF/, "").trim();
-      if (!/^#EXTM3U(?:\r?\n|$)/.test(text)) return null;
-      var media = /^#EXTINF:/m.test(text) && /^(?!#)\S+/m.test(text);
-      var lines = text.split(/\r?\n/).map(function (line) { return line.trim(); });
-      var master = lines.some(function (line, index) {
-        if (!/^#EXT-X-STREAM-INF:/.test(line)) return false;
-        var next = index + 1;
-        while (next < lines.length && (!lines[next] || lines[next][0] === "#")) next++;
-        return next < lines.length && !/^(?!https?:)[a-z][a-z0-9+.-]*:/i.test(lines[next]) && /^https?:\/\//i.test(absoluteUrl(res.url || stream.url, lines[next]));
-      });
-      if (!media && !master) return null;
-      // Keep Auto master playback, as Cloudstream generateM3u8(returnThis=true) does.
-      // Use the actual HTTP response URL when VOE redirects a signed playlist.
-      var verifiedUrl = stream.voe && /^https?:\/\//i.test(res.url || "") ? res.url : stream.url;
-      return Object.assign({}, stream, { url: verifiedUrl, hlsVerified: true });
-    });
-    var type = res.headers && res.headers.get ? String(res.headers.get("content-type") || "").toLowerCase() : "";
-    var range = res.headers && res.headers.get ? String(res.headers.get("content-range") || "") : "";
-    var total = range.match(/\/(\d+)$/);
-    if (res.body && typeof res.body.cancel === "function") Promise.resolve(res.body.cancel()).catch(function () {});
-    if (!/^video\//.test(type) && !(/^application\/octet-stream/.test(type) && total && Number(total[1]) >= 65536)) return null;
-    return stream;
-  });
-}
-
-function firstChecked(candidates, hls) {
-  // First valid response wins within this website choice only. Empty/error cannot win.
-  return new Promise(function (resolve) {
-    if (!candidates.length) { resolve(null); return; }
-    var pending = candidates.length;
-    var won = false;
-    var probes = candidates.map(function (stream) { return checkMedia(stream, hls); });
-    probes.forEach(function (probe) {
-      probe.then(function (checked) {
-        if (checked && !won) {
-          won = true; resolve(checked);
-          probes.forEach(function (other) { if (other !== probe && other.cancel) other.cancel(); });
-        }
-        pending--;
-        if (!pending && !won) resolve(null);
-      }).catch(function () { pending--; if (!pending && !won) resolve(null); });
-    });
-  });
-}
-
 function selectServerStream(streams, mirror, ordinal) {
   var seen = Object.create(null);
   var unique = (streams || []).filter(function (stream) {
@@ -3331,9 +3244,7 @@ function selectServerStream(streams, mirror, ordinal) {
   });
   var hls = unique.filter(isHlsStream);
   var direct = unique.filter(function (stream) { return !isHlsStream(stream); });
-  return firstChecked(hls, true).then(function (winner) {
-    return winner || firstChecked(direct, false);
-  }).then(function (winner) {
+  return Promise.resolve(hls[0] || direct[0] || null).then(function (winner) {
     if (!winner) return [];
     var extractor = String(winner.label || "Server").replace(/\s+MP4$/i, "");
     if (/^(Direct|Nested|Server|Script)$/i.test(extractor)) extractor = hostOf(mirror.url) || "Server";
@@ -3358,14 +3269,34 @@ function resolveMirrors(mirrors, pageUrl) {
     return hostOf(x.url) + "[" + String(x.label || "") + "]";
   }).join(" | "));
 
-  return Promise.all(selected.map(function (mirror) {
-    return resolveMirror(mirror, pageUrl, 0).then(function (streams) {
-      return selectServerStream(streams, mirror, (mirrors || []).indexOf(mirror) + 1);
-    }).catch(function () { return []; });
-  })).then(function (groups) {
-    var flat = [];
-    groups.forEach(function (group) { flat = flat.concat(group || []); });
-    return flat;
+  // Collect available server choices without waiting indefinitely for slow mirrors.
+  // No playlist, byte-range, segment or seek probes.
+  return new Promise(function (resolve) {
+    var groups = [], pending = selected.length, finished = false, grace = null;
+    var deadline = setTimeout(finish, 8000);
+    function finish() {
+      if (finished) return;
+      finished = true; clearTimeout(deadline); if (grace) clearTimeout(grace);
+      var flat = [];
+      groups.sort(function (a, b) { return a.ordinal - b.ordinal; }).forEach(function (group) { flat = flat.concat(group.streams); });
+      resolve(flat);
+    }
+    if (!pending) { finish(); return; }
+    selected.forEach(function (mirror) {
+      var ordinal = (mirrors || []).indexOf(mirror) + 1;
+      Promise.resolve().then(function () { return resolveMirror(mirror, pageUrl, 0); })
+        .then(function (streams) { return selectServerStream(streams, mirror, ordinal); })
+        .catch(function () { return []; })
+        .then(function (streams) {
+          if (finished) return;
+          if (streams.length) {
+            groups.push({ ordinal: ordinal, streams: streams });
+            if (!grace) grace = setTimeout(finish, 400);
+          }
+          pending--;
+          if (!pending) finish();
+        });
+    });
   });
 }
 
@@ -3395,7 +3326,7 @@ function getStreams(tmdbId, mediaType, season, episode) {
     })
     .then(function (resolved) {
       var streams = formatStreams(resolved || []);
-      console.log("[PencuriMovie] v" + VERSION + " checked sources=" + streams.length);
+      console.log("[PencuriMovie] v" + VERSION + " extracted sources=" + streams.length);
       return streams;
     })
     .catch(function (error) {
@@ -3433,11 +3364,7 @@ module.exports = Object.assign({}, cloudbankLegacyProvider, {
     if (!String(id || "").trim() || (type !== "movie" && type !== "tv")) return Promise.resolve([]);
     if (type === "tv" && (!Number.isInteger(Number(season)) || Number(season) < 0 || !Number.isInteger(Number(episode)) || Number(episode) < 1)) return Promise.resolve([]);
     var args = [String(id), type, season, episode];
-    return cloudbankTestPluginAttempt(cloudbankTestPluginProvider, args, 11000).then(function(streams) {
-      if (streams.length) return streams;
-      try { if (typeof globalThis.vueoTrace === "function") globalThis.vueoTrace("RESOLVER_FALLBACK", { source: "Cloudbank existing engine" }); } catch (_) {}
-      return cloudbankTestPluginAttempt(cloudbankLegacyProvider, args, 7500);
-    });
+    return cloudbankTestPluginAttempt(cloudbankTestPluginProvider, args, 11000);
   }
 });
 /* CLOUDBANK_TEST_PLUGIN_ADAPTATION_END */
