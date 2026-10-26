@@ -1,11 +1,2 @@
-const fs=require('fs'),vm=require('vm'),assert=require('assert/strict');let code=fs.readFileSync('providers/hdhub4u.js','utf8');
-code=code.replace('module.exports = { getStreams: getStreams };\n\n/* CLOUDBANK_TEST_PLUGIN_SOURCE_END */',`module.exports={getStreams:getStreams,landing:resolveDownloadLanding,hub:resolveHubCloud,transport:fetch,verify:verifyDirect,stub:function(text,verify){fetchText=text;verifyDirect=verify;}};
-
-/* CLOUDBANK_TEST_PLUGIN_SOURCE_END */`);
-const c={module:{exports:{}},require,URL,URLSearchParams,AbortController,setTimeout,clearTimeout,console:{log(){},error(){throw Error('legacy error log executed');}},fetch:async()=>new Promise(()=>{})};vm.createContext(c);vm.runInContext(code,c);
-(async()=>{
-let p=c.createHdHubEngine(),calls=[],checked=[];p.stub(async u=>{calls.push(u);if(u.includes('hubcloud.ist/drive'))return{text:`<script>var url = 'https://gamerxyt.com/hubcloud.php?id=good'</script>`,url:u};if(u.includes('gamerxyt'))return{text:'<a href="https://hubcloud.ist/tg/go?id=bad">Download Telegram</a><a href="https://gpdl.hubcloud.ist/file/good">Download File</a><a href="https://tinyurl.com/tutorial">How to Download</a><a href="https://ads.example/">Watch Online</a>',url:u};if(u.includes('gpdl'))return{text:`<script>const link=params.get('link');document.getElementById('downloadBtn').href=link;</script>`,url:'https://cryptonewz.online/?link='+encodeURIComponent('https://video-downloads.googleusercontent.com/valid.mkv')};throw Error('Unexpected '+u);},async u=>{checked.push(u);return{url:u,seekable:true,weakSeek:false};});
-const r=await p.hub('https://hubcloud.ist/drive/good','https://site.example/');assert.equal(r.url,'https://video-downloads.googleusercontent.com/valid.mkv');assert.deepEqual(checked,['https://video-downloads.googleusercontent.com/valid.mkv']);assert(!calls.some(u=>/tg\/go|tinyurl|ads.example/.test(u)));p.stop();
-p=c.createHdHubEngine();let pending=p.transport('https://test.example/stall').then(()=>false,()=>true);p.stop();assert.equal(await pending,true);assert.equal(await p.transport('https://test.example/late').then(()=>false,()=>true),true);
-assert(!/cloudbankTestPluginAttempt\(cloudbankLegacyProvider/.test(code));assert(code.includes('reason=device-seek-reset')); console.log('PASS real gpdl query-link flow, final URL verification, Telegram/ad/tutorial exclusion, request cancellation and no new requests after stop; legacy fallback disabled; R2 seek-reset exclusion restored');
-})().catch(e=>{console.error(e);process.exitCode=1});
+// Old engine removed; retain this test command as an alias to the current suite.
+require('./hdhub4u-simple.cjs');
