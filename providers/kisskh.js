@@ -2,7 +2,7 @@
 /* VUEO_TITLE_PROFILE_V1 — exact aliases, year and explicit season; no first-result fallback. */
 /* VUEO_FAST_DISCOVERY_V1 — one primary API query, bounded alias/host fallback. */
 var PROVIDER_NAME = "KissKH";
-var VERSION = "1.4.2";
+var VERSION = "1.4.3";
 var TMDB_API_KEY = "1c29a5198ee1854bd5eb45dbe8d17d92";
 var HOSTS = ["https://kisskh.id", "https://kisskh.do"];
 var USER_AGENT = "Mozilla/5.0 (Linux; Android 15) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0 Mobile Safari/537.36";
@@ -321,7 +321,7 @@ function subtitles(run, detail, selected, key) {
         var path = url.split(/[?#]/)[0], format = /\.(vtt|webvtt)$/i.test(path) ? "vtt" : /\.(ass|ssa)$/i.test(path) ? "ass" : "srt";
         var sub = { label: lang.label, language: lang.code, lang: lang.code, url: url, format: format, mimeType: format === "vtt" ? "text/vtt" : format === "ass" ? "text/x-ssa" : "application/x-subrip", headers: headers(detail.base) };
         // VUEO applies this transform when loading the sidecar, outside discovery.
-        if (format === "srt" || format === "vtt") sub.textTransform = "kisskh-aes-cbc";
+        if (format === "srt" || format === "vtt") sub.textTransform = {"algorithm":"aes-cbc","scope":"cue-lines","keys":[{"key":"QW1TbVpWY0g5M1VRVWV6aQ==","iv":"UmVCS1dXOGNxZGpQRW5GNg=="},{"key":"ODA1NjQ4MzY0NjMyODc2Mw==","iv":"Njg1MjYxMjM3MDE4NTI3Mw=="}]};
         output.push(sub);
         return worker();
       }

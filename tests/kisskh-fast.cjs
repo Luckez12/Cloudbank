@@ -127,7 +127,7 @@ async function tests() {
     return ordinary(url);
   });
   result = await encryptedSubs.run();
-  check(result[0].subtitles[0].url === 'https://sub.example/eng.txt' && result[0].subtitles[0].textTransform === 'kisskh-aes-cbc', 'encrypted TXT remains HTTP URL with playback transform');
+  check(result[0].subtitles[0].url === 'https://sub.example/eng.txt' && result[0].subtitles[0].textTransform.algorithm === 'aes-cbc', 'encrypted TXT remains HTTP URL with playback transform');
   check(!encryptedSubs.calls.some(c => c.url.includes('sub.example')), 'subtitle content not fetched during scan');
   check(result[0].subtitles[0].mimeType === 'application/x-subrip', 'TXT declares SRT MIME');
   const plainSubs = make(url => {
@@ -143,7 +143,7 @@ async function tests() {
     return ordinary(url);
   });
   result = await corrupt.run();
-  check(result.length === 1 && result[0].subtitles.length === 1 && result[0].subtitles[0].textTransform === 'kisskh-aes-cbc', 'cipher validation deferred to playback instead of scan');
+  check(result.length === 1 && result[0].subtitles.length === 1 && result[0].subtitles[0].textTransform.algorithm === 'aes-cbc', 'cipher validation deferred to playback instead of scan');
 
   const keyRetry = make(url => {
     if (url.includes('/Episode/')) return new URL(url).searchParams.get('kkey') === 'captured-video-key' ? ordinary(url) : response({}, 403);
