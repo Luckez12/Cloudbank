@@ -3,7 +3,7 @@ const source=fs.readFileSync(require('path').join(__dirname,'../providers/pencur
 const inner=source.split('/* CLOUDBANK_TEST_PLUGIN_SOURCE_START */')[1].split('/* CLOUDBANK_TEST_PLUGIN_SOURCE_END */')[0];
 let checks=0;const check=(v,l)=>{assert.ok(v,l);checks++;};
 const box={module:{exports:{}},require,URL,setTimeout,clearTimeout,Promise,console:{log:()=>{}},fetch:()=>{throw Error('Unexpected media request');}};
-vm.createContext(box);vm.runInContext(inner+'\nmodule.exports={selectServerStream,formatStreams,resolveMirrors,validatePage,findBestTitle,fetchResponse,resolveDood};',box);
+vm.createContext(box);vm.runInContext(inner+'\nmodule.exports={selectServerStream,formatStreams,resolveMirrors,validatePage,findBestTitle,fetchResponse,resolveDood,packedPlayerStreams};',box);
 const api=box.module.exports;
 (async()=>{
 const mirror={url:'https://hgcloud.to/e/id',label:'Server 3'};
@@ -32,6 +32,10 @@ check(Date.now()-start<1200,'individual timeout bounds hung mirror without cutti
 vm.runInContext('resolveMirror=function(){return Promise.resolve([]);};',box);
 check((await api.resolveMirrors([mirror],'https://site.test')).length===0,'all failed mirrors finish without collection wait');
 check(!inner.includes('setTimeout(finish, 400)'), 'first-result cutoff removed');
+const page={url:'https://hanerix.com/e/example',text:`var links={"hls2":"https://bad.test/master.m3u8","hls4":"/stream/preferred/master.m3u8","hls3":"https://fallback.test/master.txt"};player.setup({file:links.hls4||links.hls3||links.hls2});`};
+const picked=api.packedPlayerStreams(page,'HGCloud');
+check(picked.length===1&&picked[0].url==='https://hanerix.com/stream/preferred/master.m3u8','website HLS4 wins even when HLS2 appears first');
+check(picked[0].referer===page.url,'selected HLS preserves embed referer');
 let calls=0;box.fetch=async url=>{calls++;return{ok:true,status:200,url,text:async()=>'<html>unchanged</html>'};};
 await Promise.all([api.fetchResponse('https://test.page/e/id'),api.fetchResponse('https://test.page/e/id')]);
 check(calls===1,'parallel requests reuse one page fetch');

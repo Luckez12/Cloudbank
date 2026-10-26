@@ -2194,7 +2194,7 @@ var cloudbankTestPluginProvider = (function() {
   (function(module, exports, fetch) {
 /* CLOUDBANK_TEST_PLUGIN_SOURCE_START */
 const PROVIDER = "PencuriMovie";
-const VERSION = "1.8.8";
+const VERSION = "1.8.9";
 const BASE = "https://ww44.pencurimovie.baby";
 const TMDB_BASE = "https://api.themoviedb.org/3";
 const TMDB_API_KEY = "1865f43a0549ca50d341dd9ab8b29f49";
@@ -2900,6 +2900,14 @@ function isHgCloud(url) {
 
 function packedPlayerStreams(response, label) {
   var unpacked = unpackPacker(response.text);
+  // Follow the explicit website player selection, not object key order.
+  if (/links\.hls4\s*\|\|\s*links\.hls3\s*\|\|\s*links\.hls2/.test(unpacked)) {
+    var links = {}, field, fields = /["'](hls[234])["']\s*:\s*["']([^"']+)["']/g;
+    while ((field = fields.exec(unpacked))) links[field[1]] = field[2];
+    var selected = links.hls4 || links.hls3 || links.hls2;
+    var selectedUrl = selected && absoluteUrl(response.url, decodeHtmlEntities(selected).replace(/\\u0026/gi, "&").replace(/\\u003d/gi, "="));
+    if (selectedUrl && /^https?:\/\//i.test(selectedUrl)) return [{url:selectedUrl,referer:response.url,label:label,mimeType:"application/x-mpegURL"}];
+  }
   var candidates = {};
   var re = /["']?(?:hls[234]|file)["']?\s*:\s*["']([^"']+)["']/gi;
   var match;
@@ -3247,7 +3255,7 @@ function checkHeaders(stream) {
 }
 
 function isHlsStream(stream) {
-  return /\.m3u8(?:[?#]|$)|\/engine\/hls\d*\//i.test(stream.url) || String(stream.label || "").toUpperCase() === "VOE";
+  return /mpegurl/i.test(String(stream.mimeType || "")) || /\.m3u8(?:[?#]|$)|\/engine\/hls\d*\//i.test(stream.url) || String(stream.label || "").toUpperCase() === "VOE";
 }
 
 function selectServerStream(streams, mirror, ordinal) {
