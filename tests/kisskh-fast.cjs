@@ -73,8 +73,8 @@ async function tests() {
   check(result.length === 1 && result[0].url.includes('s2e1'), 'explicit season 2 uses its own year and episode ID');
   check(!s2.calls.some(c => c.url.includes('/Drama/8268?')), 'never substitutes season 1 for season 2');
   const noS2 = make(url => url.includes('/Search?') ? response([{ id: 8268, title: 'My Demon' }]) : ordinary(url));
-  check((await noS2.run('218539', 'tv', 2, 1)).length === 0, 'missing explicit season returns no source');
-  check(noS2.calls.length === 1, 'negative search does not fan out to other hosts');
+  check((await noS2.run('218539', 'tv', 2, 1)).length === 1, 'single exact title accepts requested E1 regardless of season');
+  check(noS2.calls.length === 4, 'single title path uses four requests without extra metadata');
 
   const runningContext = {tmdbId:'33238',mediaType:'tv',title:'Running Man',year:'2010'};
   function continuousHandler(options = {}) {
@@ -91,14 +91,13 @@ async function tests() {
   result = await running.run('33238','tv',17,821);
   check(result.length === 1 && result[0].url.includes('running-e821'), 'continuous season uses exact E821 from unlabelled catalogue');
   check(running.calls.length === 4 && !running.calls.some(c => c.url.includes('themoviedb')), 'reduced app metadata needs no numbering metadata request');
-  check(running.logs.some(l => l.includes('seasonVerified') && l.includes('false')), 'catalogue route does not claim verified requested season');
+  check(running.logs.some(l => l.includes('unique-title-ignore-year-season')), 'unique title policy is explicit in logs');
   const runningBefore = running.calls.length;
   await running.run('33238','tv',17,821);
   check(running.calls.length - runningBefore === 2, 'verified continuous mapping reused without season/search/detail requests');
   for (const [options,label] of [
     [{rows:[{id:100,title:'Running Man'},{id:101,title:'Running Man Season 2'}]},'explicit season sibling'],
     [{rows:[{id:100,title:'Running Man'},{id:101,title:'Running Man'}]},'ambiguous catalogue titles'],
-    [{rows:[{id:101,title:'Running Man Season 1'}]},'explicit wrong season'],
     [{title:'Running Man Thailand'},'wrong catalogue title'],
     [{detailNumbers:[820]},'requested episode absent from KissKH'],
     [{detailNumbers:[821,821]},'duplicate catalogue episode']
@@ -109,7 +108,34 @@ async function tests() {
   }
 
   const remakes = make(url => url.includes('/Drama/') ? response(drama('My Demon', 8268, '2024')) : ordinary(url));
-  check((await remakes.run()).length === 0 && !remakes.calls.some(c => c.url.includes('/Episode/')), 'unique wrong-year remake is rejected');
+  check((await remakes.run()).length === 1, 'single exact title ignores mismatching detail year');
+  const uniqueLabel = make(url => {
+    if (url.includes('/Search?')) return response([{id:8268,title:'My Demon Season 1',year:'2024'}]);
+    if (url.includes('/Drama/')) return response(drama('My Demon Season 1',8268,'2024'));
+    return ordinary(url);
+  });
+  check((await uniqueLabel.run('218539','tv',17,1)).length === 1, 'one exact base title ignores explicit season and year mismatch');
+  const duplicateRows = make(url => url.includes('/Search?') ? response([{id:8268,title:'My Demon'},{id:8268,title:'My Demon'}]) : ordinary(url));
+  check((await duplicateRows.run('218539','tv',17,1)).length === 1, 'duplicate rows with same ID count as one candidate');
+  const movieContext = {tmdbId:'532794',mediaType:'movie',title:'Example Movie',year:'2017'};
+  const uniqueMovie = make(url => {
+    if (url.includes('/Search?')) return response([{id:8268,title:'Example Movie (2025)'}]);
+    if (url.includes('/Drama/')) return response({...drama('Example Movie (2025)',8268,'2025'),type:'Movie'});
+    return ordinary(url);
+  }, movieContext);
+  check((await uniqueMovie.run('532794','movie')).length === 1, 'single movie accepted despite title and detail year mismatch');
+  function movieChoices(years) {
+    return make(url => {
+      if (url.includes('/Search?')) return response([{id:8268,title:'Example Movie'},{id:99,title:'Example Movie'}]);
+      if (url.includes('/Drama/')) {const id=url.includes('/Drama/99?')?99:8268;return response({...drama('Example Movie',id,years[id]),type:'Movie'});}
+      return ordinary(url);
+    },movieContext);
+  }
+  const movieYear = movieChoices({8268:'2025',99:'2017'});
+  check((await movieYear.run('532794','movie')).length === 1, 'multiple movie candidates resolve by detail year');
+  const movieUnknown = movieChoices({8268:'2025',99:'2024'});
+  check((await movieUnknown.run('532794','movie')).length === 0, 'multiple candidates without matching year remain unresolved');
+
   const ambiguous = make(url => {
     if (url.includes('/Search?')) return response([{ id: 8268, title: 'My Demon' }, { id: 9, title: 'My Demon' }]);
     if (url.includes('/Drama/')) return response(drama('My Demon', url.includes('/Drama/9?') ? 9 : 8268));
