@@ -1,19 +1,2 @@
-const fs=require('fs'),vm=require('vm'),assert=require('assert/strict');
-const source=fs.readFileSync('providers/4khdhub.js','utf8'),cheerio=require('cheerio-without-node-native');
-let mode='good',calls=[];const b64=s=>Buffer.from(s).toString('base64'),rot=s=>s.replace(/[a-z]/ig,c=>String.fromCharCode((c.charCodeAt(0)-(c<='Z'?65:97)+13)%26+(c<='Z'?65:97)));
-const payload=b64(b64(rot(b64(JSON.stringify({o:b64('https://hubcloud.ist/drive/test')})))));
-const search='<div class="movie-card"><a href="/vikings-series-1133/"><span class="movie-card-title">Vikings</span><span class="movie-card-format">Series</span>2013</a></div>';
-const item=(s,e)=>`<div class="season-item"><div class="episode-number">Season ${s}</div><div class="episode-download-item"><div class="episode-file-info">Episode-${e}</div>Vikings S0${s}E0${e} English 1080p 1 GB<a href="https://greenmotors.club/?id=${s}-${e}">HubCloud</a></div></div>`;
-const detail='<div class="episodes-list">'+item(1,1)+item(1,2)+item(2,1)+'</div>';
-const c={module:{exports:{}},require:n=>{assert.equal(n,'cheerio-without-node-native');return cheerio;},URL,URLSearchParams,AbortController,setTimeout,clearTimeout,console:{log(){}},VUEO_DISCOVERY_CONTEXT:{tmdb:{id:44217,name:'Vikings',first_air_date:'2013-03-03',original_language:'en'}},fetch:async(u,o={})=>{calls.push(u);let text='',ct='text/html',status=200;
-if(u.includes('api.themoviedb.org'))text=JSON.stringify({id:44217,name:'Vikings',first_air_date:'2013-03-03',original_language:'en'});else if(u.includes('?s='))text=search;else if(u.includes('/vikings-series-'))text=detail;else if(u.includes('greenmotors')){assert(u.endsWith('1-1'));text=mode==='article'?'<a href="/article">Related</a>':`<script>s('o','${payload}',180000);location.href='https://greenmotors.cc/article';</script>`;}else if(u.includes('/drive/'))text='<a id="download" href="https://gamerxyt.com/hubcloud.php?id=test">Generate</a>';else if(u.includes('gamerxyt'))text='<a href="https://media.workers.dev/Vikings.S01E01.mkv">Download File</a>';else if(u.includes('media.workers')){assert.equal(o.method,'HEAD');ct=mode==='html'?'text/html':'video/x-matroska';if(mode==='dead')status=404;}else throw Error('Unexpected '+u);
-return{ok:status===200,status,url:u,headers:{get:k=>k==='content-type'?ct:''},text:async()=>text};}};
-vm.createContext(c);vm.runInContext(source,c);
-(async()=>{assert.equal(c.fourKWebsiteTest.gate(`<script>s('o','${payload}')</script>`),'https://hubcloud.ist/drive/test');assert.equal(c.fourKWebsiteTest.links('<a href="/article">Related</a>','https://greenmotors.cc/article').length,0);
-let r=await c.module.exports.getStreams(44217,'tv',1,1);assert.equal(r.length,1);assert.equal(r[0].quality,'1080p');assert(!calls.some(u=>u.includes('/article')||u.includes('id=1-2')||u.includes('id=2-1')));
-const contexts=[{tmdbId:44217,mediaType:'tv',title:'Vikings',year:2013,originalLanguage:'en'},{tmdbId:44217,tmdb:{}},JSON.stringify({tmdbId:44217,title:'Vikings',year:2013}),'invalid-json',{tmdbId:999,title:'Wrong'},null];
-for(const context of contexts){calls=[];c.VUEO_DISCOVERY_CONTEXT=context;assert.equal((await c.module.exports.getStreams(44217,'tv',1,1)).length,1,'metadata shape '+JSON.stringify(context));assert(calls.some(u=>u.includes('?s=Vikings')));assert(!calls.some(u=>u.includes('undefined')));}
-c.VUEO_DISCOVERY_CONTEXT={tmdbId:44217};c.vueoDiscoveryContext=async()=>({tmdbId:44217,mediaType:'tv',title:'Vikings',year:2013});calls=[];assert.equal((await c.module.exports.getStreams(44217,'tv',1,1)).length,1);assert(!calls.some(u=>u.includes('api.themoviedb.org')));delete c.vueoDiscoveryContext;
-c.VUEO_DISCOVERY_CONTEXT={tmdb:{id:44217,name:'Vikings',first_air_date:'2013-03-03',original_language:'en'}};
-for(mode of ['article','html','dead']){calls=[];assert.equal((await c.module.exports.getStreams(44217,'tv',1,1)).length,0,mode);assert(!calls.some(u=>u.endsWith('/article')));}
-assert.equal((await c.module.exports.getStreams(44217,'tv',null,1)).length,0);console.log('PASS portable gate without atob/CryptoJS, no article crawling, exact season/episode, website chain, media probe and HTML/404 rejection');})().catch(e=>{console.error(e);process.exitCode=1});
+// Download engine removed; current behavior is covered by WATCH flow tests.
+require("./4khdhub-watch.cjs");
