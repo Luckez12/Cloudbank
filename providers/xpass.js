@@ -153,7 +153,7 @@ function cloudbankMetadataFetch(nativeFetch) {
   }
   (function(module, exports, require, fetch, self) {
 /* CLOUDBANK_UPSTREAM_SOURCE_START */
-/* XPass v2.0.2: current website data-token -> authenticated index -> playlist. */
+/* XPass v2.0.3: current website data-token -> authenticated index -> playlist. */
 var XP_HOME='https://play.xpass.top';
 var XP_UA='Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36';
 var XP_C=require('crypto-js');
@@ -182,10 +182,20 @@ function xpHeaders(raw,page){var out={Referer:page,'User-Agent':XP_UA};if(raw&&t
 function xpTrackRows(value){if(typeof value==='string'){try{value=JSON.parse(value);}catch(_){return [];}}if(Array.isArray(value))return value;if(!value||typeof value!=='object')return [];if(value.file||value.url||value.src)return[value];var nested=value.subtitles||value.tracks||value.data;if(nested)return xpTrackRows(nested);var out=[];Object.keys(value).forEach(function(k){var item=value[k];if(typeof item==='string')out.push({url:item,language:k});else if(Array.isArray(item))item.forEach(function(r){if(typeof r==='string')out.push({url:r,language:k});else if(r&&typeof r==='object')out.push(Object.assign({language:k},r));});else if(item&&typeof item==='object')out.push(Object.assign({language:k},item));});return out;}
 function xpTracks(rows,page){var out=[],seen={};xpTrackRows(rows).forEach(function(r){if(!r||/thumbnail|sprite|chapter/i.test(r.kind||''))return;var u=xpUrl(r.file||r.url||r.src,page);if(!u||seen[u.href])return;var values=[r.srclang,r.language,r.lang,r.label,r.name],language='';for(var i=0;i<values.length&&!language;i++){var v=String(values[i]||'').trim().toLowerCase();if(/^(?:en|eng|english)(?:$|[-_ (])/.test(v))language='en';else if(/^(?:ms|msa|may|malay|melayu|bahasa melayu)(?:$|[-_ (])/.test(v))language='ms';}if(!language)return;seen[u.href]=true;var label=r.label||r.name||(language==='en'?'English':'Bahasa Melayu');out.push({url:u.href,language:language,lang:language,name:label,label:label,mimeType:/\.srt(?:[?#]|$)/i.test(u.href)?'application/x-subrip':/\.vtt(?:[?#]|$)/i.test(u.href)?'text/vtt':r.mimeType||r.mime||undefined,headers:xpHeaders(r.headers,u.origin===XP_HOME?page:XP_HOME+'/')});});return out;}
 
-function xpMap(body,server,page){
+// Only explicit identity metadata is evidence; opaque IDs and signed tokens are not decoded.
+function xpIdentity(value,expected){var evidence=0,reason='';if(!expected)return{ok:true,evidence:0};
+ function number(v){return typeof v==='number'&&Number.isInteger(v)?v:typeof v==='string'&&/^\d+$/.test(v.trim())?Number(v):null;}
+ function check(v,w,label){var n=number(v);if(n===null)return;evidence++;if(n!==Number(w)&&!reason)reason=label+' mismatch';}
+ function text(v){if(typeof v!=='string')return;var re=/\bS(\d{1,3})[ ._-]*E(\d{1,4})\b|\bSeason[ ._-]*(\d{1,3})[ ._:-]*Episode[ ._-]*(\d{1,4})\b/ig,m;while((m=re.exec(v))){if(expected.type==='tv'){check(m[1]||m[3],expected.season,'season');check(m[2]||m[4],expected.episode,'episode');}}}
+ function route(v){var u=xpUrl(v);if(!u)return;var path=u.pathname;try{path=decodeURIComponent(path);}catch(_){}var m=/\/(movie|tv)\/(\d+)(?:\/(\d+)\/(\d+))?(?:\/|$)/.exec(path);if(m){evidence++;if(m[1]!==expected.type&&!reason)reason='media type mismatch';if(/^\d+$/.test(expected.id))check(m[2],expected.id,'TMDB');if(m[1]==='tv'){check(m[3],expected.season,'season');check(m[4],expected.episode,'episode');}}text(path);}
+ function object(o,depth){if(!o||typeof o!=='object'||Array.isArray(o)||depth>2)return;['tmdbId','tmdb_id'].forEach(function(k){if(/^\d+$/.test(expected.id))check(o[k],expected.id,'TMDB');});if(expected.type==='tv'){['season','season_number','seasonNumber'].forEach(function(k){check(o[k],expected.season,'season');});['episode','episode_number','episodeNumber'].forEach(function(k){check(o[k],expected.episode,'episode');});}['fileName','filename','title'].forEach(function(k){text(o[k]);});['url','file','src'].forEach(function(k){if(typeof o[k]==='string')route(o[k]);});['metadata','identity'].forEach(function(k){object(o[k],depth+1);});}
+ object(value,0);return{ok:!reason,evidence:evidence,reason:reason};}
+function xpMap(body,server,page,expected,inspect){
+ function allowed(v){return inspect?inspect(v):xpIdentity(v,expected).ok;}
+ if(!allowed(body))return [];
  var playlist=body&&body.playlist||body;if(!Array.isArray(playlist))return [];
- var out=[];playlist.forEach(function(item){if(!item||!Array.isArray(item.sources))return;
- item.sources.forEach(function(src){if(!src||typeof src!=='object')return;var u=xpUrl(src.file||src.url,page);if(!u)return;
+ var out=[];playlist.forEach(function(item){if(!item||!Array.isArray(item.sources)||!allowed(item))return;
+ item.sources.forEach(function(src){if(!src||typeof src!=='object'||!allowed(src))return;var u=xpUrl(src.file||src.url,page);if(!u)return;
  var mime=String(src.type||src.mimeType||'').toLowerCase(),hls=/mpegurl|hls/.test(mime)||/\.m3u8(?:[?#]|$)/i.test(u.href),dash=/dash/.test(mime)||/\.mpd(?:[?#]|$)/i.test(u.href);
  if(u.href.indexOf('cf-master')>=0&&u.searchParams.get('kx'))return;
  var direct=/mp4|matroska|mkv/.test(mime)||/\.(mp4|mkv)(?:[?#]|$)/i.test(u.href);if(!hls&&!dash&&!direct)return;
@@ -203,12 +213,14 @@ async function getStreams(id,type,season,episode){
  if(type==='tv'&&(!Number.isInteger(Number(season))||season==null||season===''||Number(season)<0||!Number.isInteger(Number(episode))||episode==null||episode===''||Number(episode)<1))return [];
  var page=XP_HOME+'/e/'+type+'/'+id+(type==='tv'?'/'+Number(season)+'/'+Number(episode):''),start=Date.now(),deadline=start+17500,calls=0;
  function log(s){console.log('[XPass] '+s);}
+ var expected={id:id,type:type,season:Number(season),episode:Number(episode)},identity={matched:0,unknown:0,rejected:0};
+ function inspect(v){var r=xpIdentity(v,expected);if(!r.ok){identity.rejected++;log('IDENTITY: reject '+r.reason);return false;}identity[r.evidence?'matched':'unknown']++;return true;}
  var pending=[],stopped=false;
  function stop(){stopped=true;pending.slice().forEach(function(cancel){cancel();});}
  async function request(url,options){options=options||{};if(stopped)throw Error('stopped');calls++;var left=Math.min(4000,deadline-Date.now());if(left<=0)throw Error('deadline');return new Promise(function(resolve,reject){var done=false,c=typeof AbortController==='function'?new AbortController():null,timer;function finish(err,value){if(done)return;done=true;clearTimeout(timer);pending=pending.filter(function(f){return f!==cancel;});if(err||options.binary){if(c)c.abort();}if(err)reject(err);else resolve(value);}function cancel(){finish(Error('cancelled'));}pending.push(cancel);timer=setTimeout(function(){finish(Error('deadline'));},left);Promise.resolve().then(function(){if(done)throw Error('stopped');return fetch(url,{method:options.method||'GET',headers:options.headers||xpHeaders(null,xpUrl(url).origin===XP_HOME?page:XP_HOME+'/'),signal:c?c.signal:undefined});}).then(async function(r){if(!r.ok)throw Error('HTTP '+r.status);var body=options.binary?'':await r.text();finish(null,{ok:r.ok,status:r.status,url:r.url||url,headers:r.headers,text:function(){return Promise.resolve(body);},json:function(){return Promise.resolve().then(function(){return JSON.parse(body);});}});}).catch(function(e){finish(e);});});}
 
  try{
- log('ROUTE: v2.0.2 exact '+type+' '+id+'; website signed data index; parallel servers=3; no media probes');
+ log('ROUTE: v2.0.3 exact '+type+' '+id+'; website signed data index; parallel servers=3; no media probes');
  var html=await(await request(page)).text(),relative=xpVariable(html,'dataUrl'),dataUrl=xpUrl(relative,page);
  if(!dataUrl||dataUrl.origin!==XP_HOME||dataUrl.pathname!=='/data/'+type+'/'+id+(type==='tv'?'/'+Number(season)+'/'+Number(episode):''))throw Error('unexpected data route');
  var token=dataUrl.searchParams.get('token');if(!token)throw Error('missing data token');
@@ -221,9 +233,10 @@ async function getStreams(id,type,season,episode){
  var script=await(await request(XP_HOME+playerPath)).text(),build=xpStrings(script).find(function(s){return /^spv3-build-[A-Za-z0-9-]+$/.test(s);});if(!build)throw Error('website crypto version missing');
  var servers=xpDecrypt(values[0],dataUrl.pathname,token,build);if(!Array.isArray(servers))throw Error('invalid server index');
  log('INDEX: authenticated=true servers='+servers.length+'; current website crypto version');
- var rows=await new Promise(function(resolve){var next=0,active=0,done=false;function pump(){if(done)return;while(active<3&&next<servers.length&&Date.now()<deadline){var server=servers[next++],u=server&&xpUrl(server.url,page);if(!u||u.origin!==XP_HOME)continue;active++;(function(s,url){request(url).then(function(r){return r.json();}).then(function(body){if(done)return;var result=xpMap(body,String(s.name||'Server'),page);if(result.length){done=true;resolve(result);}}).catch(function(){if(!done)log('SERVER: unavailable');}).then(function(){active--;if(!done)pump();});})(server,u.href);}if(!done&&active===0){done=true;resolve([]);}}pump();});
+ var rows=await new Promise(function(resolve){var next=0,active=0,done=false;function pump(){if(done)return;while(active<3&&next<servers.length&&Date.now()<deadline){var server=servers[next++],u=server&&xpUrl(server.url,page);if(!u||u.origin!==XP_HOME||!inspect(server))continue;active++;(function(s,url){request(url).then(function(r){return r.json();}).then(function(body){if(done)return;var result=xpMap(body,String(s.name||'Server'),page,expected,inspect);if(result.length){done=true;resolve(result);}}).catch(function(){if(!done)log('SERVER: unavailable');}).then(function(){active--;if(!done)pump();});})(server,u.href);}if(!done&&active===0){done=true;resolve([]);}}pump();});
  if(rows.length)await subTask;
  rows.forEach(function(row){row.subtitles=xpTracks(row.subtitles.concat(readySubs),page);});
+ log('IDENTITY: matchedObjects='+identity.matched+' unknownObjects='+identity.unknown+' rejectedObjects='+identity.rejected+'; no additional requests; unknown is not verified');
  log('SUBTITLES: list='+subStatus+' listAccepted='+readySubs.length+' forwarded='+rows.reduce(function(n,r){return n+r.subtitles.length;},0)+' languages=en,ms only');
  log('RESULT: sources='+rows.length+' calls='+calls+' elapsedMs='+(Date.now()-start)+'; playback unverified');return rows;
  }catch(e){log('NO_RESULT: '+(/^(HTTP \d+|deadline|unexpected data route|missing data token|website loader missing|unexpected loader|website player script missing|website crypto version missing|invalid server index|index authentication failed|invalid encrypted index)$/.test(e.message)?e.message:'transport or response error')+' calls='+calls+' elapsedMs='+(Date.now()-start));return [];}finally{stop();}

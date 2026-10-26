@@ -1,6 +1,6 @@
 {
   "name": "Cloudbank",
-  "version": "1.20.129",
+  "version": "1.20.130",
   "scrapers": [
     {
       "id": "kisskh",
@@ -572,7 +572,7 @@
       "id": "xpass",
       "name": "XPass",
       "description": "Current XPass website: signed authenticated data index, then playlist sources.",
-      "version": "2.0.2",
+      "version": "2.0.3",
       "author": "Dustincos",
       "supportedTypes": [
         "movie",
