@@ -1,6 +1,6 @@
 {
   "name": "Cloudbank",
-  "version": "1.20.138",
+  "version": "1.20.139",
   "scrapers": [
     {
       "id": "kisskh",
@@ -37,7 +37,7 @@
       "id": "onetouchtv",
       "name": "OneTouchTV",
       "description": "Asian drama, anime, series and movie streams with subtitle metadata",
-      "version": "1.5.0",
+      "version": "1.5.1",
       "author": "Luckez",
       "supportedTypes": [
         "movie",
@@ -60,7 +60,7 @@
       ],
       "disabledPlatforms": [],
       "supportsExternalPlayer": true,
-      "notes": "Single API resolver; plaintext/local AES first with bounded remote decrypt only on failure. Shared TMDB identity checks, conditional alias search, exact title/year/season/episode and ambiguity rejection. Preserve source headers and caption tracks. Runtime-local 500-entry mapping cache, 30-day TTL; no media-response cache. Device playback pending.",
+      "notes": "Exact normalized title/aliases and media type first. One unique catalogue ID ignores year/season; multiple candidates use season then year. Exact episode number first: a single match ignores season; duplicate numbers use season; remaining ambiguity rejected. Detail ID/title/type checks retained. Existing API/decryption, playback headers, subtitle handling and cache behavior unchanged except mapping namespace reset. No extra requests, media probes or VUEO changes. Device playback unverified.",
       "runtimeTimeoutMs": 20000
     },
     {

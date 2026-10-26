@@ -1,14 +1,14 @@
 "use strict";
 /* VUEO_PROVIDER_REPAIR_V16 */
-/* VUEO_TITLE_PROFILE_V1 — exact metadata aliases/year and explicit season checks. */
+/* Exact title first; season/year disambiguate multiple candidates only. */
 /* VUEO_FAST_DISCOVERY_V1 — one title query before conditional alias fallback. */
-var PROVIDER_NAME = "OneTouchTV", VERSION = "1.5.0";
+var PROVIDER_NAME = "OneTouchTV", VERSION = "1.5.1";
 var BASE_URL = "https://api3.devcorp.me";
 var TMDB_API_KEY = "1c29a5198ee1854bd5eb45dbe8d17d92";
 var AES_KEY_TEXT = "im72charPasswordofdInitVectorStm", AES_IV_TEXT = "im72charPassword";
 var USER_AGENT = "Mozilla/5.0 (Linux; Android 15) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0 Mobile Safari/537.36";
 var DEFAULT_HEADERS = { "User-Agent": USER_AGENT, "Accept": "application/json,text/plain,*/*", "Referer": BASE_URL + "/" };
-var CACHE_SLOT = "__CLOUDBANK_ONETOUCH_MATCH_V1__";
+var CACHE_SLOT = "__CLOUDBANK_ONETOUCH_MATCH_V2__";
 var localCache = { matches: {} };
 function trace(stage, details) {
   console.log("[OneTouchTV] " + stage + ": " + JSON.stringify(details || {}));
@@ -96,19 +96,15 @@ function compatible(item, info, type, season, fallbackTitle) {
   var itype=itemType(item);
   if (itype && ((type==="tv" && /^(movie|film)$/.test(itype)) || (type==="movie" && /^(drama|tv|series|tvseries)$/.test(itype)))) return false;
   var titles=[itemTitle(item)||fallbackTitle].concat(Array.isArray(item.otherTitles)?item.otherTitles:[]).filter(Boolean);
-  var main=seasonTitle(itemTitle(item)||fallbackTitle);
-  var explicit=firstValue(item,["season","seasonNumber","season_number"]);
-  var declared=explicit!=null && /^\d+$/.test(String(explicit))?Number(explicit):main.season;
-  if(type==="tv" && declared!==null && declared!==season) return false;
-  var titleOk=titles.some(function(title) {
-    var parsed=seasonTitle(title);
-    if(type==="tv" && parsed.season!==null && parsed.season!==season) return false;
-    return info.aliases.some(function(alias) { return normalizeTitle(seasonTitle(alias).title)===normalizeTitle(parsed.title); });
+  return titles.some(function(title) {
+    return info.aliases.some(function(alias) { return normalizeTitle(seasonTitle(alias).title)===normalizeTitle(seasonTitle(title).title); });
   });
-  if(!titleOk) return false;
-  var year=itemYear(item);
-  return !(info.year && year && (type==="movie"||season===1) && info.year!==year);
 }
+function itemSeason(item) {
+  var explicit=firstValue(item,["season","seasonNumber","season_number"]);
+  return explicit!==null && /^\d+$/.test(String(explicit)) ? Number(explicit) : seasonTitle(itemTitle(item)).season;
+}
+
 function episodeRows(detail) {
   return Array.isArray(detail.episodes)?detail.episodes:Array.isArray(detail.episodeList)?detail.episodeList:Array.isArray(detail.episode_list)?detail.episode_list:[];
 }
@@ -124,17 +120,21 @@ function selectEpisode(detail, type, season, episode, item) {
   if(type==="movie") { if(valid.length!==1) throw new Error("Ambiguous movie entries"); return valid[0]; }
   var matching=valid.filter(function(row) {
     var value=firstValue(row,["episode","episodeNumber","episode_number","number","ep"]);
-    if(value===null || !/^(?:\d+)(?:\.\d+)?$/.test(String(value)) || Number(value)!==episode) return false;
+    return value!==null && /^(?:\d+)(?:\.\d+)?$/.test(String(value)) && Number(value)===episode;
+  });
+  // A unique exact episode wins regardless of its season label.
+  if(matching.length>1) matching=matching.filter(function(row) {
     var ownSeason=firstValue(row,["season","seasonNumber","season_number"]);
     var observed=ownSeason!==null?Number(ownSeason):rootSeason!==null && rootSeason!==undefined?Number(rootSeason):1;
     return observed===season;
   });
-  if(matching.length!==1) throw new Error("Exact season/episode missing or ambiguous");
+  if(matching.length!==1) throw new Error("Exact episode missing or ambiguous");
   return matching[0];
 }
+
 function detail(run, item, info, type, season, episode) {
   return api(run,"/vod/"+encodeURIComponent(itemId(item))+"/detail","detail").then(function(root) {
-    if(!compatible(root,info,type,season,itemTitle(item))) throw new Error("Detail title/year/type mismatch");
+    if(!compatible(root,info,type,season,itemTitle(item))) throw new Error("Detail title/type mismatch");
     if(itemId(root)!==null && String(itemId(root)).toLowerCase()!==String(itemId(item)).toLowerCase()) throw new Error("Detail ID mismatch");
     var selected=selectEpisode(root,type,season,episode,item);
     return {item:item,detail:root,selected:selected};
@@ -160,15 +160,25 @@ function discover(run,id,info,type,season,episode) {
         var seen={}, exact=rows.filter(function(row) {
           if(itemId(row)===null || !compatible(row,info,type,season)) return false;
           // API returns both lowercase/uppercase slug duplicates for the same title.
-          var identity=String(itemId(row)).toLowerCase()+"|"+normalizeTitle(itemTitle(row))+"|"+itemYear(row)+"|"+itemType(row);
+          var identity=String(itemId(row)).toLowerCase();
           if(seen[identity]) return false;seen[identity]=true;return true;
         });
-        trace("CANDIDATES",{results:rows.length,exact:exact.length});
+        trace("CANDIDATES",{results:rows.length,exact:exact.length,policy:exact.length===1?"unique-title-ignore-year-season":"disambiguate"});
+        if(exact.length>1 && type==="tv") {
+          exact=exact.filter(function(row) {var observed=itemSeason(row);return (observed===null?1:observed)===season;});
+          if(season===1 && exact.some(function(row) {return itemSeason(row)!==null;})) exact=exact.filter(function(row) {return itemSeason(row)!==null;});
+        }
+        if(exact.length>1 && info.year) {
+          var preferred=exact.filter(function(row) {return itemYear(row)===info.year;});
+          if(preferred.length) exact=preferred;
+        }
         if(!exact.length) return null;
         if(exact.length>3) throw new Error("Too many ambiguous exact candidates");
         return Promise.all(exact.map(function(row) {return detail(run,row,info,type,season,episode).catch(function(error) {trace("DETAIL_REJECT",{id:itemId(row),reason:error.message});return null;});})).then(function(matches) {
           var good=matches.filter(Boolean);
-          if(good.length===1 && (exact.length===1 || itemYear(good[0].detail)===info.year)) return good[0];
+          if(exact.length===1 && good.length===1) return good[0];
+          var sameYear=good.filter(function(match) {return info.year && itemYear(match.detail)===info.year;});
+          if(sameYear.length===1) return sameYear[0];
           if(good.length>1) throw new Error("Ambiguous exact title matches");
           return null;
         });

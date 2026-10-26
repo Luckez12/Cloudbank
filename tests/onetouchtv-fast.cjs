@@ -31,7 +31,7 @@ async function main(){
  const controls='{"result":"hello\nworld"}';a.box.controls=controls;
  check(vm.runInContext('parseJsonLenient(controls,"fixture").result',a.box)==='hello\nworld','unescaped controls repaired inside JSON strings');
  const wrongYear=make(url=>url.includes('/detail')?response(encrypt({...detail,year:'2024'})):ordinary(url));
- check((await wrongYear.run()).length===0&&!wrongYear.calls.some(c=>c.url.includes('/episode/')),'wrong remake year is rejected');
+ check((await wrongYear.run()).length===1,'single exact title ignores different detail year');
  const wrongType=make(url=>url.includes('/search?')?response(encrypt(search.map(x=>({...x,type:'movie'})))):ordinary(url));
  check((await wrongType.run()).length===0&&wrongType.calls.length===1,'movie cannot satisfy TV title');
  const unrelated=make(url=>url.includes('/search?')?response(encrypt([{id:'x',title:'My Demon Hunters',year:'2023',type:'drama'}])):ordinary(url));
@@ -47,7 +47,7 @@ async function main(){
  check((await unnumbered.run()).length===0,'unnumbered entries are not selected by array position');
  const fractional=make(url=>url.includes('/detail')?response(encrypt({...detail,episodes:[{...episode,episode:'1.5'}]})):ordinary(url));
  check((await fractional.run()).length===0,'special fractional episode is not rounded');
- const noSeason=make();check((await noSeason.run('218539','tv',2,1)).length===0,'bare season one entry cannot satisfy season two');
+ const noSeason=make();check((await noSeason.run('218539','tv',2,1)).length===1,'single exact title and episode ignore requested season mismatch');
  const season2=make(url=>{
   if(url.includes('/search?'))return response(encrypt([{id:'my-demon-s2',title:'My Demon Season 2',year:'2025',type:'drama'}]));
   if(url.includes('/detail'))return response(encrypt({...detail,id:'my-demon-s2',title:'My Demon Season 2',year:'2025'}));return ordinary(url);
@@ -55,6 +55,33 @@ async function main(){
  check((await season2.run('218539','tv',2,1)).length===1,'explicit later season accepts its later release year');
  const rowSeasons=make(url=>url.includes('/detail')?response(encrypt({...detail,episodes:[{...episode,season:1},{...episode,season:2,playId:'s2ep1'}]})):ordinary(url));
  check((await rowSeasons.run('218539','tv',2,1)).length===1&&rowSeasons.calls.some(c=>c.url.endsWith('/episode/s2ep1')),'explicit episode-season metadata disambiguates combined season detail');
+ const uniqueWrongSeason=make(url=>url.includes('/search?')?response(encrypt([{...search[0],title:'My Demon Season 1',year:'2025',season:1}])):url.includes('/detail')?response(encrypt({...detail,title:'My Demon Season 1',year:'2025',season:1,episodes:[{...episode,episode:801,season:1}]})):ordinary(url));
+ check((await uniqueWrongSeason.run('218539','tv',17,801)).length===1,'single exact title and E801 ignore both explicit season and year mismatch');
+ check(uniqueWrongSeason.calls.length===3,'relaxed selection adds no network requests');
+ const multiSeasons=make(url=>{
+  if(url.includes('/search?'))return response(encrypt([search[0],{id:'my-demon-s2',title:'My Demon Season 2',year:'2025',type:'drama'}]));
+  if(url.includes('/my-demon-s2/detail'))return response(encrypt({...detail,id:'my-demon-s2',title:'My Demon Season 2',year:'2025'}));
+  return ordinary(url);
+ });
+ check((await multiSeasons.run('218539','tv',2,1)).length===1&&multiSeasons.calls.some(c=>c.url.includes('/my-demon-s2/detail')),'multiple titles use season to choose detail');
+ check(!multiSeasons.calls.some(c=>c.url.includes('/my-demon/detail')),'known wrong-season alternative is not loaded');
+ const multiYears=make(url=>{
+  if(url.includes('/search?'))return response(encrypt([{...search[0],year:'2024'},{...search[0],id:'right-year',year:'2023'}]));
+  if(url.includes('/right-year/detail'))return response(encrypt({...detail,id:'right-year',year:'2024'}));
+  return ordinary(url);
+ });
+ check((await multiYears.run()).length===1&&multiYears.calls.some(c=>c.url.includes('/right-year/detail')),'multiple candidates use search year; conflicting detail upload year does not veto selected title');
+ const detailYears=make(url=>{
+  if(url.includes('/search?'))return response(encrypt([{id:'my-demon',title:'My Demon'},{id:'remake',title:'My Demon'}]));
+  if(url.includes('/my-demon/detail'))return response(encrypt({...detail,year:'2024'}));
+  if(url.includes('/remake/detail'))return response(encrypt({...detail,id:'remake',year:'2023'}));
+  return ordinary(url);
+ });
+ check((await detailYears.run()).length===1,'detail years break multiple unknown-year candidate tie');
+ const wrongEpisodeSeason=make(url=>url.includes('/detail')?response(encrypt({...detail,episodes:[{...episode,season:1}]})):ordinary(url));
+ check((await wrongEpisodeSeason.run('218539','tv',17,1)).length===1,'unique E1 ignores explicit episode season');
+ const duplicateEpisode=make(url=>url.includes('/detail')?response(encrypt({...detail,episodes:[episode,{...episode,playId:'duplicate'}]})):ordinary(url));
+ check((await duplicateEpisode.run()).length===0,'duplicate episode numbers still unresolved after season matching are rejected');
  const alias=make(url=>url.includes('/search?')&&new URL(url).searchParams.get('keyword')==='Different Main Title'?response(encrypt([])):ordinary(url),{tmdbId:'218539',mediaType:'tv',title:'Different Main Title',originalTitle:'My Demon',year:'2023'});
  check((await alias.run()).length===1&&alias.calls.filter(c=>c.url.includes('/search?')).length===2,'alias search starts only after main title fails');
  const stale=make(url=>url.includes('themoviedb.org')?response({id:218539,name:'My Demon',first_air_date:'2023-01-01'}):ordinary(url),{tmdbId:'1',mediaType:'tv',title:'Wrong',year:'2000'});
