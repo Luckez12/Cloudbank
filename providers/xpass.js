@@ -153,7 +153,7 @@ function cloudbankMetadataFetch(nativeFetch) {
   }
   (function(module, exports, require, fetch, self) {
 /* CLOUDBANK_UPSTREAM_SOURCE_START */
-/* XPass v2.0.3: current website data-token -> authenticated index -> playlist. */
+/* XPass v2.0.4: current website data-token -> authenticated index -> playlist. */
 var XP_HOME='https://play.xpass.top';
 var XP_UA='Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36';
 var XP_C=require('crypto-js');
@@ -179,30 +179,18 @@ function xpVariable(html,name){var m=new RegExp('\\bvar\\s+'+name+'\\s*=\\s*("(?
 function xpUrl(raw,base){if(typeof raw!=='string'||!raw.trim())return null;try{var u=new URL(raw,base||XP_HOME);return /^https?:$/.test(u.protocol)&&!/^https?:\/\/[^/]*@/i.test(u.href)?u:null;}catch(_){return null;}}
 function xpStrings(script){var list=[],re=/'([A-Za-z0-9+/=]{12,})'/g,m;while((m=re.exec(script))){try{var v=m[1].replace(/[a-zA-Z]/g,function(c){return c===c.toLowerCase()?c.toUpperCase():c.toLowerCase();});list.push(XP_C.enc.Base64.parse(v).toString(XP_C.enc.Utf8));}catch(_){}}return list;}
 function xpHeaders(raw,page){var out={Referer:page,'User-Agent':XP_UA};if(raw&&typeof raw==='object')Object.keys(raw).forEach(function(k){if(typeof raw[k]!=='string'||/[\r\n\0]/.test(k+raw[k])||/^(host|connection|range|content-length|accept-encoding|x-vueo-http-transport)$/i.test(k))return;Object.keys(out).forEach(function(old){if(old.toLowerCase()===k.toLowerCase())delete out[old];});out[k]=raw[k];});return out;}
-function xpTrackRows(value){if(typeof value==='string'){try{value=JSON.parse(value);}catch(_){return [];}}if(Array.isArray(value))return value;if(!value||typeof value!=='object')return [];if(value.file||value.url||value.src)return[value];var nested=value.subtitles||value.tracks||value.data;if(nested)return xpTrackRows(nested);var out=[];Object.keys(value).forEach(function(k){var item=value[k];if(typeof item==='string')out.push({url:item,language:k});else if(Array.isArray(item))item.forEach(function(r){if(typeof r==='string')out.push({url:r,language:k});else if(r&&typeof r==='object')out.push(Object.assign({language:k},r));});else if(item&&typeof item==='object')out.push(Object.assign({language:k},item));});return out;}
-function xpTracks(rows,page){var out=[],seen={};xpTrackRows(rows).forEach(function(r){if(!r||/thumbnail|sprite|chapter/i.test(r.kind||''))return;var u=xpUrl(r.file||r.url||r.src,page);if(!u||seen[u.href])return;var values=[r.srclang,r.language,r.lang,r.label,r.name],language='';for(var i=0;i<values.length&&!language;i++){var v=String(values[i]||'').trim().toLowerCase();if(/^(?:en|eng|english)(?:$|[-_ (])/.test(v))language='en';else if(/^(?:ms|msa|may|malay|melayu|bahasa melayu)(?:$|[-_ (])/.test(v))language='ms';}if(!language)return;seen[u.href]=true;var label=r.label||r.name||(language==='en'?'English':'Bahasa Melayu');out.push({url:u.href,language:language,lang:language,name:label,label:label,mimeType:/\.srt(?:[?#]|$)/i.test(u.href)?'application/x-subrip':/\.vtt(?:[?#]|$)/i.test(u.href)?'text/vtt':r.mimeType||r.mime||undefined,headers:xpHeaders(r.headers,u.origin===XP_HOME?page:XP_HOME+'/')});});return out;}
-
-// Only explicit identity metadata is evidence; opaque IDs and signed tokens are not decoded.
-function xpIdentity(value,expected){var evidence=0,reason='';if(!expected)return{ok:true,evidence:0};
- function number(v){return typeof v==='number'&&Number.isInteger(v)?v:typeof v==='string'&&/^\d+$/.test(v.trim())?Number(v):null;}
- function check(v,w,label){var n=number(v);if(n===null)return;evidence++;if(n!==Number(w)&&!reason)reason=label+' mismatch';}
- function text(v){if(typeof v!=='string')return;var re=/\bS(\d{1,3})[ ._-]*E(\d{1,4})\b|\bSeason[ ._-]*(\d{1,3})[ ._:-]*Episode[ ._-]*(\d{1,4})\b/ig,m;while((m=re.exec(v))){if(expected.type==='tv'){check(m[1]||m[3],expected.season,'season');check(m[2]||m[4],expected.episode,'episode');}}}
- function route(v){var u=xpUrl(v);if(!u)return;var path=u.pathname;try{path=decodeURIComponent(path);}catch(_){}var m=/\/(movie|tv)\/(\d+)(?:\/(\d+)\/(\d+))?(?:\/|$)/.exec(path);if(m){evidence++;if(m[1]!==expected.type&&!reason)reason='media type mismatch';if(/^\d+$/.test(expected.id))check(m[2],expected.id,'TMDB');if(m[1]==='tv'){check(m[3],expected.season,'season');check(m[4],expected.episode,'episode');}}text(path);}
- function object(o,depth){if(!o||typeof o!=='object'||Array.isArray(o)||depth>2)return;['tmdbId','tmdb_id'].forEach(function(k){if(/^\d+$/.test(expected.id))check(o[k],expected.id,'TMDB');});if(expected.type==='tv'){['season','season_number','seasonNumber'].forEach(function(k){check(o[k],expected.season,'season');});['episode','episode_number','episodeNumber'].forEach(function(k){check(o[k],expected.episode,'episode');});}['fileName','filename','title'].forEach(function(k){text(o[k]);});['url','file','src'].forEach(function(k){if(typeof o[k]==='string')route(o[k]);});['metadata','identity'].forEach(function(k){object(o[k],depth+1);});}
- object(value,0);return{ok:!reason,evidence:evidence,reason:reason};}
-function xpMap(body,server,page,expected,inspect){
- function allowed(v){return inspect?inspect(v):xpIdentity(v,expected).ok;}
- if(!allowed(body))return [];
+function xpTracks(rows,page){var out=[],seen={};(Array.isArray(rows)?rows:[]).forEach(function(r){if(!r||/thumbnail|chapter/i.test(r.kind||''))return;var u=xpUrl(r.file||r.url||r.src,page);if(!u||seen[u.href])return;seen[u.href]=true;out.push({url:u.href,language:r.srclang||r.language||r.lang||r.label||'und',name:r.label||r.name||r.language||'Subtitle',headers:xpHeaders(r.headers,u.origin===XP_HOME?page:XP_HOME+'/')});});return out;}
+function xpMap(body,server,page){
  var playlist=body&&body.playlist||body;if(!Array.isArray(playlist))return [];
- var out=[];playlist.forEach(function(item){if(!item||!Array.isArray(item.sources)||!allowed(item))return;
- item.sources.forEach(function(src){if(!src||typeof src!=='object'||!allowed(src))return;var u=xpUrl(src.file||src.url,page);if(!u)return;
+ var out=[];playlist.forEach(function(item){if(!item||!Array.isArray(item.sources))return;
+ item.sources.forEach(function(src){if(!src||typeof src!=='object')return;var u=xpUrl(src.file||src.url,page);if(!u)return;
  var mime=String(src.type||src.mimeType||'').toLowerCase(),hls=/mpegurl|hls/.test(mime)||/\.m3u8(?:[?#]|$)/i.test(u.href),dash=/dash/.test(mime)||/\.mpd(?:[?#]|$)/i.test(u.href);
  if(u.href.indexOf('cf-master')>=0&&u.searchParams.get('kx'))return;
  var direct=/mp4|matroska|mkv/.test(mime)||/\.(mp4|mkv)(?:[?#]|$)/i.test(u.href);if(!hls&&!dash&&!direct)return;
  var audio=String(src.audioLanguage||item.audioLanguage||'').toLowerCase(),original=String(item.original_language||'').toLowerCase();
  if(src.isDubbed===true||item.isDubbed===true||(original&&audio&&audio!==original))return;
  var q=/\b(2160|1440|1080|720|576|480|360|240)p?\b/i.exec(String(src.label||src.quality||''));if(!hls&&!dash&&q&&+q[1]<720)return;
- var trackRows=[].concat(xpTrackRows(body&&body.tracks),xpTrackRows(body&&body.subtitles),xpTrackRows(item.tracks),xpTrackRows(item.subtitles),xpTrackRows(src.tracks),xpTrackRows(src.subtitles));
+ var trackRows=[].concat(Array.isArray(item.tracks)?item.tracks:[],Array.isArray(item.subtitles)?item.subtitles:[],Array.isArray(src.tracks)?src.tracks:[]);
  var mediaHeaders=xpHeaders(src.headers||item.headers,u.origin===XP_HOME?page:XP_HOME+'/');if(u.hostname==='cdn.hakunaymatata.com')Object.keys(mediaHeaders).forEach(function(k){if(k.toLowerCase()==='referer')delete mediaHeaders[k];});
  out.push({name:'XPass',title:'XPass - '+server,url:u.href,quality:hls||dash?'Auto':q?q[1]+'p':'Auto',type:hls?'hls':dash?'dash':'direct',format:hls?'hls':dash?'dash':'mp4',mimeType:hls?'application/x-mpegURL':dash?'application/dash+xml':/mkv|matroska/.test(mime+u.pathname)?'video/x-matroska':'video/mp4',server:server,serverName:server,headers:mediaHeaders,subtitles:xpTracks(trackRows,page),audioLanguage:audio||undefined,provider:'xpass'});
  });});return out;
@@ -213,31 +201,43 @@ async function getStreams(id,type,season,episode){
  if(type==='tv'&&(!Number.isInteger(Number(season))||season==null||season===''||Number(season)<0||!Number.isInteger(Number(episode))||episode==null||episode===''||Number(episode)<1))return [];
  var page=XP_HOME+'/e/'+type+'/'+id+(type==='tv'?'/'+Number(season)+'/'+Number(episode):''),start=Date.now(),deadline=start+17500,calls=0;
  function log(s){console.log('[XPass] '+s);}
- var expected={id:id,type:type,season:Number(season),episode:Number(episode)},identity={matched:0,unknown:0,rejected:0};
- function inspect(v){var r=xpIdentity(v,expected);if(!r.ok){identity.rejected++;log('IDENTITY: reject '+r.reason);return false;}identity[r.evidence?'matched':'unknown']++;return true;}
  var pending=[],stopped=false;
  function stop(){stopped=true;pending.slice().forEach(function(cancel){cancel();});}
  async function request(url,options){options=options||{};if(stopped)throw Error('stopped');calls++;var left=Math.min(4000,deadline-Date.now());if(left<=0)throw Error('deadline');return new Promise(function(resolve,reject){var done=false,c=typeof AbortController==='function'?new AbortController():null,timer;function finish(err,value){if(done)return;done=true;clearTimeout(timer);pending=pending.filter(function(f){return f!==cancel;});if(err||options.binary){if(c)c.abort();}if(err)reject(err);else resolve(value);}function cancel(){finish(Error('cancelled'));}pending.push(cancel);timer=setTimeout(function(){finish(Error('deadline'));},left);Promise.resolve().then(function(){if(done)throw Error('stopped');return fetch(url,{method:options.method||'GET',headers:options.headers||xpHeaders(null,xpUrl(url).origin===XP_HOME?page:XP_HOME+'/'),signal:c?c.signal:undefined});}).then(async function(r){if(!r.ok)throw Error('HTTP '+r.status);var body=options.binary?'':await r.text();finish(null,{ok:r.ok,status:r.status,url:r.url||url,headers:r.headers,text:function(){return Promise.resolve(body);},json:function(){return Promise.resolve().then(function(){return JSON.parse(body);});}});}).catch(function(e){finish(e);});});}
+ async function available(row){try{
+ var options={headers:row.headers},r,body,base=row.url;
+ if(row.type==='hls'){
+ for(var depth=0;depth<3;depth++){
+ r=await request(base,options);body=(await r.text()).replace(/^\uFEFF/,'').trim();if(!/^#EXTM3U(?:\s|$)/.test(body))throw Error('invalid HLS');
+ var lines=body.split(/\r?\n/).map(function(x){return x.trim();}),next='';
+ if(/#EXT-X-STREAM-INF:/.test(body)){for(var i=0;i<lines.length;i++)if(/^#EXT-X-STREAM-INF:/.test(lines[i])){for(var j=i+1;j<lines.length;j++){if(lines[j]&&lines[j][0]!=='#'){next=lines[j];break;}}break;}var variant=xpUrl(next,r.url);if(!variant)throw Error('empty master');base=variant.href;continue;}
+ var segment='';for(i=0;i<lines.length;i++)if(/^#EXTINF:/.test(lines[i])){for(j=i+1;j<lines.length;j++){if(lines[j]&&lines[j][0]!=='#'){segment=lines[j];break;}}break;}
+ var media=xpUrl(segment,r.url);if(!media)throw Error('empty media playlist');
+ var probe;try{probe=await request(media.href,{headers:row.headers,method:'HEAD',binary:true});log('MEDIA: segment HEAD accepted server='+row.serverName);}catch(e){if(!/^HTTP (?:401|403|405|501)$/.test(String(e.message||e)))throw e;log('MEDIA: HEAD unsupported; small GET server='+row.serverName);probe=await request(media.href,{headers:Object.assign({},row.headers,{Range:'bytes=0-1023'}),binary:true});}
+ var ct=probe.headers&&probe.headers.get?String(probe.headers.get('content-type')||''):'';if(/html|json|javascript/i.test(ct))throw Error('non-media response');
+ log('MEDIA: available server='+row.serverName);return true;
+ }throw Error('playlist depth');
+ }
+ if(row.type==='dash'){r=await request(row.url,options);body=await r.text();if(!/<MPD(?:\s|>)/i.test(body))throw Error('invalid DASH');return true;}
+ r=await request(row.url,{headers:row.headers,method:'HEAD',binary:true});var mime=r.headers&&r.headers.get?String(r.headers.get('content-type')||''):'';return /^video\//i.test(mime)||/octet-stream|matroska/i.test(mime);
+ }catch(e){if(!stopped)log('MEDIA: rejected server='+row.serverName+' reason='+String(e.message||e));return false;}}
 
  try{
- log('ROUTE: v2.0.3 exact '+type+' '+id+'; website signed data index; parallel servers=3; no media probes');
+ log('ROUTE: v2.0.4 exact '+type+' '+id+'; website signed data index; parallel servers=3; media availability check');
  var html=await(await request(page)).text(),relative=xpVariable(html,'dataUrl'),dataUrl=xpUrl(relative,page);
  if(!dataUrl||dataUrl.origin!==XP_HOME||dataUrl.pathname!=='/data/'+type+'/'+id+(type==='tv'?'/'+Number(season)+'/'+Number(episode):''))throw Error('unexpected data route');
  var token=dataUrl.searchParams.get('token');if(!token)throw Error('missing data token');
  var scriptMatch=/<script\b[^>]*src=["']([^"']*\/static\/mainmini\.js[^"']*)["']/i.exec(html);if(!scriptMatch)throw Error('website loader missing');
  var loader=xpUrl(scriptMatch[1],page);if(!loader||loader.origin!==XP_HOME)throw Error('unexpected loader');
- var readySubs=[],subStatus='not-published',subRaw=xpVariable(html,'suburl'),subUrl=xpUrl(subRaw,page),subTask=Promise.resolve();
- if(subRaw&&subUrl){subStatus='pending';subTask=request(subUrl.href).then(function(r){return r.json();}).then(function(list){readySubs=xpTracks(list,page);subStatus=readySubs.length?'ready':'empty-or-filtered';},function(){subStatus='failed';}).catch(function(){subStatus='failed';});}
+ var readySubs=[];var subUrl=xpUrl(xpVariable(html,'suburl'),page);
+ if(subUrl&&xpVariable(html,'suburl'))request(subUrl.href).then(function(r){return r.json();}).then(function(list){readySubs=xpTracks(Array.isArray(list)?list:list.subtitles||list.tracks||[],page);}).catch(function(){});
  var values=await Promise.all([request(dataUrl.href).then(function(r){return r.text();}),request(loader.href).then(function(r){return r.text();})]);
  var playerPath=xpStrings(values[1]).find(function(s){return /^\/static\/[A-Za-z0-9]+\.js\?t=\d+$/.test(s);});if(!playerPath)throw Error('website player script missing');
  var script=await(await request(XP_HOME+playerPath)).text(),build=xpStrings(script).find(function(s){return /^spv3-build-[A-Za-z0-9-]+$/.test(s);});if(!build)throw Error('website crypto version missing');
  var servers=xpDecrypt(values[0],dataUrl.pathname,token,build);if(!Array.isArray(servers))throw Error('invalid server index');
  log('INDEX: authenticated=true servers='+servers.length+'; current website crypto version');
- var rows=await new Promise(function(resolve){var next=0,active=0,done=false;function pump(){if(done)return;while(active<3&&next<servers.length&&Date.now()<deadline){var server=servers[next++],u=server&&xpUrl(server.url,page);if(!u||u.origin!==XP_HOME||!inspect(server))continue;active++;(function(s,url){request(url).then(function(r){return r.json();}).then(function(body){if(done)return;var result=xpMap(body,String(s.name||'Server'),page,expected,inspect);if(result.length){done=true;resolve(result);}}).catch(function(){if(!done)log('SERVER: unavailable');}).then(function(){active--;if(!done)pump();});})(server,u.href);}if(!done&&active===0){done=true;resolve([]);}}pump();});
- if(rows.length)await subTask;
+ var rows=await new Promise(function(resolve){var next=0,active=0,done=false;function pump(){if(done)return;while(active<3&&next<servers.length&&Date.now()<deadline){var server=servers[next++],u=server&&xpUrl(server.url,page);if(!u||u.origin!==XP_HOME)continue;active++;(function(s,url){request(url).then(function(r){return r.json();}).then(async function(body){if(done)return;var result=xpMap(body,String(s.name||'Server'),page);for(var i=0;i<result.length&&!done;i++){if(await available(result[i])){if(done)return;done=true;resolve([result[i]]);return;}}}).catch(function(){if(!done)log('SERVER: unavailable');}).then(function(){active--;if(!done)pump();});})(server,u.href);}if(!done&&active===0){done=true;resolve([]);}}pump();});
  rows.forEach(function(row){row.subtitles=xpTracks(row.subtitles.concat(readySubs),page);});
- log('IDENTITY: matchedObjects='+identity.matched+' unknownObjects='+identity.unknown+' rejectedObjects='+identity.rejected+'; no additional requests; unknown is not verified');
- log('SUBTITLES: list='+subStatus+' listAccepted='+readySubs.length+' forwarded='+rows.reduce(function(n,r){return n+r.subtitles.length;},0)+' languages=en,ms only');
  log('RESULT: sources='+rows.length+' calls='+calls+' elapsedMs='+(Date.now()-start)+'; playback unverified');return rows;
  }catch(e){log('NO_RESULT: '+(/^(HTTP \d+|deadline|unexpected data route|missing data token|website loader missing|unexpected loader|website player script missing|website crypto version missing|invalid server index|index authentication failed|invalid encrypted index)$/.test(e.message)?e.message:'transport or response error')+' calls='+calls+' elapsedMs='+(Date.now()-start));return [];}finally{stop();}
 }
