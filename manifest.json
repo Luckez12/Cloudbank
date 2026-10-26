@@ -1,6 +1,6 @@
 {
   "name": "Cloudbank",
-  "version": "1.20.125",
+  "version": "1.20.126",
   "scrapers": [
     {
       "id": "kisskh",
@@ -67,7 +67,7 @@
       "id": "hdhub4u",
       "name": "HDHub4u",
       "description": "Simple HDHub4u WATCH-only HTTP stream extraction",
-      "version": "2.1.2",
+      "version": "2.1.3",
       "author": "Luckez",
       "supportedTypes": [
         "movie",
