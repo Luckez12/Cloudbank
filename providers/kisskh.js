@@ -2,7 +2,7 @@
 /* VUEO_TITLE_PROFILE_V1 — exact aliases, year and explicit season; no first-result fallback. */
 /* VUEO_FAST_DISCOVERY_V1 — one primary API query, bounded alias/host fallback. */
 var PROVIDER_NAME = "KissKH";
-var VERSION = "1.4.0";
+var VERSION = "1.4.1";
 var TMDB_API_KEY = "1c29a5198ee1854bd5eb45dbe8d17d92";
 var HOSTS = ["https://kisskh.id", "https://kisskh.do"];
 var USER_AGENT = "Mozilla/5.0 (Linux; Android 15) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0 Mobile Safari/537.36";
@@ -44,7 +44,7 @@ function request(run, url, base, kind, timeout, text) {
   var ms = Math.min(timeout, remaining(run));
   if (ms < 100) return Promise.reject(new Error("Provider deadline at " + kind));
   return new Promise(function(resolve, reject) {
-    var done = false, started = Date.now();
+    var done = false, started = Date.now(), httpStatus = null;
     var controller = typeof AbortController === "function" ? new AbortController() : null;
     function finish(error, value) {
       if (done) return;
@@ -59,6 +59,7 @@ function request(run, url, base, kind, timeout, text) {
     if (controller) options.signal = controller.signal;
     Promise.resolve().then(function() { return fetch(url, options); }).then(function(response) {
       if (done) return;
+      httpStatus = response && response.status || 0;
       if (!response || !response.ok) {
         var error = new Error(kind + " HTTP " + (response && response.status || 0));
         error.status = response && response.status || 0; throw error;
@@ -66,7 +67,7 @@ function request(run, url, base, kind, timeout, text) {
       return text ? response.text() : response.json();
     }).then(function(value) {
       if (done) return;
-      trace("HTTP", { stage: kind, host: base, ms: Date.now() - started });
+      trace("HTTP", { stage: kind, host: base, status: httpStatus, ms: Date.now() - started });
       finish(null, value);
     }, function(error) { finish(error); });
   });
@@ -283,12 +284,22 @@ function captureKeys(run, detail, selected) {
 function subtitleLanguage(label) {
   var value = String(label || "").trim();
   var code = value.toLowerCase().replace(/_/g, "-").replace(/\s*\([^)]*\)\s*$/, "");
-  var groups = { en: ["en", "eng", "english"], ms: ["ms", "msa", "may", "malay", "bahasa melayu", "bahasa malaysia"],
+  var groups = { en: ["en", "eng", "english"], ms: ["ms", "msa", "may", "malay", "melayu", "bahasa melayu", "bahasa malaysia"],
     id: ["id", "ind", "indonesian", "bahasa indonesia"], ko: ["ko", "kor", "korean"], zh: ["zh", "chi", "zho", "chinese", "mandarin"],
     ja: ["ja", "jpn", "japanese"], th: ["th", "tha", "thai"], vi: ["vi", "vie", "vietnamese"], fr: ["fr", "fra", "fre", "french"] };
   var labels = { en: "English", ms: "Malay", id: "Indonesian", ko: "Korean", zh: "Chinese", ja: "Japanese", th: "Thai", vi: "Vietnamese", fr: "French" };
-  var found = Object.keys(groups).find(function(k) { return groups[k].indexOf(code) >= 0 || code.indexOf(k + "-") === 0; });
+  var found = Object.keys(groups).find(function(k) { return groups[k].indexOf(code) >= 0 || new RegExp("^" + k + "-[a-z]{2}$").test(code); });
   return { code: found || (/^[a-z]{2,3}$/.test(code) ? code : "und"), label: found ? labels[found] : value || "Unknown" };
+}
+function subtitleRowLanguage(row) {
+  var values = [row.srclang, row.lang, row.language, row.label], unknown = { code: "und", label: "Unknown" };
+  for (var i = 0; i < values.length; i++) {
+    if (!values[i] || /^(und|unknown)$/i.test(String(values[i]).trim())) continue;
+    var lang = subtitleLanguage(values[i]);
+    if (lang.code !== "und") return lang;
+    unknown = lang;
+  }
+  return unknown;
 }
 function decryptSubtitle(text) {
   var source = String(text || "").replace(/^\uFEFF/, "").replace(/\r/g, "");
@@ -325,15 +336,17 @@ function subtitles(run, detail, selected, key) {
       var seen = {}, tasks = rows.filter(function(row) {
         var url = directUrl(row && (row.src || row.url || row.file), detail.base);
         if (!url || seen[url]) return false;
+        var lang = subtitleRowLanguage(row);
+        if (lang.code !== "en" && lang.code !== "ms") return false;
         seen[url] = true; return true;
       }).slice(0, 16);
       var output = [], index = 0;
       function worker() {
         if (index >= tasks.length || remaining(run) < 200) return Promise.resolve();
         var row = tasks[index++], url = directUrl(row.src || row.url || row.file, detail.base);
-        var lang = subtitleLanguage(row.label || row.language || row.lang);
+        var lang = subtitleRowLanguage(row);
         var path = url.split(/[?#]/)[0], format = /\.(vtt|webvtt)$/i.test(path) ? "vtt" : /\.(ass|ssa)$/i.test(path) ? "ass" : "srt";
-        var sub = { label: lang.label, language: lang.label, lang: lang.code, url: url, format: format, headers: headers(detail.base) };
+        var sub = { label: lang.label, language: lang.code, lang: lang.code, url: url, format: format, mimeType: format === "vtt" ? "text/vtt" : format === "ass" ? "text/x-ssa" : "application/x-subrip", headers: headers(detail.base) };
         var job = /\.txt$/i.test(path) ? request(run, url, detail.base, "subtitle-text", 2500, true).then(function(text) {
           var plain = decryptSubtitle(text);
           if (!plain) throw new Error("Unverified encrypted subtitle");
@@ -369,9 +382,8 @@ function resolveEpisode(run, detail, selected, info, type, season, episode) {
         if (v.error) throw v.error;
         trace("RESULT", { streams: v.urls.length, subtitles: s.items.length, ms: Date.now() - run.started });
         return v.urls.map(function(url, i) {
-          var q = /(?:^|[^\d])(2160|1080|720|480|360)p?(?:[^\d]|$)/.exec(url.split("?")[0]);
           return { name: PROVIDER_NAME + " Server " + (i + 1), title: info.title + (type === "tv" ? " S" + season + "E" + episode : ""),
-            url: url, quality: q ? q[1] + "p" : "Auto", headers: headers(detail.base), subtitles: s.items };
+            url: url, quality: "Auto", headers: headers(detail.base), subtitles: s.items };
         });
       });
     });

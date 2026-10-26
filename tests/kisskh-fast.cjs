@@ -31,10 +31,26 @@ function ordinary(url) {
 async function tests() {
   const a = make(ordinary);
   let result = await a.run();
-  check(result.length === 1 && result[0].quality === '1080p', 'direct video with observed quality');
+  check(result.length === 1 && result[0].quality === 'Auto', 'URL path numbers are not treated as observed resolution');
   check(a.calls.length === 4 && !a.calls.some(c => c.url.includes('themoviedb')), 'cold path four requests using shared metadata');
   check(result[0].headers.Referer === 'https://kisskh.id/' && result[0].headers.Origin === 'https://kisskh.id', 'correct playback origin');
-  check(result[0].subtitles.length === 2 && result[0].subtitles[1].lang === 'fr', 'French must not substring-match English');
+  check(result[0].subtitles.length === 1 && result[0].subtitles[0].language === 'en' && result[0].subtitles[0].mimeType === 'application/x-subrip', 'French filtered; English normalized with standard MIME');
+  check(a.logs.some(l => /HTTP:/.test(l) && /"status":200/.test(l)), 'HTTP log distinguishes response status from elapsed milliseconds');
+  const filtered = make(url => url.includes('/api/Sub/') ? response([
+    {src:'https://sub.example/hi.txt',label:'Hindi'},
+    {src:'https://sub.example/ms.vtt',lang:'ms-MY',label:'Malay'},
+    {src:'https://sub.example/en.srt',lang:'und',label:'English'},
+    {src:'https://sub.example/ar.txt',label:'Arabic'},
+    {src:'https://sub.example/unknown.txt',label:'Unknown'},
+    {src:'https://sub.example/ms.vtt',label:'Malay'},
+    {src:'https://sub.example/id.txt',lang:'id',label:'Malay'},
+    {src:'https://sub.example/mixed.txt',lang:'ms-ind',label:'Unknown'}
+  ]) : ordinary(url));
+  const filteredRows = await filtered.run();
+  check(filteredRows[0].subtitles.length === 2, 'only distinct English and Malay sidecars forwarded');
+  check(filteredRows[0].subtitles.every(s => ['en','ms'].includes(s.language)), 'canonical language fields only');
+  check(filteredRows[0].subtitles.find(s => s.language === 'ms').mimeType === 'text/vtt', 'Malay VTT uses standard MIME');
+  check(filtered.calls.length === 4, 'rejected TXT languages never downloaded or decrypted');
   const before = a.calls.length; await a.run();
   check(a.calls.length - before === 2, 'warm path skips search/detail, reacquires video and subtitles');
   check(!a.calls.some(c => /script.google|enc-dec|\.is\//.test(c.url)), 'no remote token service or obsolete first engine');
@@ -112,6 +128,7 @@ async function tests() {
   });
   result = await encryptedSubs.run();
   check(decodeURIComponent(result[0].subtitles[0].url).includes('Hello subtitle'), 'AES TXT converted to readable inline SRT');
+  check(result[0].subtitles[0].mimeType === 'application/x-subrip', 'decrypted TXT has SRT MIME');
   const plainSubs = make(url => {
     if (url.includes('/api/Sub/')) return response([{ src: 'https://sub.example/plain.txt', label: 'Malay' }]);
     if (url.includes('sub.example/plain.txt')) return response('1\n00:00:01,000 --> 00:00:03,000\nHello world\n');
@@ -140,7 +157,7 @@ async function tests() {
 
   const subAuth = make(url => url.includes('/api/Sub/') && new URL(url).searchParams.get('kkey') !== 'captured-sub-key' ? response({}, 403) : ordinary(url));
   subAuth.sandbox.webviewResolve = async () => ({ streams: [{ url: 'https://kisskh.id/api/Sub/139842?kkey=captured-sub-key' }] });
-  check((await subAuth.run())[0].subtitles.length === 2, 'subtitle-only authentication failure can refresh its own token');
+  check((await subAuth.run())[0].subtitles.length === 1, 'subtitle-only authentication failure can refresh its own token');
   let cancelled = false;
   const timeout = make((url, options) => {
     if (url.includes('/api/Sub/')) {
