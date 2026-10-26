@@ -1,8 +1,8 @@
-/* HDHub4u 2.1.1 — HTTP search -> detail -> parallel WATCH + PLAYER-2 -> extracted streams.
+/* HDHub4u 2.1.2 — HTTP search -> detail -> parallel WATCH + PLAYER-2 -> extracted streams.
  * No legacy engine, download resolver, mirror collector, media/seek probes or WebView.
  */
 (function(){
-var BASE='https://new9.hdhub4u.cl',VERSION='2.1.1',UA='Mozilla/5.0';
+var BASE='https://new9.hdhub4u.cl',VERSION='2.1.2',UA='Mozilla/5.0';
 function log(s){console.log('[HDHub4u] '+s);}
 function url(value,base){try{var u=new URL(String(value||''),base);return /^https?:$/.test(u.protocol)&&!u.username&&!u.password?u.href:'';}catch(_){return '';}}
 function norm(s){return String(s||'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();}
@@ -10,6 +10,8 @@ function metadata(raw,id,type){if(typeof raw==='string'){try{raw=JSON.parse(raw)
 function subtitleTracks($,base,extra){var rows=extra||[];$('track[src]').each(function(_,e){var a=$(e);rows.push({url:a.attr('src'),label:a.attr('label'),language:a.attr('srclang'),kind:a.attr('kind')});});$('script').each(function(_,e){var t=$(e).html()||'',re=/\{[^{}]{0,1600}\}/g,m;while((m=re.exec(t))){var obj=m[0],file=/(?:file|src|url)\s*:\s*['"]([^'"]+\.(?:vtt|srt)(?:\?[^'"]*)?)['"]/i.exec(obj);if(!file)continue;var label=/(?:label|name)\s*:\s*['"]([^'"]+)['"]/i.exec(obj),language=/(?:srclang|lang|language)\s*:\s*['"]([^'"]+)['"]/i.exec(obj);rows.push({url:file[1],label:label&&label[1],language:language&&language[1],kind:obj});}});
 var seen={};return rows.map(function(r){var u=url(r.url,base),text=String(r.language||r.label||'').toLowerCase(),lang=/^(?:en|eng|english)(?:$|[-_ (])/.test(text)?'en':/^(?:ms|msa|may|malay|bahasa melayu|melayu)(?:$|[-_ (])/.test(text)?'ms':'';if(!u||!lang||seen[u]||/thumbnail|sprite|chapter/i.test(String(r.kind||'')+' '+r.label))return null;seen[u]=true;return{url:u,language:lang,lang:lang,label:r.label||(lang==='en'?'English':'Bahasa Melayu'),mimeType:/\.srt(?:[?#]|$)/i.test(u)?'application/x-subrip':'text/vtt',headers:{Referer:base,'User-Agent':UA}};}).filter(Boolean);}
 function extractStreams(text,base){var raw=String(text||'').replace(/\\\//g,'/').replace(/&amp;/g,'&'),out=[],seen={},re=/(?:file|source|src)\s*[:=]\s*['"]([^'"]+)['"]|['"](https?:\/\/[^'"]+\.m3u8(?:[?#][^'"]*)?)['"]/ig,m;while((m=re.exec(raw))){var u=url(m[1]||m[2],base);if(!u||!/\.m3u8(?:[?#]|$)/i.test(u)||/youtube|googlevideo|\/trailer|\/preview/i.test(u)||seen[u])continue;seen[u]=true;out.push(u);}return out;}
+// WATCH declares its preferred HLS delivery in a literal links object.
+function watchStreams(script,base){var m=/\b(?:var|let|const)\s+links\s*=\s*(\{[^;]*?\})\s*;/.exec(script);if(m){try{var links=JSON.parse(m[1]);for(var i=0,keys=['hls4','hls3','hls2'];i<keys.length;i++){if(!links[keys[i]])continue;var u=url(links[keys[i]],base);if(u){log('WATCH: delivery='+keys[i]+' host='+new URL(u).hostname);return[u];}}}catch(_){}}return extractStreams(script,base);}
 // Match Hubstream's delivery order and URL adjustments using the same API response.
 function player2Stream(payload,base){var config={order:['Tiktok','Google','Cloudflare','In-House'],adjust:{}};try{var parsed=typeof payload.streamingConfig==='string'?JSON.parse(payload.streamingConfig):payload.streamingConfig;if(parsed&&Array.isArray(parsed.order))config=parsed;}catch(_){}var fields={'Tiktok':payload.hlsVideoTiktok,'Google':payload.hlsVideoGoogle,'Cloudflare':payload.cf,'In-House':payload.source};for(var i=0;i<config.order.length;i++){var kind=config.order[i],adjust=(config.adjust||{})[kind]||{},u=fields[kind]?url(fields[kind],base):'';if(adjust.disabled||!u)continue;var target=new URL(u);if(adjust.params&&typeof adjust.params==='object')Object.keys(adjust.params).forEach(function(k){target.searchParams.set(k,adjust.params[k]);});if(adjust.domain&&target.pathname.indexOf('/hls/')>=0)target.pathname=target.pathname.replace('/hls/','/hlsmod/'+adjust.domain+'/');return{url:target.href,delivery:kind};}return null;}
 function unbasePacker(word, radix) {
@@ -74,7 +76,7 @@ log('PLAYERS: parallel tasks='+watch.length+'; collect both; per-request limit=4
 var groups=await Promise.all(watch.map(async function(item){try{
 var player,streams,captions,$p;
 if(item.kind==='WATCH'){
-var embed=item.url.replace(/\/(?:download|file|embed|d|f)\//,'/v/');player=await text(embed,detail.url);$p=require('cheerio-without-node-native').load(player.text);var scripts=$p('script').map(function(_,el){return $p(el).html()||'';}).get().join('\n');streams=extractStreams(unpackPacker(scripts)+'\n'+scripts,player.url);captions=subtitleTracks($p,player.url);
+var embed=item.url.replace(/\/(?:download|file|embed|d|f)\//,'/v/');player=await text(embed,detail.url);$p=require('cheerio-without-node-native').load(player.text);var scripts=$p('script').map(function(_,el){return $p(el).html()||'';}).get().join('\n');var decodedWatch=unpackPacker(scripts),watchText=decodedWatch+'\n'+scripts;streams=watchStreams(watchText,player.url);var $captions=require('cheerio-without-node-native').load('<script></script>');$captions('script').text(watchText);captions=subtitleTracks($p,player.url,subtitleTracks($captions,player.url));
 }else{
 var pu=new URL(item.url),id2=pu.hash.slice(1).split('&')[0]||pu.pathname.split('/').filter(Boolean).pop();if(!id2)throw Error('missing player id');
 var api=pu.origin+'/api/v1/video?id='+encodeURIComponent(id2)+'&w=412&h=915&r=';
