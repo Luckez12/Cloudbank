@@ -1580,18 +1580,18 @@ function createHdHubEngine() {
 /* CLOUDBANK_TEST_PLUGIN_SOURCE_START */
 "use strict";
 
-var hdTransport=fetch,hdActive=true,hdPending=[];
+var hdTransport=fetch,hdActive=true,hdPending=[],hdTextCache={};
 function hdStop(){hdActive=false;hdPending.slice().forEach(function(cancel){cancel();});}
 stopTransferred=hdStop;
 fetch=function(url,options){
  if(!hdActive)return Promise.reject(new Error('HDHub4u stopped'));
- var controller=typeof AbortController==='function'?new AbortController():null,opts=Object.assign({},options||{});if(controller)opts.signal=controller.signal;
- return new Promise(function(resolve,reject){var done=false;function finish(err,v){if(done)return;done=true;hdPending=hdPending.filter(function(x){return x!==cancel;});if(err)reject(err);else resolve(v);}function cancel(){if(controller)controller.abort();finish(new Error('HDHub4u cancelled'));}hdPending.push(cancel);
+ var controller=typeof AbortController==='function'?new AbortController():null,opts=Object.assign({},options||{}),inputSignal=opts.signal;if(controller)opts.signal=controller.signal;
+ return new Promise(function(resolve,reject){var done=false;function finish(err,v){if(done)return;done=true;hdPending=hdPending.filter(function(x){return x!==cancel;});if(err)reject(err);else resolve(v);}function cancel(){if(controller)controller.abort();finish(new Error('HDHub4u cancelled'));}hdPending.push(cancel);if(inputSignal){if(inputSignal.aborted){cancel();return;}inputSignal.addEventListener('abort',cancel,{once:true});}
  Promise.resolve().then(function(){if(!hdActive)throw Error('HDHub4u stopped');return hdTransport(url,opts);}).then(function(r){finish(null,r);},function(e){finish(e);});
  });
 };
 var PROVIDER = "HDHub4u";
-var VERSION = "1.9.1-cloudbank";
+var VERSION = "1.9.2-cloudbank";
 var PRIMARY_BASE = "https://new8.hdhub4u.cl";
 var FALLBACK_BASES = ["https://new6.hdhub4u.cl", "https://new6.hdhub4u.fo", "https://hdhub4u.frl"];
 var DOMAINS_URL = "https://raw.githubusercontent.com/phisher98/TVVVV/refs/heads/main/domains.json";
@@ -1658,14 +1658,16 @@ function fetchResponse(url, options, timeoutMs) {
 }
 
 function fetchText(url, options, timeoutMs) {
-  var opts = options || {};
-  opts.headers = mergeHeaders(opts.headers || {});
-  return withTimeout(Promise.resolve().then(function() { return fetch(url, opts); }).then(function(res) {
-    if (!res || !res.ok) throw new Error("HTTP " + (res ? res.status : "?"));
-    return res.text().then(function(text) {
-      return { text: text, url: res.url || url, status: res.status, headers: res.headers };
-    });
-  }), timeoutMs || 2100, "HTTP body");
+  if(!hdActive)return Promise.reject(Error('HDHub4u stopped'));
+  var opts=Object.assign({},options||{});opts.headers=mergeHeaders(opts.headers||{});
+  var key=JSON.stringify([url,opts.method||'GET',opts.headers]);if(hdTextCache[key])return hdTextCache[key];
+  var controller=typeof AbortController==='function'?new AbortController():null;if(controller)opts.signal=controller.signal;
+  var work=withTimeout(Promise.resolve().then(function(){return fetch(url,opts);}).then(function(res){
+    if(!res||!res.ok)throw Error('HTTP '+(res?res.status:'?'));
+    return res.text().then(function(text){return{text:text,url:res.url||url,status:res.status,headers:res.headers};});
+  }),timeoutMs||2100,'HTTP body');
+  hdTextCache[key]=work.catch(function(e){if(controller)controller.abort();delete hdTextCache[key];throw e;});
+  return hdTextCache[key];
 }
 
 function fetchJson(url, options, timeoutMs) {
@@ -2404,7 +2406,8 @@ function verifyHls(url, referer, extraHeaders, fallbackQuality) {
   var headers = hlsHeaders(referer, origin);
   Object.keys(extraHeaders || {}).forEach(function(k) { headers[k] = extraHeaders[k]; });
 
-  return fetchText(url, { headers: headers, redirect: "follow" }, 1650).then(function(x) {
+  var hlsStarted=Date.now();
+  return fetchText(url, { headers: headers, redirect: "follow" }, 4000).then(function(x) {
     var body = String(x.text || "");
     var ct = headerGet({ headers: x.headers }, "content-type").toLowerCase();
     var finalUrl = String(x.url || url);
@@ -2431,7 +2434,8 @@ function verifyHls(url, referer, extraHeaders, fallbackQuality) {
         isMaster: true, quality: 0, audioLanguages: audioLanguages, playlistHeights: playlistHeights };
     }
     return variants[0];
-  }).catch(function() {
+  }).catch(function(e) {
+    console.log("[HDHub4u] HLS failed host="+hostOf(url)+" error="+String(e&&e.message||e)+" elapsed="+(Date.now()-hlsStarted)+"ms");
     return null;
   });
 }
@@ -3114,7 +3118,9 @@ function hdCollectAlternatives(tasks,info,budget,grace){
  return new Promise(function(resolve){
  var ended=false,index=0,active=0,completed=0,hits=[],seen={},extraTimer=null;
  var pendingSite=tasks.filter(function(t){return t.hdSite;}).length;
+ var downloadsOpen=pendingSite===0,gateTimer=null;
  var timer=setTimeout(finish,budget);
+ if(!downloadsOpen)gateTimer=setTimeout(function(){downloadsOpen=true;pump();},Math.min(4000,Math.floor(budget/2)));
  function selection(){
  var sorted=hits.slice().sort(function(a,b){return hdAlternativeScore(b)-hdAlternativeScore(a);}),counts={},chosen=[];
  var hls=sorted.filter(function(h){return h.isHls;})[0];
@@ -3122,14 +3128,14 @@ function hdCollectAlternatives(tasks,info,budget,grace){
  sorted.forEach(function(hit){if(chosen.length>=3||hls&&hit.url===hls.url)return;var host=hostOf(hit.url);if((counts[host]||0)>=2)return;counts[host]=(counts[host]||0)+1;chosen.push(hit);});
  return chosen.sort(function(a,b){return hdAlternativeScore(b)-hdAlternativeScore(a);});
  }
- function finish(){if(ended)return;ended=true;clearTimeout(timer);if(extraTimer)clearTimeout(extraTimer);resolve(selection());}
+ function finish(){if(ended)return;ended=true;clearTimeout(timer);if(extraTimer)clearTimeout(extraTimer);if(gateTimer)clearTimeout(gateTimer);resolve(selection());}
  function launch(task){active++;Promise.resolve().then(task).then(function(rows){
  if(ended)return;(Array.isArray(rows)?rows:[]).forEach(function(hit){if(!hdEligible(hit,info)||seen[hit.url])return;seen[hit.url]=true;hits.push(hit);});
  if(hits.length&&!extraTimer)extraTimer=setTimeout(finish,grace);
- }).catch(function(){}).then(function(){active--;completed++;if(task.hdSite)pendingSite--;if(ended)return;
+ }).catch(function(){}).then(function(){active--;completed++;if(task.hdSite)pendingSite--;if(pendingSite===0){downloadsOpen=true;if(gateTimer)clearTimeout(gateTimer);}if(ended)return;
  var chosen=selection();if(chosen.length>=3&&(pendingSite===0||chosen.some(function(h){return h.isHls;}))){finish();return;}
  if(completed===tasks.length)finish();else pump();});}
- function pump(){if(ended)return;while(active<3&&index<tasks.length)launch(tasks[index++]);if(!tasks.length)finish();}
+ function pump(){if(ended)return;while(active<3&&index<tasks.length){if(!tasks[index].hdSite&&!downloadsOpen)break;launch(tasks[index++]);}if(!tasks.length)finish();}
  pump();
  });
 }
@@ -3143,8 +3149,8 @@ function resolveMoviePage(html,detailUrl,info){
  tasks.push(function(){return resolveServer(block.url,detailUrl).then(function(hit){if(!hit)return [];if(!hit.isHls){hit.quality=q;var t=String(block.text||'');var avc=/\b(?:x264|h[ .-]?264|avc)\b/i.test(t),hevc=/\b(?:x265|h[ .-]?265|hevc)\b/i.test(t);hit.videoCodec=avc&&!hevc?'H.264':hevc&&!avc?'HEVC':'';hit.codecSource=hit.videoCodec?'release':'';hit.releaseSource=t;}
  return expandResolvedHit(hit,q);});});
  });
- console.log('[HDHub4u] ALTERNATIVES: tasks='+tasks.length+' workers=3 maxSources=3 maxPerHost=2 HLS-slot-reserved; 1080p H.264 release preferred; post-first budget=3500ms');
- return hdCollectAlternatives(tasks,info,9500,3500);
+ console.log('[HDHub4u] ALTERNATIVES: tasks='+tasks.length+' workers=3 maxSources=3 maxPerHost=2 HLS-slot-reserved site-headstart=4000ms; 1080p H.264 release preferred; post-first budget=3500ms');
+ return hdCollectAlternatives(tasks,info,11500,3500);
 }
 
 function resolveTvPage(html, detailUrl, episode) {

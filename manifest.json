@@ -1,6 +1,6 @@
 {
   "name": "Cloudbank",
-  "version": "1.20.120",
+  "version": "1.20.121",
   "scrapers": [
     {
       "id": "kisskh",
@@ -67,7 +67,7 @@
       "id": "hdhub4u",
       "name": "HDHub4u",
       "description": "Movie and TV stream provider",
-      "version": "1.9.1",
+      "version": "1.9.2",
       "author": "Luckez",
       "supportedTypes": [
         "movie",
@@ -88,7 +88,7 @@
       "disabledPlatforms": [],
       "supportsExternalPlayer": true,
       "runtimeTimeoutMs": 20000,
-      "notes": "Fast site HLS race, no post-first-result grace, defer download mirrors until site HLS fails. Preserve master Auto; inspect already fetched playlist audio languages and reject known non-original-only sources; retain mixed masters with original audio. No additional media/subtitle requests. 1.8.0: single request-scoped current engine; remove uncancelled legacy fallback. Cancel pending fetches and prevent late requests at scan completion. Filter HubCloud download routes and exclude tg/go, ads/tutorials. Follow gpdl query-link/downloadBtn landing to final file before verification. Preserve original-audio, quality and subtitle policies and R2 seek-restart block; reject known R2 before unnecessary seek probe. Android regression required. 1.8.1: user-authorized removal of unconditional R2 domain exclusion. Final media and nonzero byte-range seek verification remain mandatory for direct files. Device seek behavior must be tested. 1.8.2: preserve master quality=0 and Auto across WATCH/HubCDN/movie/TV expansion; READY log and display show Auto. HLS resolution comes only from playlist RESOLUTION, never page/download quality fallback. Missing HLS resolution stays Unknown. Existing R2 byte-range acceptance retained. 1.9.0: movie source collection returns up to three distinct verified URLs; three lazy workers share 9.5s collection and 3.5s post-first ceiling. Inspect site HLS plus preferred 1080/720/second1080/4K releases. Prioritize explicit release-labelled 1080 H264; preserve HLS master Auto and headers/captions. Known quality/codec is release evidence, not media-probed capability. R2 permitted after seek verification. TV routing unchanged. 1.9.1: user-authorized temporary direct R2 exclusion restored after device seek-to-zero evidence. Reject known and redirected R2 direct files; continue host alternatives. Collector max two per hostname, reserves successful HLS in output and does not end at three direct results while site-stream tasks remain pending. Existing absolute/post-first deadlines retained; no claim that all R2 infrastructure or every HLS source is faulty/seek-safe."
+      "notes": "Fast site HLS race, no post-first-result grace, defer download mirrors until site HLS fails. Preserve master Auto; inspect already fetched playlist audio languages and reject known non-original-only sources; retain mixed masters with original audio. No additional media/subtitle requests. 1.8.0: single request-scoped current engine; remove uncancelled legacy fallback. Cancel pending fetches and prevent late requests at scan completion. Filter HubCloud download routes and exclude tg/go, ads/tutorials. Follow gpdl query-link/downloadBtn landing to final file before verification. Preserve original-audio, quality and subtitle policies and R2 seek-restart block; reject known R2 before unnecessary seek probe. Android regression required. 1.8.1: user-authorized removal of unconditional R2 domain exclusion. Final media and nonzero byte-range seek verification remain mandatory for direct files. Device seek behavior must be tested. 1.8.2: preserve master quality=0 and Auto across WATCH/HubCDN/movie/TV expansion; READY log and display show Auto. HLS resolution comes only from playlist RESOLUTION, never page/download quality fallback. Missing HLS resolution stays Unknown. Existing R2 byte-range acceptance retained. 1.9.0: movie source collection returns up to three distinct verified URLs; three lazy workers share 9.5s collection and 3.5s post-first ceiling. Inspect site HLS plus preferred 1080/720/second1080/4K releases. Prioritize explicit release-labelled 1080 H264; preserve HLS master Auto and headers/captions. Known quality/codec is release evidence, not media-probed capability. R2 permitted after seek verification. TV routing unchanged. 1.9.1: user-authorized temporary direct R2 exclusion restored after device seek-to-zero evidence. Reject known and redirected R2 direct files; continue host alternatives. Collector max two per hostname, reserves successful HLS in output and does not end at three direct results while site-stream tasks remain pending. Existing absolute/post-first deadlines retained; no claim that all R2 infrastructure or every HLS source is faulty/seek-safe. 1.9.2: HLS-first scheduling with up to 4s exclusive site head start; playlist fetch ceiling 4s (was 1.65s), explicit failure timing logs; coalesce identical text requests per scan and propagate timeout abort. Collection ceiling 11.5s under unchanged 17.5s provider ceiling. Keep R2 direct exclusion and nonzero range checks; no unverified Google file acceptance. Device result pending."
     },
     {
       "id": "moviebox",
