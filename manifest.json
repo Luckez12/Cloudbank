@@ -1,12 +1,12 @@
 {
   "name": "Cloudbank",
-  "version": "1.20.135",
+  "version": "1.20.136",
   "scrapers": [
     {
       "id": "kisskh",
       "name": "KissKH",
       "description": "Asian drama, series and movie streams with subtitle metadata",
-      "version": "1.4.3",
+      "version": "1.4.4",
       "author": "Luckez",
       "supportedTypes": [
         "movie",
@@ -30,7 +30,7 @@
       ],
       "disabledPlatforms": [],
       "supportsExternalPlayer": true,
-      "notes": "Single API resolver: shared TMDB metadata with identity checks, exact title/season/year and bounded alias fallback; local per-episode video/subtitle kkey, optional WebView only after rejected video token. Parallel video/subtitle requests; encrypted TXT subtitle decryption with validation. Runtime-local LRU: 500 title mappings/30 days; 32 compact episode lists, 5min ongoing/6h completed. No signed media cache or remote key service. Playback requires Android testing.",
+      "notes": "Single API resolver: shared TMDB metadata with identity checks, exact title/season/year and bounded alias fallback; local per-episode video/subtitle kkey, optional WebView only after rejected video token. Parallel video/subtitle requests; encrypted TXT subtitle decryption with validation. Runtime-local LRU: 500 title mappings/30 days; 32 compact episode lists, 5min ongoing/6h completed. No signed media cache or remote key service. Playback requires Android testing. v1.4.4: unlabelled continuous TV catalogues accepted only after TMDB confirms a single canonical season containing the requested episode, unique exact title and requested episode; catalogue upload dates are not treated as premiere years on this route; normal season paths unchanged. No app changes.",
       "runtimeTimeoutMs": 20000
     },
     {

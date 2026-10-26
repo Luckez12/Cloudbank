@@ -76,6 +76,37 @@ async function tests() {
   check((await noS2.run('218539', 'tv', 2, 1)).length === 0, 'missing explicit season returns no source');
   check(noS2.calls.length === 1, 'negative search does not fan out to other hosts');
 
+  const runningContext = {tmdbId:'33238',mediaType:'tv',title:'Running Man',year:'2010'};
+  function continuousHandler(options = {}) {
+    return url => {
+      if (url.includes('/Search?')) return response([{id:100,title:'Running Man'}]);
+      if (url.includes('themoviedb.org/3/tv/33238?')) return response({id:options.tmdbId || 33238,seasons: options.seasons || [{season_number:1,episode_count:828}]});
+      if (url.includes('/Drama/100?')) return response(drama(options.title || 'Running Man',100,'2021',
+        (options.detailNumbers || [820,821]).map(n => ({id:200000+n,number:n}))));
+      if (url.includes('/Episode/200821.')) return response({Video:'https://cdn.example/running-e821.m3u8'});
+      if (url.includes('/api/Sub/200821')) return response([]);
+      throw Error('Unexpected continuous route '+url);
+    };
+  }
+  const running = make(continuousHandler(),runningContext);
+  result = await running.run('33238','tv',17,821);
+  check(result.length === 1 && result[0].url.includes('running-e821'), 'continuous season uses exact E821 from unlabelled catalogue');
+  check(running.calls.length === 5, 'only continuous fallback adds one season metadata request');
+  const runningBefore = running.calls.length;
+  await running.run('33238','tv',17,821);
+  check(running.calls.length - runningBefore === 2, 'verified continuous mapping reused without season/search/detail requests');
+  for (const [options,label] of [
+    [{seasons:[{season_number:1,episode_count:828},{season_number:2,episode_count:10}]},'multiple canonical seasons'],
+    [{seasons:[{season_number:1,episode_count:820}]},'requested episode beyond TMDB catalogue'],
+    [{tmdbId:999},'wrong TMDB identity'],
+    [{title:'Running Man Thailand'},'wrong catalogue title'],
+    [{detailNumbers:[820]},'requested episode absent from KissKH']
+  ]) {
+    const rejected = make(continuousHandler(options),runningContext);
+    check((await rejected.run('33238','tv',17,821)).length === 0,label+' cannot produce a source');
+    check(!rejected.calls.some(c => c.url.includes('/Episode/')),label+' rejected before video call');
+  }
+
   const remakes = make(url => url.includes('/Drama/') ? response(drama('My Demon', 8268, '2024')) : ordinary(url));
   check((await remakes.run()).length === 0 && !remakes.calls.some(c => c.url.includes('/Episode/')), 'unique wrong-year remake is rejected');
   const ambiguous = make(url => {
