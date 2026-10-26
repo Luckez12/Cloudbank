@@ -153,7 +153,7 @@ function cloudbankMetadataFetch(nativeFetch) {
   }
   (function(module, exports, require, fetch, self) {
 /* CLOUDBANK_UPSTREAM_SOURCE_START */
-/* XPass v2.0.4: current website data-token -> authenticated index -> playlist. */
+/* XPass v2.0.0: current website data-token -> authenticated index -> playlist. */
 var XP_HOME='https://play.xpass.top';
 var XP_UA='Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36';
 var XP_C=require('crypto-js');
@@ -192,7 +192,7 @@ function xpMap(body,server,page){
  var q=/\b(2160|1440|1080|720|576|480|360|240)p?\b/i.exec(String(src.label||src.quality||''));if(!hls&&!dash&&q&&+q[1]<720)return;
  var trackRows=[].concat(Array.isArray(item.tracks)?item.tracks:[],Array.isArray(item.subtitles)?item.subtitles:[],Array.isArray(src.tracks)?src.tracks:[]);
  var mediaHeaders=xpHeaders(src.headers||item.headers,u.origin===XP_HOME?page:XP_HOME+'/');if(u.hostname==='cdn.hakunaymatata.com')Object.keys(mediaHeaders).forEach(function(k){if(k.toLowerCase()==='referer')delete mediaHeaders[k];});
- out.push({name:'XPass',title:'XPass - '+server,url:u.href,quality:hls||dash?'Auto':q?q[1]+'p':'Auto',type:hls?'hls':dash?'dash':'direct',format:hls?'hls':dash?'dash':'mp4',mimeType:hls?'application/x-mpegURL':dash?'application/dash+xml':/mkv|matroska/.test(mime+u.pathname)?'video/x-matroska':'video/mp4',server:server,serverName:server,headers:mediaHeaders,subtitles:xpTracks(trackRows,page),audioLanguage:audio||undefined,provider:'xpass'});
+ out.push({name:'XPass',title:'XPass - '+server,url:u.href,quality:hls||dash?'Auto':q?q[1]+'p':'Auto',type:hls?'hls':dash?'dash':'direct',format:hls?'hls':dash?'dash':'mp4',mimeType:hls?'application/x-mpegURL':dash?'application/dash+xml':/mkv|matroska/.test(mime+u.pathname)?'video/x-matroska':'video/mp4',serverName:server,headers:mediaHeaders,subtitles:xpTracks(trackRows,page),audioLanguage:audio||undefined,provider:'xpass'});
  });});return out;
 }
 async function getStreams(id,type,season,episode){
@@ -201,29 +201,9 @@ async function getStreams(id,type,season,episode){
  if(type==='tv'&&(!Number.isInteger(Number(season))||season==null||season===''||Number(season)<0||!Number.isInteger(Number(episode))||episode==null||episode===''||Number(episode)<1))return [];
  var page=XP_HOME+'/e/'+type+'/'+id+(type==='tv'?'/'+Number(season)+'/'+Number(episode):''),start=Date.now(),deadline=start+17500,calls=0;
  function log(s){console.log('[XPass] '+s);}
- var pending=[],stopped=false;
- function stop(){stopped=true;pending.slice().forEach(function(cancel){cancel();});}
- async function request(url,options){options=options||{};if(stopped)throw Error('stopped');calls++;var left=Math.min(4000,deadline-Date.now());if(left<=0)throw Error('deadline');return new Promise(function(resolve,reject){var done=false,c=typeof AbortController==='function'?new AbortController():null,timer;function finish(err,value){if(done)return;done=true;clearTimeout(timer);pending=pending.filter(function(f){return f!==cancel;});if(err||options.binary){if(c)c.abort();}if(err)reject(err);else resolve(value);}function cancel(){finish(Error('cancelled'));}pending.push(cancel);timer=setTimeout(function(){finish(Error('deadline'));},left);Promise.resolve().then(function(){if(done)throw Error('stopped');return fetch(url,{method:options.method||'GET',headers:options.headers||xpHeaders(null,xpUrl(url).origin===XP_HOME?page:XP_HOME+'/'),signal:c?c.signal:undefined});}).then(async function(r){if(!r.ok)throw Error('HTTP '+r.status);var body=options.binary?'':await r.text();finish(null,{ok:r.ok,status:r.status,url:r.url||url,headers:r.headers,text:function(){return Promise.resolve(body);},json:function(){return Promise.resolve().then(function(){return JSON.parse(body);});}});}).catch(function(e){finish(e);});});}
- async function available(row){try{
- var options={headers:row.headers},r,body,base=row.url;
- if(row.type==='hls'){
- for(var depth=0;depth<3;depth++){
- r=await request(base,options);body=(await r.text()).replace(/^\uFEFF/,'').trim();if(!/^#EXTM3U(?:\s|$)/.test(body))throw Error('invalid HLS');
- var lines=body.split(/\r?\n/).map(function(x){return x.trim();}),next='';
- if(/#EXT-X-STREAM-INF:/.test(body)){for(var i=0;i<lines.length;i++)if(/^#EXT-X-STREAM-INF:/.test(lines[i])){for(var j=i+1;j<lines.length;j++){if(lines[j]&&lines[j][0]!=='#'){next=lines[j];break;}}break;}var variant=xpUrl(next,r.url);if(!variant)throw Error('empty master');base=variant.href;continue;}
- var segment='';for(i=0;i<lines.length;i++)if(/^#EXTINF:/.test(lines[i])){for(j=i+1;j<lines.length;j++){if(lines[j]&&lines[j][0]!=='#'){segment=lines[j];break;}}break;}
- var media=xpUrl(segment,r.url);if(!media)throw Error('empty media playlist');
- var probe;try{probe=await request(media.href,{headers:row.headers,method:'HEAD',binary:true});log('MEDIA: segment HEAD accepted server='+row.serverName);}catch(e){if(!/^HTTP (?:401|403|405|501)$/.test(String(e.message||e)))throw e;log('MEDIA: HEAD unsupported; small GET server='+row.serverName);probe=await request(media.href,{headers:Object.assign({},row.headers,{Range:'bytes=0-1023'}),binary:true});}
- var ct=probe.headers&&probe.headers.get?String(probe.headers.get('content-type')||''):'';if(/html|json|javascript/i.test(ct))throw Error('non-media response');
- log('MEDIA: available server='+row.serverName);return true;
- }throw Error('playlist depth');
- }
- if(row.type==='dash'){r=await request(row.url,options);body=await r.text();if(!/<MPD(?:\s|>)/i.test(body))throw Error('invalid DASH');return true;}
- r=await request(row.url,{headers:row.headers,method:'HEAD',binary:true});var mime=r.headers&&r.headers.get?String(r.headers.get('content-type')||''):'';return /^video\//i.test(mime)||/octet-stream|matroska/i.test(mime);
- }catch(e){if(!stopped)log('MEDIA: rejected server='+row.serverName+' reason='+String(e.message||e));return false;}}
-
+ async function request(url){calls++;var left=deadline-Date.now();if(left<=0)throw Error('deadline');return new Promise(function(resolve,reject){var timer=setTimeout(function(){reject(Error('deadline'));},left);Promise.resolve().then(function(){return fetch(url,{headers:xpHeaders(null,xpUrl(url).origin===XP_HOME?page:XP_HOME+'/')});}).then(function(r){clearTimeout(timer);if(!r.ok)throw Error('HTTP '+r.status);resolve(r);},function(e){clearTimeout(timer);reject(e);}).catch(reject);});}
  try{
- log('ROUTE: v2.0.4 exact '+type+' '+id+'; website signed data index; parallel servers=3; media availability check');
+ log('ROUTE: v2.0.0 exact '+type+' '+id+'; website signed data index; parallel servers=3; no media probes');
  var html=await(await request(page)).text(),relative=xpVariable(html,'dataUrl'),dataUrl=xpUrl(relative,page);
  if(!dataUrl||dataUrl.origin!==XP_HOME||dataUrl.pathname!=='/data/'+type+'/'+id+(type==='tv'?'/'+Number(season)+'/'+Number(episode):''))throw Error('unexpected data route');
  var token=dataUrl.searchParams.get('token');if(!token)throw Error('missing data token');
@@ -236,10 +216,10 @@ async function getStreams(id,type,season,episode){
  var script=await(await request(XP_HOME+playerPath)).text(),build=xpStrings(script).find(function(s){return /^spv3-build-[A-Za-z0-9-]+$/.test(s);});if(!build)throw Error('website crypto version missing');
  var servers=xpDecrypt(values[0],dataUrl.pathname,token,build);if(!Array.isArray(servers))throw Error('invalid server index');
  log('INDEX: authenticated=true servers='+servers.length+'; current website crypto version');
- var rows=await new Promise(function(resolve){var next=0,active=0,done=false;function pump(){if(done)return;while(active<3&&next<servers.length&&Date.now()<deadline){var server=servers[next++],u=server&&xpUrl(server.url,page);if(!u||u.origin!==XP_HOME)continue;active++;(function(s,url){request(url).then(function(r){return r.json();}).then(async function(body){if(done)return;var result=xpMap(body,String(s.name||'Server'),page);for(var i=0;i<result.length&&!done;i++){if(await available(result[i])){if(done)return;done=true;resolve([result[i]]);return;}}}).catch(function(){if(!done)log('SERVER: unavailable');}).then(function(){active--;if(!done)pump();});})(server,u.href);}if(!done&&active===0){done=true;resolve([]);}}pump();});
+ var rows=await new Promise(function(resolve){var next=0,active=0,done=false;function pump(){if(done)return;while(active<3&&next<servers.length&&Date.now()<deadline){var server=servers[next++],u=server&&xpUrl(server.url,page);if(!u||u.origin!==XP_HOME)continue;active++;(function(s,url){request(url).then(function(r){return r.json();}).then(function(body){if(done)return;var result=xpMap(body,String(s.name||'Server'),page);if(result.length){done=true;resolve(result);}}).catch(function(){if(!done)log('SERVER: unavailable');}).then(function(){active--;if(!done)pump();});})(server,u.href);}if(!done&&active===0){done=true;resolve([]);}}pump();});
  rows.forEach(function(row){row.subtitles=xpTracks(row.subtitles.concat(readySubs),page);});
  log('RESULT: sources='+rows.length+' calls='+calls+' elapsedMs='+(Date.now()-start)+'; playback unverified');return rows;
- }catch(e){log('NO_RESULT: '+(/^(HTTP \d+|deadline|unexpected data route|missing data token|website loader missing|unexpected loader|website player script missing|website crypto version missing|invalid server index|index authentication failed|invalid encrypted index)$/.test(e.message)?e.message:'transport or response error')+' calls='+calls+' elapsedMs='+(Date.now()-start));return [];}finally{stop();}
+ }catch(e){log('NO_RESULT: '+(/^(HTTP \d+|deadline|unexpected data route|missing data token|website loader missing|unexpected loader|website player script missing|website crypto version missing|invalid server index|index authentication failed|invalid encrypted index)$/.test(e.message)?e.message:'transport or response error')+' calls='+calls+' elapsedMs='+(Date.now()-start));return [];}
 }
 module.exports={getStreams:getStreams};
 
