@@ -2,7 +2,7 @@
 /* VUEO_TITLE_PROFILE_V1 — exact aliases, year and explicit season; no first-result fallback. */
 /* VUEO_FAST_DISCOVERY_V1 — one primary API query, bounded alias/host fallback. */
 var PROVIDER_NAME = "KissKH";
-var VERSION = "1.4.1";
+var VERSION = "1.4.2";
 var TMDB_API_KEY = "1c29a5198ee1854bd5eb45dbe8d17d92";
 var HOSTS = ["https://kisskh.id", "https://kisskh.do"];
 var USER_AGENT = "Mozilla/5.0 (Linux; Android 15) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0 Mobile Safari/537.36";
@@ -301,33 +301,6 @@ function subtitleRowLanguage(row) {
   }
   return unknown;
 }
-function decryptSubtitle(text) {
-  var source = String(text || "").replace(/^\uFEFF/, "").replace(/\r/g, "");
-  if (source.length > 600000 || !/\d{2}:\d{2}:\d{2}[,.]\d{3}\s*-->/.test(source)) return "";
-  var C = cryptoJs(), failed = false, cues = [];
-  source.split(/\n\s*\n/).forEach(function(block) {
-    var lines = block.trim().split("\n");
-    if (/^\d+$/.test(lines[0])) lines.shift();
-    if (!lines.length || !/\d{2}:\d{2}:\d{2}[,.]\d{3}\s*-->/.test(lines[0])) return;
-    var time = lines.shift();
-    var captions = lines.map(function(line) {
-      var value = line.trim();
-      if (!/^[A-Za-z0-9+/]{16,}={0,2}$/.test(value) || value.length % 4) return line;
-      var pairs = [["AmSmZVcH93UQUezi", "5265424b5757386371646a50456e4636"], ["8056483646328763", "36383532363132333730313835323733"]];
-      for (var i = 0; i < pairs.length; i++) {
-        try {
-          var plain = C.AES.decrypt(C.lib.CipherParams.create({ ciphertext: C.enc.Base64.parse(value) }), C.enc.Utf8.parse(pairs[i][0]), {
-            iv: C.enc.Hex.parse(pairs[i][1]), mode: C.mode.CBC, padding: C.pad.Pkcs7
-          }).toString(C.enc.Utf8).trim();
-          if (plain && !/[\u0000-\u0008\u000b\u000c\u000e-\u001f\uFFFD]/.test(plain)) return plain;
-        } catch (_) {}
-      }
-      failed = true; return "";
-    });
-    if (captions.join("").trim()) cues.push(String(cues.length + 1) + "\n" + time + "\n" + captions.join("\n"));
-  });
-  return failed ? "" : cues.join("\n\n");
-}
 function subtitles(run, detail, selected, key) {
   run = { started: run.started, deadline: Math.min(run.deadline, Date.now() + 4500) };
   return request(run, detail.base + "/api/Sub/" + selected.id + "?kkey=" + encodeURIComponent(key), detail.base, "subtitle-list", 3500, false)
@@ -347,15 +320,10 @@ function subtitles(run, detail, selected, key) {
         var lang = subtitleRowLanguage(row);
         var path = url.split(/[?#]/)[0], format = /\.(vtt|webvtt)$/i.test(path) ? "vtt" : /\.(ass|ssa)$/i.test(path) ? "ass" : "srt";
         var sub = { label: lang.label, language: lang.code, lang: lang.code, url: url, format: format, mimeType: format === "vtt" ? "text/vtt" : format === "ass" ? "text/x-ssa" : "application/x-subrip", headers: headers(detail.base) };
-        var job = /\.txt$/i.test(path) ? request(run, url, detail.base, "subtitle-text", 2500, true).then(function(text) {
-          var plain = decryptSubtitle(text);
-          if (!plain) throw new Error("Unverified encrypted subtitle");
-          sub.url = "data:application/x-subrip;charset=utf-8," + encodeURIComponent(plain);
-          sub.sourceUrl = url;
-        }) : Promise.resolve();
-        return job.then(function() { output.push(sub); }, function(error) {
-          trace("SUBTITLE_SKIP", { language: lang.code, reason: error.message });
-        }).then(worker);
+        // VUEO applies this transform when loading the sidecar, outside discovery.
+        if (format === "srt" || format === "vtt") sub.textTransform = "kisskh-aes-cbc";
+        output.push(sub);
+        return worker();
       }
       return Promise.all([worker(), worker(), worker()]).then(function() { return output; });
     });

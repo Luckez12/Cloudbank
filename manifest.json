@@ -1,12 +1,12 @@
 {
   "name": "Cloudbank",
-  "version": "1.20.133",
+  "version": "1.20.134",
   "scrapers": [
     {
       "id": "kisskh",
       "name": "KissKH",
       "description": "Asian drama, series and movie streams with subtitle metadata",
-      "version": "1.4.1",
+      "version": "1.4.2",
       "author": "Luckez",
       "supportedTypes": [
         "movie",

@@ -127,22 +127,23 @@ async function tests() {
     return ordinary(url);
   });
   result = await encryptedSubs.run();
-  check(decodeURIComponent(result[0].subtitles[0].url).includes('Hello subtitle'), 'AES TXT converted to readable inline SRT');
-  check(result[0].subtitles[0].mimeType === 'application/x-subrip', 'decrypted TXT has SRT MIME');
+  check(result[0].subtitles[0].url === 'https://sub.example/eng.txt' && result[0].subtitles[0].textTransform === 'kisskh-aes-cbc', 'encrypted TXT remains HTTP URL with playback transform');
+  check(!encryptedSubs.calls.some(c => c.url.includes('sub.example')), 'subtitle content not fetched during scan');
+  check(result[0].subtitles[0].mimeType === 'application/x-subrip', 'TXT declares SRT MIME');
   const plainSubs = make(url => {
     if (url.includes('/api/Sub/')) return response([{ src: 'https://sub.example/plain.txt', label: 'Malay' }]);
     if (url.includes('sub.example/plain.txt')) return response('1\n00:00:01,000 --> 00:00:03,000\nHello world\n');
     return ordinary(url);
   });
   result = await plainSubs.run();
-  check(decodeURIComponent(result[0].subtitles[0].url).includes('Hello world'), 'plain TXT captions retained');
+  check(result[0].subtitles[0].url === 'https://sub.example/plain.txt', 'plain TXT remains URL for playback transform');
   const corrupt = make(url => {
     if (url.includes('/api/Sub/')) return response([{ src: 'https://sub.example/broken.txt', label: 'English' }]);
     if (url.includes('sub.example/broken.txt')) return response('1\n00:00:01,000 --> 00:00:03,000\nAAAAAAAAAAAAAAAAAAAAAA==\n');
     return ordinary(url);
   });
   result = await corrupt.run();
-  check(result.length === 1 && result[0].subtitles.length === 0, 'invalid encryption omitted rather than returned as working subtitles');
+  check(result.length === 1 && result[0].subtitles.length === 1 && result[0].subtitles[0].textTransform === 'kisskh-aes-cbc', 'cipher validation deferred to playback instead of scan');
 
   const keyRetry = make(url => {
     if (url.includes('/Episode/')) return new URL(url).searchParams.get('kkey') === 'captured-video-key' ? ordinary(url) : response({}, 403);
