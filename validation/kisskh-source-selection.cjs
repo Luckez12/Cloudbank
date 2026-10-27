@@ -1,0 +1,13 @@
+const vm=require('vm'),fs=require('fs'),assert=require('assert');
+const s=fs.readFileSync(require('path').join(__dirname,'../providers/kisskh.js'),'utf8');
+const a=s.indexOf('function directUrl('),b=s.indexOf('function captureKeys(');
+const ctx={URL};vm.createContext(ctx);vm.runInContext(s.slice(a,b),ctx);
+const run=x=>ctx.mediaUrls(x,'https://provider.test');
+assert.deepEqual(Array.from(run({Type:1,Video:'https://cdn.test/main.m3u8',Video_tmp:'https://cdn.test/back.mp4',dataSaver:'https://cdn.test/low.m3u8',ThirdParty:'https://embed.test/video.mp4'}),x=>x.label),['Main','Fallback','Data Saver']);
+assert.equal(run({Type:2,Video:'https://embed.test/player.mp4'}).length,0);
+assert.equal(run({ThirdParty:'https://cdn.test/v.mp4'})[0].label,'Third Party');
+assert.equal(run({Video:'https://cdn.test/v.mp4',Video_tmp:'https://cdn.test/v.mp4'}).length,1);
+assert.equal(run({Video:'javascript:evil'}).length,0);
+assert.equal(run({Video_tmp:'/alt.mp4'})[0].url,'https://provider.test/alt.mp4');
+assert.equal(run({Type:1,Video:'https://cdn.test/master.m3u8?token=a%2Fb'})[0].url,'https://cdn.test/master.m3u8?token=a%2Fb');
+console.log('7 source selection cases passed');

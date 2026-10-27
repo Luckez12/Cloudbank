@@ -1,12 +1,12 @@
 {
   "name": "Cloudbank",
-  "version": "1.20.146",
+  "version": "1.20.147",
   "scrapers": [
     {
       "id": "kisskh",
       "name": "KissKH",
       "description": "Asian drama, series and movie streams with subtitle metadata",
-      "version": "1.4.6",
+      "version": "1.4.7",
       "author": "Luckez",
       "supportedTypes": [
         "movie",
@@ -37,7 +37,7 @@
       "id": "onetouchtv",
       "name": "OneTouchTV",
       "description": "Asian drama, anime, series and movie streams with subtitle metadata",
-      "version": "1.5.2",
+      "version": "1.5.0",
       "author": "Luckez",
       "supportedTypes": [
         "movie",
@@ -60,7 +60,7 @@
       ],
       "disabledPlatforms": [],
       "supportsExternalPlayer": true,
-      "notes": "Exact normalized title/aliases and media type first. One unique catalogue ID ignores year/season; multiple candidates use season then year. Exact episode number first: a single match ignores season; duplicate numbers use season; remaining ambiguity rejected. Detail ID/title/type checks retained. Existing API/decryption, playback headers, subtitle handling and cache behavior unchanged except mapping namespace reset. No extra requests, media probes or VUEO changes. Device playback unverified. v1.5.2: precomputed AES inverse multiplication tables and reused expanded key reduce local decoder arithmetic. Decode/parse duration and payload size logged. Only identified English/Malay sidecars forwarded; unknown and other languages rejected. Source API flow/URLs/headers unchanged, no extra requests or VUEO changes. Actual device latency requires retesting.",
+      "notes": "Single API resolver; plaintext/local AES first with bounded remote decrypt only on failure. Shared TMDB identity checks, conditional alias search, exact title/year/season/episode and ambiguity rejection. Preserve source headers and caption tracks. Runtime-local 500-entry mapping cache, 30-day TTL; no media-response cache. Device playback pending.",
       "runtimeTimeoutMs": 20000
     },
     {
@@ -94,7 +94,7 @@
       "id": "moviebox",
       "name": "MovieBox",
       "description": "MovieBox signed mobile API with existing H5 mirror discovery fallback",
-      "version": "3.0.2",
+      "version": "3.0.1",
       "author": "Luckez",
       "supportedTypes": [
         "movie",
@@ -120,7 +120,7 @@
       "disabledPlatforms": [],
       "supportsExternalPlayer": true,
       "runtimeTimeoutMs": 20000,
-      "notes": "Isolated signed mobile resolver followed by bounded existing H5/website fallback; no parallel alternate engines. Shared metadata identity checks, exact aliases/year/type, exact TV resource episode filtering and early pagination exit. Local verification keyed by signed URL/resource ID; HTML/image/JSON CDN responses rejected. Mobile captions bound to selected resource. Explicit foreign audio rejected; unknown audio not labeled Original. 18.5s deadline, request caps and portable existing signing retained. Playback pending device test. Bounded 1080p diagnostics: per-page matching/audio counts, resource rejection reasons before dedupe, requested versus actual resolution, selection counts and CDN status/MIME/size outcome. Selection policy and HTTP request count unchanged. v3.0.2: mobile/H5 exact unique title accepts year mismatch; multiple catalogue IDs use unique year match. Existing type/audio restrictions and playback/API/fallback flow unchanged. Log rejected title/type/audio counts and candidate year policy; no added network requests or app changes.",
+      "notes": "Isolated signed mobile resolver followed by bounded existing H5/website fallback; no parallel alternate engines. Shared metadata identity checks, exact aliases/year/type, exact TV resource episode filtering and early pagination exit. Local verification keyed by signed URL/resource ID; HTML/image/JSON CDN responses rejected. Mobile captions bound to selected resource. Explicit foreign audio rejected; unknown audio not labeled Original. 18.5s deadline, request caps and portable existing signing retained. Playback pending device test. Bounded 1080p diagnostics: per-page matching/audio counts, resource rejection reasons before dedupe, requested versus actual resolution, selection counts and CDN status/MIME/size outcome. Selection policy and HTTP request count unchanged.",
       "runtimeModules": [
         "crypto-js"
       ]
@@ -156,7 +156,7 @@
       "id": "pencurimovie",
       "name": "PencuriMovie",
       "description": "Malaysia and Indonesia movie and TV streams with multi-server playback",
-      "version": "1.8.9",
+      "version": "1.8.6",
       "author": "Luckez",
       "supportedTypes": [
         "movie",
@@ -177,14 +177,14 @@
       ],
       "disabledPlatforms": [],
       "supportsExternalPlayer": true,
-      "notes": "No media probes or legacy rescan. Parallel mirrors have independent 6.5s limits, no 400ms first-result cutoff. GET page promises reused by URL and headers within scan only; request timeout 3.5s, abort when available. Playmogo recognized as Dood family. Existing HGCloud fallback retained because live loader script returned 403; no unverified new API. Live samples: Playmogo challenge, Streamtape unavailable, VOE 404. Server labels/headers preserved; no VUEO/subtitle changes. Extraction and playback remain device dependent. v1.8.9: HGCloud honors observed website links.hls4||links.hls3||links.hls2 rather than script key order; preserves HLS MIME for extensionless/txt choices. No added network calls. Other playback issues remain unverified.",
+      "notes": "V17.1 latest-merge repair: restores the repo-wide TMDB title profile and required fast/discovery-rebuild contracts that were lost when the targeted V17 files were overlaid onto an older provider baseline. V16 Provider Repair: supports both /series/ and /tvshows/ routes, probes WordPress REST search before HTML alias fan-out, and keeps landing-page discovery fallback. V15 Shared Discovery Context: TMDB detail metadata is coalesced by VUEO core once per scan when the V15 runtime bridge is available; local TMDB fallback remains for older runtimes. V15 centralized trace hooks emit metadata/candidate/verification stages without changing source extraction. V15 Shared Discovery Context + centralized trace hooks. TMDB metadata is coalesced by VUEO core when available, with provider-local fallback retained. Candidate/verification stages emit lightweight diagnostics. Discovery Rebuild V1: broader alias discovery, generic canonical title-anchor parsing, cleaned title scoring, and landing-page fallback before declaring a title missing. Existing multi-server extraction is unchanged. Test-Plugin adaptation: transferred engine first (11s maximum), existing Cloudbank engine retained as fallback (7.5s maximum). Shared metadata, provider identity and display preserved; Android playback unverified.",
       "runtimeTimeoutMs": 20000
     },
     {
       "id": "msm21",
       "name": "MSM21",
       "description": "Malay subtitle movie and TV streams using Zeta player multi-server extraction",
-      "version": "1.7.7",
+      "version": "1.7.6",
       "author": "Luckez",
       "supportedTypes": [
         "movie",
@@ -205,14 +205,14 @@
       ],
       "disabledPlatforms": [],
       "supportsExternalPlayer": true,
-      "notes": "V17.1 latest-merge repair: restores the repo-wide TMDB title profile and required fast/discovery-rebuild contracts that were lost when the targeted V17 files were overlaid onto an older provider baseline. V16 Provider Repair: DNS-dead mirrors are remembered for the current execution so repeated PlayerX failures do not waste the remaining extractor budget; healthy mirrors such as Netu remain eligible. V15 Shared Discovery Context: TMDB detail metadata is coalesced by VUEO core once per scan when the V15 runtime bridge is available; local TMDB fallback remains for older runtimes. V15 centralized trace hooks emit metadata/candidate/verification stages without changing source extraction. V15 Shared Discovery Context + centralized trace hooks. TMDB metadata is coalesced by VUEO core when available, with provider-local fallback retained. Candidate/verification stages emit lightweight diagnostics. Discovery Rebuild V1: supports both legacy display-item and current ml-item/canonical archive cards, searches more TMDB aliases, cleans release noise before scoring, and falls back to the TV/movie archive before declaring a title missing. Test-Plugin adaptation: transferred engine first (11s maximum), existing Cloudbank engine retained as fallback (7.5s maximum). Shared metadata, provider identity and display preserved; Android playback unverified. v1.7.7: Active resolver uses unique exact title without year; multiple candidates require a unique year match. Dedicated bounded Byses WebView route for JS frontend; device playback unverified. Existing probe winner selection retained. Source log includes mirror/media host and extractor; no signed URLs logged.",
+      "notes": "V17.1 latest-merge repair: restores the repo-wide TMDB title profile and required fast/discovery-rebuild contracts that were lost when the targeted V17 files were overlaid onto an older provider baseline. V16 Provider Repair: DNS-dead mirrors are remembered for the current execution so repeated PlayerX failures do not waste the remaining extractor budget; healthy mirrors such as Netu remain eligible. V15 Shared Discovery Context: TMDB detail metadata is coalesced by VUEO core once per scan when the V15 runtime bridge is available; local TMDB fallback remains for older runtimes. V15 centralized trace hooks emit metadata/candidate/verification stages without changing source extraction. V15 Shared Discovery Context + centralized trace hooks. TMDB metadata is coalesced by VUEO core when available, with provider-local fallback retained. Candidate/verification stages emit lightweight diagnostics. Discovery Rebuild V1: supports both legacy display-item and current ml-item/canonical archive cards, searches more TMDB aliases, cleans release noise before scoring, and falls back to the TV/movie archive before declaring a title missing. Test-Plugin adaptation: transferred engine first (11s maximum), existing Cloudbank engine retained as fallback (7.5s maximum). Shared metadata, provider identity and display preserved; Android playback unverified.",
       "runtimeTimeoutMs": 20000
     },
     {
       "id": "castle",
       "name": "Castle",
       "description": "Multi Lang provider",
-      "version": "2.2.1",
+      "version": "2.2.0",
       "author": "Nuvio Team",
       "supportedTypes": [
         "movie",
@@ -235,7 +235,7 @@
         "tv"
       ],
       "upstreamVersion": "2.0.0",
-      "notes": "Castle 2.2.0 verified pipeline: exact normalized TMDB title/original/alias matching, movie/TV validation, revalidated detail IDs, season-1 release-year validation and explicit requested season/episode routing. Large integer IDs preserved as strings before JSON parsing. Current api.hlowb.com security/search/detail/getVideo2 routes and local AES/JNI retained. One 17.5s scan budget covers metadata, key, search, details, decryption and bounded parallel video requests. Shared plus individual audio supported; valid completed sources retained. Preview/denied/blacklisted/expired responses rejected; one videoUrl is emitted once at requested/returned quality, distinct quality URLs preserved. Playback headers and merged video/episode subtitles retained. Android playback unverified. v2.2.1: Diagnostic VIDEO_RESPONSE logs normalized preview/permission/blacklist flags separately, URL presence and row counts. No URL/token/payload values logged; no extra requests or playback policy changes.",
+      "notes": "Castle 2.2.0 verified pipeline: exact normalized TMDB title/original/alias matching, movie/TV validation, revalidated detail IDs, season-1 release-year validation and explicit requested season/episode routing. Large integer IDs preserved as strings before JSON parsing. Current api.hlowb.com security/search/detail/getVideo2 routes and local AES/JNI retained. One 17.5s scan budget covers metadata, key, search, details, decryption and bounded parallel video requests. Shared plus individual audio supported; valid completed sources retained. Preview/denied/blacklisted/expired responses rejected; one videoUrl is emitted once at requested/returned quality, distinct quality URLs preserved. Playback headers and merged video/episode subtitles retained. Android playback unverified.",
       "sourceRepository": "https://github.com/D3adlyRocket/All-in-One-Nuvio",
       "sourceCommit": "3f09a6ff4360498895e622877af7a32212f75038",
       "runtimeModules": []

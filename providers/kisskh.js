@@ -2,7 +2,7 @@
 /* Exact title first; year/season disambiguate multiple candidates only. */
 /* VUEO_FAST_DISCOVERY_V1 — one primary API query, bounded alias/host fallback. */
 var PROVIDER_NAME = "KissKH";
-var VERSION = "1.4.6";
+var VERSION = "1.4.7";
 var TMDB_API_KEY = "1c29a5198ee1854bd5eb45dbe8d17d92";
 var HOSTS = ["https://kisskh.id", "https://kisskh.do"];
 var USER_AGENT = "Mozilla/5.0 (Linux; Android 15) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0 Mobile Safari/537.36";
@@ -253,10 +253,21 @@ function directUrl(value, base) {
   try { var u = new URL(text, base + "/"); return /^https?:$/.test(u.protocol) ? u.href : ""; } catch (_) { return ""; }
 }
 function mediaUrls(source, base) {
-  var list = source ? [source.Video, source.ThirdParty] : [];
-  return list.map(function(value) { return directUrl(value, base); }).filter(function(url, i, rows) {
-    return url && /\.(m3u8|mp4|mkv|mpd)(?:[?#]|$)/i.test(url) && rows.indexOf(url) === i;
-  });
+  if (!source || typeof source !== "object") return [];
+  var output = [], seen = {};
+  function add(value, label, hls) {
+    var url = directUrl(value, base);
+    if (!url || seen[url] || !/\.(m3u8|mp4|mkv|mpd)(?:[?#]|$)/i.test(url)) return;
+    seen[url] = true;
+    output.push({ url: url, label: label, mimeType: hls || /\.m3u8(?:[?#]|$)/i.test(url) ? "application/x-mpegURL" : undefined });
+  }
+  // Type 2 is an iframe, not a direct video. Do not pass it to the native player.
+  if (Number(source.Type) !== 2) add(source.Video, "Main", Number(source.Type) === 1);
+  add(source.Video_tmp, "Fallback", false);
+  add(source.dataSaver, "Data Saver", true);
+  // The website uses ThirdParty only when the main Video is absent.
+  if (!source.Video) add(source.ThirdParty, "Third Party", false);
+  return output;
 }
 function captureKeys(run, detail, selected) {
   if (typeof globalThis.webviewResolve !== "function" || remaining(run) < 1000) return Promise.resolve({});
@@ -355,9 +366,9 @@ function resolveEpisode(run, detail, selected, info, type, season, episode) {
       return Promise.all([retryVideo, retrySub]).then(function() {
         if (v.error) throw v.error;
         trace("RESULT", { streams: v.urls.length, subtitles: s.items.length, ms: Date.now() - run.started });
-        return v.urls.map(function(url, i) {
-          return { name: PROVIDER_NAME + " Server " + (i + 1), title: info.title + (type === "tv" ? " S" + season + "E" + episode : ""),
-            url: url, quality: "Auto", headers: headers(detail.base), subtitles: s.items };
+        return v.urls.map(function(media, i) {
+          return { name: PROVIDER_NAME + " " + media.label, title: info.title + (type === "tv" ? " S" + season + "E" + episode : ""),
+            url: media.url, mimeType: media.mimeType, quality: "Auto", headers: headers(detail.base), subtitles: s.items };
         });
       });
     });
