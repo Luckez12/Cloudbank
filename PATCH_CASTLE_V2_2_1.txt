@@ -1,0 +1,9 @@
+Castle v2.2.1 - diagnostic patch
+
+VIDEO_RESPONSE now logs isPreview, permissionDenied and inBlacklist separately, plus requested resolution, language, URL presence and video row counts. Rejection log lists the active flag names. No raw URL, token or decrypted payload is logged.
+
+Playback decisions, API requests, headers, AES and title matching are unchanged. This patch identifies the rejection cause; it does not claim to restore playback.
+
+Validation: 12 targeted diagnostic cases, JavaScript syntax, repository manifest validation. No on-device test.
+
+Install providers/castle.js and manifest.json at the matching repository paths. No YAML included.

@@ -429,8 +429,27 @@ function castleSubtitles(video, episode) {
   return subtitles;
 }
 function processVideoResponse(data, metadata, selected, resolution, language) {
-  if (castleBool(data.isPreview) || castleBool(data.permissionDenied) || castleBool(data.inBlacklist)) {
-    castleLog('Video rejected', 'preview, permission denied, or blacklist');
+  var rejectionFlags = {
+    isPreview: castleBool(data.isPreview),
+    permissionDenied: castleBool(data.permissionDenied),
+    inBlacklist: castleBool(data.inBlacklist)
+  };
+  var videoRows = Array.isArray(data.videos) ? data.videos : [];
+  castleLog('VIDEO_RESPONSE', JSON.stringify({
+    language: language,
+    requestedResolution: resolution,
+    isPreview: rejectionFlags.isPreview,
+    permissionDenied: rejectionFlags.permissionDenied,
+    inBlacklist: rejectionFlags.inBlacklist,
+    hasVideoUrl: typeof data.videoUrl === 'string' && !!data.videoUrl.trim(),
+    videoRows: videoRows.length,
+    rowsWithUrl: videoRows.filter(function(row) {
+      return row && typeof row.url === 'string' && !!row.url.trim();
+    }).length
+  }));
+  var rejectionReasons = Object.keys(rejectionFlags).filter(function(key) { return rejectionFlags[key]; });
+  if (rejectionReasons.length) {
+    castleLog('Video rejected', rejectionReasons.join(', '));
     return [];
   }
   if (data.expireTime && Number(data.expireTime) <= Date.now()) { castleLog('Video rejected', 'expired URL'); return []; }
