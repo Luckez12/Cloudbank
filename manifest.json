@@ -1,6 +1,6 @@
 {
   "name": "Cloudbank",
-  "version": "1.20.147",
+  "version": "1.20.148",
   "scrapers": [
     {
       "id": "kisskh",
@@ -266,7 +266,7 @@
         "tv"
       ],
       "upstreamVersion": "3.0.1",
-      "notes": "Bounded parallel quality extraction: three highest-priority routes processed concurrently, each preserving archive → HubCloud → download → media-probe dependencies. Fourth route starts only as fallback after first batch settles. Retains up to three validated distinct codec/quality files, H.264 ranking and honest codec labels, partial results on failures, 18.7-second total/5.5-second extra collection budgets, exact matching/audio policy and all prior removals. Adds host/total timing logs. v4.1.0 on-device log confirmed three playable sources and subtitle cues; v4.2.0 device timing still needs confirmation.",
+      "notes": "Bounded parallel quality extraction: three highest-priority routes processed concurrently, each preserving archive \u2192 HubCloud \u2192 download \u2192 media-probe dependencies. Fourth route starts only as fallback after first batch settles. Retains up to three validated distinct codec/quality files, H.264 ranking and honest codec labels, partial results on failures, 18.7-second total/5.5-second extra collection budgets, exact matching/audio policy and all prior removals. Adds host/total timing logs. v4.1.0 on-device log confirmed three playable sources and subtitle cues; v4.2.0 device timing still needs confirmation.",
       "sourceRepository": "https://github.com/D3adlyRocket/All-in-One-Nuvio",
       "sourceCommit": "3f09a6ff4360498895e622877af7a32212f75038",
       "runtimeModules": [
@@ -572,7 +572,7 @@
       "id": "xpass",
       "name": "XPass",
       "description": "Current XPass website: signed authenticated data index, then playlist sources.",
-      "version": "2.0.0",
+      "version": "2.0.5",
       "author": "Dustincos",
       "supportedTypes": [
         "movie",
@@ -597,7 +597,7 @@
         "tv"
       ],
       "upstreamVersion": "1.0.0",
-      "notes": "Dynamic website loader/build discovery; AES-GCM authenticated index; up to three server requests in parallel; first eligible server; retains HLS/DASH masters and playlist subtitle headers. No media probes; playback unverified.",
+      "notes": "Exact signed website index. Race servers only after media availability checks: HLS manifest/rendition and first-segment HEAD, ranged GET fallback for rejected HEAD. DASH MPD validation; direct media HEAD. Failed candidates leave other servers eligible. Bounded requests; cancel pending requests. Availability is not proof of episode identity or full playback.",
       "sourceRepository": "https://github.com/D3adlyRocket/All-in-One-Nuvio",
       "sourceCommit": "3f09a6ff4360498895e622877af7a32212f75038",
       "runtimeModules": [
