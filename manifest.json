@@ -1,6 +1,6 @@
 {
   "name": "Cloudbank",
-  "version": "1.20.148",
+  "version": "1.20.149",
   "scrapers": [
     {
       "id": "kisskh",
@@ -572,7 +572,7 @@
       "id": "xpass",
       "name": "XPass",
       "description": "Current XPass website: signed authenticated data index, then playlist sources.",
-      "version": "2.0.5",
+      "version": "2.0.6",
       "author": "Dustincos",
       "supportedTypes": [
         "movie",
@@ -597,7 +597,7 @@
         "tv"
       ],
       "upstreamVersion": "1.0.0",
-      "notes": "Exact signed website index. Race servers only after media availability checks: HLS manifest/rendition and first-segment HEAD, ranged GET fallback for rejected HEAD. DASH MPD validation; direct media HEAD. Failed candidates leave other servers eligible. Bounded requests; cancel pending requests. Availability is not proof of episode identity or full playback.",
+      "notes": "Signed website index with media availability checks. Accept successful segment status despite inconclusive Content-Type: VIP CDN observed serving valid MPEG-TS as text/html. HLS manifests still require EXT M3U structure; HTTP errors remain rejected. Segment bytes and full playback are validated by the player, not this metadata check.",
       "sourceRepository": "https://github.com/D3adlyRocket/All-in-One-Nuvio",
       "sourceCommit": "3f09a6ff4360498895e622877af7a32212f75038",
       "runtimeModules": [

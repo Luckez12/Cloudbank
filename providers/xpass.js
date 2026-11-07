@@ -153,7 +153,7 @@ function cloudbankMetadataFetch(nativeFetch) {
   }
   (function(module, exports, require, fetch, self) {
 /* CLOUDBANK_UPSTREAM_SOURCE_START */
-/* XPass v2.0.5: current website data-token -> authenticated index -> playlist. */
+/* XPass v2.0.6: current website data-token -> authenticated index -> playlist. */
 var XP_HOME='https://play.xpass.top';
 var XP_UA='Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36';
 var XP_C=require('crypto-js');
@@ -240,7 +240,14 @@ async function getStreams(id,type,season,episode){
      try{probe=await request(media.href,{method:'HEAD',headers:row.headers});}
      catch(e){if(!/^HTTP (401|403|405|501)$/.test(e.message))throw e;probe=await request(media.href,{method:'GET',headers:Object.assign({},row.headers,{Range:'bytes=0-1023'})});}
      var ct=String(probe.headers&&probe.headers.get('content-type')||'');
-     if(/html|json|javascript/i.test(ct))throw Error('non-media response');
+     // Some website CDNs serve valid TS segments as text/html.
+     // HEAD describes metadata only: rely on the validated HLS playlist and
+     // successful segment status, leaving byte validation to the media player.
+     // A successful status is an availability signal, not proof of playback.
+     if(/html|json|javascript/i.test(ct)){
+      if(probe.status!==200&&probe.status!==206)throw Error('non-media response');
+      log('MEDIA: segment status accepted; Content-Type inconclusive server='+row.serverName);
+     }
      return true;
     }
     throw Error('manifest depth');
@@ -255,7 +262,7 @@ async function getStreams(id,type,season,episode){
  }
 
  try{
- log('ROUTE: v2.0.5 exact '+type+' '+id+'; website signed data index; parallel servers=3; media availability required');
+ log('ROUTE: v2.0.6 exact '+type+' '+id+'; website signed data index; parallel servers=3; media availability required');
  var html=(await textRequest(page)).text,relative=xpVariable(html,'dataUrl'),dataUrl=xpUrl(relative,page);
  if(!dataUrl||dataUrl.origin!==XP_HOME||dataUrl.pathname!=='/data/'+type+'/'+id+(type==='tv'?'/'+Number(season)+'/'+Number(episode):''))throw Error('unexpected data route');
  var token=dataUrl.searchParams.get('token');if(!token)throw Error('missing data token');
