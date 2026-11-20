@@ -346,7 +346,7 @@
       "id": "playimdb",
       "name": "PlayIMDb",
       "description": "High-Speed Direct Streaming for Movies (IMDb ID Extract)",
-      "version": "2.0.4",
+      "version": "2.0.5",
       "author": "PirateZoro9",
       "supportedTypes": [
         "movie",
