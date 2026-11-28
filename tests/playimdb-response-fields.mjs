@@ -69,4 +69,37 @@ assert.equal(typeof metadataTimeout, 'function');
 metadataTimeout();
 assert.equal((await movie)[0].url, url);
 
-console.log('PASS: response fields, movie/TV including season zero, slow TMDB, malformed URLs and subtitles, failure replies and headers');
+metadataStalls = false;
+context.VUEO_DISCOVERY_CONTEXT = { tmdb: { id: 1263337, title: 'Heart of the Beast' } };
+const webUrl = 'https://cdn.example/website.m3u8';
+let webCalls = 0;
+let webSignal = 'none';
+let webCandidate = { url: webUrl, mediaReady: true, responseObserved: true };
+context.webviewResolve = async (embed, options) => {
+  webCalls++;
+  assert.equal(embed, 'https://player.imdb.su/embed/movie/tt7526136');
+  assert.equal(options.directLoad, true);
+  assert.ok(options.clickDelaysMs.every(delay => delay >= options.timeoutMs));
+  return { mediaReady: true, streams: [webCandidate], diagnostics: { video: { pageSignal: webSignal } } };
+};
+assert.equal((await context.getStreams(550, 'movie')).length, 1);
+assert.equal(webCalls, 0);
+let trial = await context.getStreams(1263337, 'movie');
+assert.deepEqual(Array.from(trial, stream => stream.url), [webUrl, url]);
+assert.equal(trial[0].headers, undefined);
+webSignal = 'human_verification';
+assert.deepEqual(Array.from(await context.getStreams(1263337, 'movie'), stream => stream.url), [url]);
+webSignal = 'none';
+for (const candidate of [
+  { headers: { Cookie: 'session=example' } },
+  { url: webUrl + '?token=example' },
+  { responseObserved: false },
+  { url },
+]) {
+  webCandidate = { url: webUrl, mediaReady: true, responseObserved: true, ...candidate };
+  assert.deepEqual(Array.from(await context.getStreams(1263337, 'movie'), stream => stream.url), [url]);
+}
+context.webviewResolve = async () => { throw new Error('resolver unavailable'); };
+assert.deepEqual(Array.from(await context.getStreams(1263337, 'movie'), stream => stream.url), [url]);
+
+console.log('PASS: PlayIMDb API responses, episode zero, slow metadata, audio-independent playback handoff, and passive WebView trial');

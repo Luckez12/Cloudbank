@@ -135,10 +135,57 @@ function cloudbankWrapProvider(provider, providerId, supportedTypes) {
         }) : [];
         resolve(streams);
       }
-      Promise.resolve().then(function() { return upstream.apply(provider, args); }).then(finish, function() { finish([]); });
+      var apiStreams = Promise.resolve().then(function() { return upstream.apply(provider, args); });
+      Promise.all([apiStreams, playImdbWebViewTrial(args[0], type)]).then(function(results) {
+        var streams = results[0];
+        var webStream = results[1];
+        if (webStream && !streams.some(function(stream) { return stream.url === webStream.url; })) {
+          streams = [webStream].concat(streams);
+        }
+        finish(streams);
+      }, function() { finish([]); });
     });
   };
   return adapted;
+}
+
+async function playImdbWebViewTrial(tmdbId, type) {
+  if (type !== "movie" || tmdbId !== "1263337" || typeof globalThis.webviewResolve !== "function") return null;
+  try {
+    var session = await globalThis.webviewResolve("https://player.imdb.su/embed/movie/tt7526136", {
+      directLoad: true,
+      timeoutMs: 6000,
+      clickDelaysMs: [7000],
+      suppressPopups: true,
+      lockMainFrameHost: true,
+      injectAbyssHook: false,
+      waitForMediaReady: true
+    });
+    var diagnostics = session && session.diagnostics || {};
+    var signal = diagnostics.video && diagnostics.video.pageSignal;
+    var streams = session && Array.isArray(session.streams) ? session.streams : [];
+    var knownSignals = ["none", "human_verification", "access_denied", "sandbox_required", "unavailable"];
+    var safeSignal = knownSignals.indexOf(signal) >= 0 ? signal : "unknown";
+    console.log("[PlayIMDb] WebView trial:", safeSignal, "page status:", Number(diagnostics.pageHttpStatus) || 0,
+      "media status:", Number(diagnostics.mediaHttpStatus) || 0, "ready:", Boolean(session && session.mediaReady),
+      "streams:", streams.length);
+    if (signal !== "none" || !session.mediaReady) return null;
+
+    // Only try a plain media URL with a successful WebView response and no session credentials.
+    var stream = streams.find(function(candidate) {
+      return candidate && candidate.mediaReady && candidate.responseObserved &&
+        typeof candidate.url === "string" &&
+        /^https:\/\/[a-z0-9.-]+\/[^\s?#]+\.(?:m3u8|mp4|mpd|mkv)$/i.test(candidate.url) &&
+        Object.keys(candidate.headers || {}).every(function(name) {
+          return /^(user-agent|accept|referer|origin)$/i.test(name);
+        });
+    });
+    if (!stream) return null;
+    return { name: "PlayIMDb | WebView Trial", title: "Heart of the Beast", url: stream.url, type: "direct" };
+  } catch (_) {
+    console.log("[PlayIMDb] WebView trial: resolver unavailable or failed");
+    return null;
+  }
 }
 
 function playImdbUrls(values) {
