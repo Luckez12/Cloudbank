@@ -1,6 +1,6 @@
 {
   "name": "Cloudbank",
-  "version": "1.20.151",
+  "version": "1.20.152",
   "scrapers": [
     {
       "id": "kisskh",
@@ -345,8 +345,8 @@
     {
       "id": "playimdb",
       "name": "PlayIMDb",
-      "description": "High-Speed Direct Streaming for Movies (IMDb ID Extract)",
-      "version": "2.0.7",
+      "description": "Web Player embeds and direct streams for movies and TV",
+      "version": "2.0.8",
       "author": "PirateZoro9",
       "supportedTypes": [
         "movie",
@@ -355,6 +355,11 @@
       "filename": "providers/playimdb.js",
       "enabled": true,
       "hasSettings": true,
+      "webEmbedHosts": [
+        "imdb.su",
+        "player.imdb.su",
+        "nextgencloudfabric.com"
+      ],
       "formats": [
         "mp4",
         "mkv",
@@ -371,7 +376,7 @@
         "tv"
       ],
       "upstreamVersion": "2.0.0",
-      "notes": "Imported from D3adlyRocket/All-in-One-Nuvio at 3f09a6ff4360498895e622877af7a32212f75038. Prefers valid stream_urls and falls back to cast_urls. TMDB labels have a separate 2.5s deadline. Supports season zero and skips malformed subtitle entries. Adds a passive WebView playback diagnostic trial for TMDB movie 1263337 only. Existing API candidates remain available.",
+      "notes": "Returns a web_embed source for a valid IMDb ID. Returns direct stream_urls separately and excludes cast_urls. Web playback requires a compatible host app.",
       "sourceRepository": "https://github.com/D3adlyRocket/All-in-One-Nuvio",
       "sourceCommit": "3f09a6ff4360498895e622877af7a32212f75038",
       "runtimeModules": []
